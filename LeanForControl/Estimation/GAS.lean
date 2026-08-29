@@ -1,5 +1,6 @@
 import LeanForControl.Estimation.Infhor
 import LeanForControl.LinearSystems.OutputInjection
+import LeanForControl.Estimation.Necessity
 import Mathlib.LinearAlgebra.Matrix.ToLin
 import Architect
 
@@ -575,6 +576,12 @@ theorem isGAS_of_C1_C2 (hC1 : Sys.C1) (hC2 : Sys.C2) : Sys.IsGAS := by
     _ ≤ cA * c₁ * ρ ^ T * ‖a‖ + Real.sqrt (Cd * η T) * ‖a‖ :=
         add_le_add hcand hxTn
     _ = (cA * c₁ * ρ ^ T + Real.sqrt (Cd * η T)) * ‖a‖ := by ring
+
+/-- **`prop:gas`**: the full-information estimator is globally
+asymptotically stable if and only if C1 and C2 hold. -/
+theorem isGAS_iff_C1_and_C2 : Sys.IsGAS ↔ Sys.C1 ∧ Sys.C2 :=
+  ⟨fun h => ⟨Sys.C1_of_isGAS h, Sys.C2_of_isGAS (Sys.C1_of_isGAS h) h⟩,
+    fun ⟨h1, h2⟩ => Sys.isGAS_of_C1_C2 h1 h2⟩
 
 end FIESystem
 

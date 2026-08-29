@@ -343,6 +343,84 @@ lemma hAnti_pow (M : ℕ) (hM : 1 ≤ M) :
   rw [← hνμ, norm_pow]
   exact one_le_pow₀ (Sys.hAnti ν hν)
 
+/-- **Window value growth** (no C2): under C1 alone, the value grows at
+least linearly in the number of full windows, weighted by the antistable
+block of the optimizer. -/
+theorem exists_window_value_growth (hC1 : Sys.C1) :
+    ∃ β : ℝ, 0 < β ∧ ∀ (a : Fin n₁ ⊕ Fin n₂ → ℝ) (J T : ℕ), 1 ≤ J →
+      (n₁ + n₂) * J ≤ T →
+      β * J * ‖blk₂ (Sys.optInit a T)‖ ^ 2 ≤ Sys.value a T := by
+  rcases Nat.eq_zero_or_pos (n₁ + n₂) with hM0 | hM1
+  · refine ⟨1, one_pos, fun a J T _ hJT => ?_⟩
+    have hn₂ : n₂ = 0 := by omega
+    subst hn₂
+    have h0 : blk₂ (Sys.optInit a T) = 0 := Subsingleton.elim _ _
+    rw [h0, norm_zero]
+    have h1 := Sys.value_nonneg a T
+    nlinarith [Nat.cast_nonneg (α := ℝ) J]
+  · obtain ⟨α, hα, hcoer⟩ := Sys.exists_window_coercivity hC1
+    obtain ⟨cB, hcB, hgram⟩ :=
+      gramian_growth (Sys.A₂ ^ (n₁ + n₂)) (Sys.hAnti_pow (n₁ + n₂) hM1)
+    refine ⟨α * cB, by positivity, fun a J T hJ1 hJT => ?_⟩
+    set M := n₁ + n₂ with hMdef
+    set e₀ := Sys.optInit a T with he₀
+    set ω := Sys.lq.optCtrl e₀ T with hω
+    -- each window value dominates the coercive bound at the restart point
+    have h2 : ∀ j ∈ Finset.range J,
+        α * ‖(Sys.A₂ ^ M) ^ j *ᵥ blk₂ e₀‖ ^ 2
+          ≤ quadForm (Sys.lq.ric M) (Sys.lq.traj e₀ ω (j * M)) := by
+      intro j _
+      have h3 := hcoer (blk₁ (Sys.lq.traj e₀ ω (j * M)))
+        (blk₂ (Sys.lq.traj e₀ ω (j * M)))
+      rw [sumElim_blk] at h3
+      have h4 : blk₂ (Sys.lq.traj e₀ ω (j * M))
+          = (Sys.A₂ ^ M) ^ j *ᵥ blk₂ e₀ := by
+        rw [Sys.blk₂_traj, show j * M = M * j from mul_comm j M, pow_mul]
+      rw [h4] at h3
+      exact h3
+    -- window sums are dominated by the total cost
+    have h5 : ∑ j ∈ Finset.range J,
+        quadForm (Sys.lq.ric M) (Sys.lq.traj e₀ ω (j * M))
+          ≤ Sys.lq.cost e₀ ω T := by
+      calc ∑ j ∈ Finset.range J,
+          quadForm (Sys.lq.ric M) (Sys.lq.traj e₀ ω (j * M))
+          ≤ ∑ j ∈ Finset.range J,
+              Sys.lq.cost (Sys.lq.traj e₀ ω (j * M))
+                (fun r => ω (j * M + r)) M :=
+            Finset.sum_le_sum fun j _ =>
+              Sys.lq.quadForm_ric_le_cost _ _ M
+      _ = Sys.lq.cost e₀ ω (J * M) :=
+            (Sys.lq.cost_eq_sum_windows e₀ ω M J).symm
+      _ ≤ Sys.lq.cost e₀ ω T := by
+            refine Sys.lq.cost_mono e₀ ω ?_
+            calc J * M = M * J := mul_comm J M
+            _ ≤ T := hJT
+    -- the total cost is dominated by the value
+    have h6 : Sys.lq.cost e₀ ω T ≤ Sys.value a T := by
+      have h7 : Sys.lq.cost e₀ ω T = quadForm (Sys.lq.ric T) e₀ := by
+        rw [hω, Sys.lq.cost_optCtrl]
+      have h9 := Sys.priorPenalty_nonneg a (Sys.optInit a T)
+      have h8 : Sys.value a T
+          = Sys.priorPenalty a (Sys.optInit a T)
+            + quadForm (Sys.lq.ric T) (Sys.optInit a T) := rfl
+      rw [h7, h8, ← he₀]
+      linarith
+    -- the gramian growth converts the window sums into linear growth
+    have h11 : cB * J * ‖blk₂ e₀‖ ^ 2
+        ≤ ∑ j ∈ Finset.range J, ‖(Sys.A₂ ^ M) ^ j *ᵥ blk₂ e₀‖ ^ 2 :=
+      hgram (blk₂ e₀) J hJ1
+    calc α * cB * J * ‖blk₂ e₀‖ ^ 2
+        = α * (cB * J * ‖blk₂ e₀‖ ^ 2) := by ring
+    _ ≤ α * ∑ j ∈ Finset.range J, ‖(Sys.A₂ ^ M) ^ j *ᵥ blk₂ e₀‖ ^ 2 :=
+          mul_le_mul_of_nonneg_left h11 hα.le
+    _ = ∑ j ∈ Finset.range J, α * ‖(Sys.A₂ ^ M) ^ j *ᵥ blk₂ e₀‖ ^ 2 :=
+          Finset.mul_sum _ _ _
+    _ ≤ ∑ j ∈ Finset.range J,
+          quadForm (Sys.lq.ric M) (Sys.lq.traj e₀ ω (j * M)) :=
+          Finset.sum_le_sum h2
+    _ ≤ Sys.lq.cost e₀ ω T := h5
+    _ ≤ Sys.value a T := h6
+
 /-- **Forced decay of the antistable optimal block**: under C1 ∧ C2 the
 antistable block of the optimal initial error dies like `1/√T` — the
 window-sum consequence of coercivity and Gramian growth. -/
@@ -350,85 +428,17 @@ theorem exists_optInit_blk₂_decay (hC1 : Sys.C1) (hC2 : Sys.C2) :
     ∃ c : ℝ, 0 < c ∧ ∀ (a : Fin n₁ ⊕ Fin n₂ → ℝ) (J T : ℕ),
       (n₁ + n₂) * J ≤ T →
       (J : ℝ) * ‖blk₂ (Sys.optInit a T)‖ ^ 2 ≤ c * ‖a‖ ^ 2 := by
-  rcases Nat.eq_zero_or_pos (n₁ + n₂) with hM0 | hM1
-  · refine ⟨1, one_pos, fun a J T hJT => ?_⟩
-    have hn₂ : n₂ = 0 := by omega
-    subst hn₂
-    have h0 : blk₂ (Sys.optInit a T) = 0 := Subsingleton.elim _ _
-    rw [h0, norm_zero]
-    have : (0 : ℝ) ≤ ‖a‖ ^ 2 := by positivity
-    nlinarith [Nat.cast_nonneg (α := ℝ) J]
-  · obtain ⟨α, hα, hcoer⟩ := Sys.exists_window_coercivity hC1
-    obtain ⟨cval, hcval, hval⟩ := Sys.exists_value_bound hC1 hC2
-    obtain ⟨cB, hcB, hgram⟩ :=
-      gramian_growth (Sys.A₂ ^ (n₁ + n₂)) (Sys.hAnti_pow (n₁ + n₂) hM1)
-    refine ⟨cval / (α * cB), by positivity, fun a J T hJT => ?_⟩
-    rcases Nat.eq_zero_or_pos J with hJ0 | hJ1
-    · subst hJ0
-      have : (0 : ℝ) ≤ cval / (α * cB) * ‖a‖ ^ 2 := by positivity
-      simpa using this
-    · set M := n₁ + n₂ with hMdef
-      set e₀ := Sys.optInit a T with he₀
-      set ω := Sys.lq.optCtrl e₀ T with hω
-      -- each window value dominates the coercive bound at the restart point
-      have h2 : ∀ j ∈ Finset.range J,
-          α * ‖(Sys.A₂ ^ M) ^ j *ᵥ blk₂ e₀‖ ^ 2
-            ≤ quadForm (Sys.lq.ric M) (Sys.lq.traj e₀ ω (j * M)) := by
-        intro j _
-        have h3 := hcoer (blk₁ (Sys.lq.traj e₀ ω (j * M)))
-          (blk₂ (Sys.lq.traj e₀ ω (j * M)))
-        rw [sumElim_blk] at h3
-        have h4 : blk₂ (Sys.lq.traj e₀ ω (j * M)) = (Sys.A₂ ^ M) ^ j *ᵥ blk₂ e₀ := by
-          rw [Sys.blk₂_traj, show j * M = M * j from mul_comm j M, pow_mul]
-        rw [h4] at h3
-        exact h3
-      -- window sums are dominated by the total cost
-      have h5 : ∑ j ∈ Finset.range J,
-          quadForm (Sys.lq.ric M) (Sys.lq.traj e₀ ω (j * M))
-            ≤ Sys.lq.cost e₀ ω T := by
-        calc ∑ j ∈ Finset.range J,
-            quadForm (Sys.lq.ric M) (Sys.lq.traj e₀ ω (j * M))
-            ≤ ∑ j ∈ Finset.range J,
-                Sys.lq.cost (Sys.lq.traj e₀ ω (j * M))
-                  (fun r => ω (j * M + r)) M :=
-              Finset.sum_le_sum fun j _ =>
-                Sys.lq.quadForm_ric_le_cost _ _ M
-        _ = Sys.lq.cost e₀ ω (J * M) :=
-              (Sys.lq.cost_eq_sum_windows e₀ ω M J).symm
-        _ ≤ Sys.lq.cost e₀ ω T := by
-              refine Sys.lq.cost_mono e₀ ω ?_
-              calc J * M = M * J := mul_comm J M
-              _ ≤ T := hJT
-      -- the total cost is dominated by the value bound
-      have h6 : Sys.lq.cost e₀ ω T ≤ cval * ‖a‖ ^ 2 := by
-        have h7 : Sys.lq.cost e₀ ω T = quadForm (Sys.lq.ric T) e₀ := by
-          rw [hω, Sys.lq.cost_optCtrl]
-        have h8 : quadForm (Sys.lq.ric T) e₀ ≤ Sys.value a T := by
-          unfold value outerObj
-          have h9 := Sys.priorPenalty_nonneg a (Sys.optInit a T)
-          rw [← he₀]
-          linarith
-        have h10 := hval a T
-        linarith [h7 ▸ h8]
-      -- the gramian growth converts the window sums into linear growth
-      have h11 : cB * J * ‖blk₂ e₀‖ ^ 2
-          ≤ ∑ j ∈ Finset.range J, ‖(Sys.A₂ ^ M) ^ j *ᵥ blk₂ e₀‖ ^ 2 :=
-        hgram (blk₂ e₀) J hJ1
-      have h12 : α * (cB * J * ‖blk₂ e₀‖ ^ 2) ≤ cval * ‖a‖ ^ 2 := by
-        calc α * (cB * J * ‖blk₂ e₀‖ ^ 2)
-            ≤ α * ∑ j ∈ Finset.range J, ‖(Sys.A₂ ^ M) ^ j *ᵥ blk₂ e₀‖ ^ 2 :=
-              mul_le_mul_of_nonneg_left h11 hα.le
-        _ = ∑ j ∈ Finset.range J, α * ‖(Sys.A₂ ^ M) ^ j *ᵥ blk₂ e₀‖ ^ 2 :=
-              Finset.mul_sum _ _ _
-        _ ≤ ∑ j ∈ Finset.range J,
-              quadForm (Sys.lq.ric M) (Sys.lq.traj e₀ ω (j * M)) :=
-              Finset.sum_le_sum h2
-        _ ≤ Sys.lq.cost e₀ ω T := h5
-        _ ≤ cval * ‖a‖ ^ 2 := h6
-      rw [div_mul_eq_mul_div, le_div_iff₀ (by positivity)]
-      calc (J : ℝ) * ‖blk₂ e₀‖ ^ 2 * (α * cB)
-          = α * (cB * J * ‖blk₂ e₀‖ ^ 2) := by ring
-      _ ≤ cval * ‖a‖ ^ 2 := h12
+  obtain ⟨β, hβ, hgrow⟩ := Sys.exists_window_value_growth hC1
+  obtain ⟨cval, hcval, hval⟩ := Sys.exists_value_bound hC1 hC2
+  refine ⟨cval / β, by positivity, fun a J T hJT => ?_⟩
+  rcases Nat.eq_zero_or_pos J with hJ0 | hJ1
+  · subst hJ0
+    have : (0 : ℝ) ≤ cval / β * ‖a‖ ^ 2 := by positivity
+    simpa using this
+  · have h1 := hgrow a J T hJ1 hJT
+    have h2 := hval a T
+    rw [div_mul_eq_mul_div, le_div_iff₀ hβ]
+    nlinarith
 
 end FIESystem
 

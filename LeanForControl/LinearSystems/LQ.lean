@@ -255,6 +255,15 @@ lemma traj_succ (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (k : ℕ) :
     S.traj x₀ u (k + 1) = S.A *ᵥ S.traj x₀ u k + S.B *ᵥ u k :=
   rfl
 
+/-- The trajectory at time `k` depends only on the inputs before `k`. -/
+lemma traj_congr (x₀ : ι → ℝ) {u u' : ℕ → κ → ℝ} {k : ℕ}
+    (h : ∀ j < k, u j = u' j) : S.traj x₀ u k = S.traj x₀ u' k := by
+  induction k with
+  | zero => rfl
+  | succ k ih =>
+    rw [traj_succ, traj_succ, ih fun j hj => h j (by omega),
+      h k (by omega)]
+
 /-- Shifting time by one step. -/
 lemma traj_shift (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (k : ℕ) :
     S.traj x₀ u (k + 1)

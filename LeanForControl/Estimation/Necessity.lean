@@ -234,6 +234,229 @@ theorem C1_of_isGAS (hgas : Sys.IsGAS) : Sys.C1 := by
   obtain ⟨T, hT⟩ := hev.exists
   exact absurd (hgrow T) (not_le.mpr hT)
 
+/-! ### C2 is necessary (patched argument) -/
+
+/-- The value at horizon zero vanishes. -/
+lemma value_zero (a : Fin n₁ ⊕ Fin n₂ → ℝ) : Sys.value a 0 = 0 := by
+  refine le_antisymm ?_ (Sys.value_nonneg a 0)
+  have hfeas : Sys.Feasible a a := ⟨⟨0, by simp⟩, ⟨0, by simp⟩⟩
+  refine le_trans (Sys.value_le_fieCost hfeas (fun _ => 0) 0) ?_
+  unfold fieCost priorPenalty
+  rw [sub_self]
+  have hb1 : blk₁ (0 : Fin n₁ ⊕ Fin n₂ → ℝ) = 0 := rfl
+  have hb2 : blk₂ (0 : Fin n₁ ⊕ Fin n₂ → ℝ) = 0 := rfl
+  rw [hb1, hb2, LQSystem.cost_zero]
+  simp [quadForm]
+
+/-- **Horizon extension** (`eq:Venergy` step): one more stage costs at
+most the measured output energy of the current terminal error. -/
+theorem value_succ_le (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) :
+    Sys.value a (T + 1)
+      ≤ Sys.value a T + quadForm Sys.lq.Qs (Sys.optTerm a T) := by
+  classical
+  set e₀ := Sys.optInit a T with he₀
+  set u : ℕ → Fin m → ℝ := Sys.lq.optCtrl e₀ T with hu
+  set u' : ℕ → Fin m → ℝ := fun j => if j < T then u j else 0 with hu'
+  have h1 := Sys.value_le_fieCost (Sys.optInit_feasible a T) u' (T + 1)
+  rw [← he₀] at h1
+  have hc : Sys.lq.cost e₀ u' (T + 1)
+      = Sys.lq.cost e₀ u' T
+        + (quadForm Sys.lq.Qs (Sys.lq.traj e₀ u' T)
+          + quadForm Sys.lq.Ru (u' T)) := by
+    unfold LQSystem.cost
+    rw [Finset.sum_range_succ]
+  have hagree : ∀ j < T, u' j = u j := by
+    intro j hj
+    rw [hu']
+    simp [hj]
+  have hcostT : Sys.lq.cost e₀ u' T = Sys.lq.cost e₀ u T := by
+    unfold LQSystem.cost
+    refine Finset.sum_congr rfl fun k hk => ?_
+    rw [Sys.lq.traj_congr e₀ fun j hj =>
+        hagree j (lt_of_lt_of_le hj (Finset.mem_range.mp hk).le),
+      hagree k (Finset.mem_range.mp hk)]
+  have huT : u' T = 0 := by
+    rw [hu']
+    simp
+  have hterm : Sys.lq.traj e₀ u' T = Sys.optTerm a T := by
+    rw [Sys.lq.traj_congr e₀ fun j hj => hagree j hj, hu,
+      Sys.lq.traj_optCtrl]
+    rfl
+  have h4 : Sys.priorPenalty a e₀ + Sys.lq.cost e₀ u T
+      = Sys.value a T := by
+    have h5 := Sys.fieCost_optCtrl a T
+    unfold fieCost at h5
+    rw [← he₀, ← hu] at h5
+    exact h5
+  have h2 : Sys.fieCost a e₀ u' (T + 1)
+      = Sys.value a T + quadForm Sys.lq.Qs (Sys.optTerm a T) := by
+    unfold fieCost
+    rw [hc, hcostT, huT, hterm]
+    have h3 : quadForm Sys.lq.Ru (0 : Fin m → ℝ) = 0 := by
+      simp [quadForm]
+    rw [h3]
+    linarith
+  linarith [h2 ▸ h1]
+
+/-- The value is capped by the cumulative measured energy of the
+terminal errors (`eq:Venergy`). -/
+theorem value_le_sum_optTerm (a : Fin n₁ ⊕ Fin n₂ → ℝ) : ∀ T : ℕ,
+    Sys.value a T
+      ≤ ∑ k ∈ Finset.range T, quadForm Sys.lq.Qs (Sys.optTerm a k)
+  | 0 => by
+    rw [Sys.value_zero]
+    simp
+  | T + 1 => by
+    rw [Finset.sum_range_succ]
+    have h1 := Sys.value_succ_le a T
+    have h2 := value_le_sum_optTerm a T
+    linarith
+
+/-- **C2 is necessary for GAS given C1** (`prop:gas`, necessity of C2,
+per the patched argument): a kernel witness of `Σ₂` pins the antistable
+optimizer's component along itself, so the value grows linearly, while
+GAS would cap it sublinearly. -/
+theorem C2_of_isGAS (hC1 : Sys.C1) (hgas : Sys.IsGAS) : Sys.C2 := by
+  classical
+  by_contra hnc2
+  -- a kernel witness of the antistable prior block
+  obtain ⟨w, hwne, hwker⟩ : ∃ w : Fin n₂ → ℝ, w ≠ 0 ∧
+      Sys.Sig₂ *ᵥ w = 0 := by
+    by_contra hno
+    push Not at hno
+    refine hnc2 (Matrix.PosDef.of_dotProduct_mulVec_pos Sys.hSig₂.1
+      fun x hx => ?_)
+    have h1 : 0 ≤ quadForm Sys.Sig₂ x := Sys.hSig₂.quadForm_nonneg x
+    rcases lt_or_eq_of_le h1 with h | h
+    · exact h
+    · exact absurd (Sys.hSig₂.mulVec_eq_zero_of_quadForm_eq_zero h.symm)
+        (hno x hx)
+  set a : Fin n₁ ⊕ Fin n₂ → ℝ := Sum.elim 0 w with ha
+  -- the pinned component of every optimizer
+  have hpin : ∀ T, w ⬝ᵥ blk₂ (Sys.optInit a T) = w ⬝ᵥ w := by
+    intro T
+    obtain ⟨_, ⟨z, hz⟩⟩ := Sys.optInit_feasible a T
+    have h2 : blk₂ (Sys.optInit a T) - blk₂ a = Sys.Sig₂ *ᵥ z := by
+      rw [← blk₂_sub]
+      exact hz
+    have h1 : w ⬝ᵥ (blk₂ (Sys.optInit a T) - blk₂ a) = 0 := by
+      rw [h2, dotProduct_mulVec_eq, Sys.hSig₂.1.transpose_eq_self,
+        hwker, zero_dotProduct]
+    have h3 : blk₂ a = w := rfl
+    rw [h3] at h1
+    rw [dotProduct_sub] at h1
+    linarith
+  -- pinning bounds the antistable optimizer's norm below
+  have hww : 0 < w ⬝ᵥ w := by
+    obtain ⟨j, hj⟩ : ∃ j, w j ≠ 0 := by
+      by_contra hall
+      push Not at hall
+      exact hwne (funext hall)
+    have h1 : (0:ℝ) < w j * w j := mul_self_pos.mpr hj
+    have h2 : ∀ i ∈ Finset.univ, (0:ℝ) ≤ w i * w i :=
+      fun i _ => mul_self_nonneg _
+    exact Finset.sum_pos' h2 ⟨j, Finset.mem_univ j, h1⟩
+  have hne2 : Nonempty (Fin n₂) := by
+    by_contra hemp
+    rw [not_nonempty_iff] at hemp
+    exact hwne (funext fun i => (hemp.false i).elim)
+  have hcard : (0:ℝ) < (Fintype.card (Fin n₂) : ℝ) := by
+    exact_mod_cast Fintype.card_pos
+  set c₀ := (w ⬝ᵥ w) / (Fintype.card (Fin n₂) : ℝ) with hc₀
+  have hc₀pos : 0 < c₀ := div_pos hww hcard
+  have hlow : ∀ T, c₀ ≤ ‖blk₂ (Sys.optInit a T)‖ ^ 2 := by
+    intro T
+    set x := blk₂ (Sys.optInit a T) with hx
+    have hCS : (w ⬝ᵥ x) ^ 2 ≤ (w ⬝ᵥ w) * (x ⬝ᵥ x) := by
+      have h1 := Finset.sum_mul_sq_le_sq_mul_sq Finset.univ w x
+      simpa [dotProduct, sq] using h1
+    rw [hpin T] at hCS
+    have h2 : w ⬝ᵥ w ≤ x ⬝ᵥ x := by nlinarith
+    have h3 : x ⬝ᵥ x ≤ (Fintype.card (Fin n₂) : ℝ) * ‖x‖ ^ 2 :=
+      dotProduct_le_card_mul_sq_norm x
+    rw [hc₀, div_le_iff₀ hcard]
+    calc w ⬝ᵥ w ≤ x ⬝ᵥ x := h2
+    _ ≤ (Fintype.card (Fin n₂) : ℝ) * ‖x‖ ^ 2 := h3
+    _ = ‖x‖ ^ 2 * (Fintype.card (Fin n₂) : ℝ) := mul_comm _ _
+  -- linear growth of the value along full windows
+  obtain ⟨β, hβ, hgrow⟩ := Sys.exists_window_value_growth hC1
+  set M := n₁ + n₂ with hM
+  have hM1 : 1 ≤ M := by
+    have h1 : 0 < n₂ := Fin.pos_iff_nonempty.mpr hne2
+    omega
+  have hlin : ∀ J : ℕ, 1 ≤ J → β * c₀ * J ≤ Sys.value a (M * J) := by
+    intro J hJ
+    have h1 := hgrow a J (M * J) hJ le_rfl
+    have h2 := hlow (M * J)
+    have h3 : (0:ℝ) ≤ (J:ℝ) := Nat.cast_nonneg J
+    have h4 := mul_le_mul_of_nonneg_left h2 (mul_nonneg hβ.le h3)
+    calc β * c₀ * (J:ℝ) = β * (J:ℝ) * c₀ := by ring
+    _ ≤ β * (J:ℝ) * ‖blk₂ (Sys.optInit a (M * J))‖ ^ 2 := h4
+    _ ≤ Sys.value a (M * J) := h1
+  -- GAS caps the value sublinearly
+  obtain ⟨σ, hσ0, hσb⟩ := hgas
+  obtain ⟨cy, hcy, hyb⟩ := exists_quadForm_le Sys.lq.Qs
+  have hane : ‖a‖ ≠ 0 := by
+    rw [norm_ne_zero_iff]
+    intro ha0
+    apply hwne
+    have h1 : blk₂ a = w := rfl
+    rw [ha0] at h1
+    exact h1.symm.trans rfl
+  have hup : ∀ T, Sys.value a T
+      ≤ cy * ‖a‖ ^ 2 * ∑ k ∈ Finset.range T, σ k ^ 2 := by
+    intro T
+    refine le_trans (Sys.value_le_sum_optTerm a T) ?_
+    rw [Finset.mul_sum]
+    refine Finset.sum_le_sum fun k _ => ?_
+    have h1 := hyb (Sys.optTerm a k)
+    have h2 := hσb k a
+    have h3 : ‖Sys.optTerm a k‖ ^ 2 ≤ (σ k * ‖a‖) ^ 2 := by
+      have h0 : 0 ≤ ‖Sys.optTerm a k‖ := norm_nonneg _
+      nlinarith
+    calc quadForm Sys.lq.Qs (Sys.optTerm a k)
+        ≤ cy * ‖Sys.optTerm a k‖ ^ 2 := h1
+    _ ≤ cy * (σ k * ‖a‖) ^ 2 := mul_le_mul_of_nonneg_left h3 hcy.le
+    _ = cy * ‖a‖ ^ 2 * σ k ^ 2 := by ring
+  -- Cesàro convergence of the GAS rates kills the upper bound
+  have hσ2 : Tendsto (fun k => σ k ^ 2) atTop (nhds 0) := by
+    have h1 := hσ0.pow 2
+    simpa using h1
+  have hces := hσ2.cesaro
+  have hMJ : Tendsto (fun J : ℕ => M * J) atTop atTop := by
+    refine tendsto_atTop_mono (fun J => ?_) tendsto_id
+    calc (J:ℕ) = 1 * J := (one_mul J).symm
+    _ ≤ M * J := Nat.mul_le_mul_right J hM1
+  have hsub := hces.comp hMJ
+  have hcyA : (0:ℝ) < cy * ‖a‖ ^ 2 := by
+    have h1 : 0 < ‖a‖ := lt_of_le_of_ne (norm_nonneg a) (Ne.symm hane)
+    positivity
+  set δ := β * c₀ / (cy * ‖a‖ ^ 2 * M) with hδ
+  have hδpos : 0 < δ := by
+    rw [hδ]
+    have : (0:ℝ) < (M:ℝ) := by exact_mod_cast hM1
+    positivity
+  have hδle : ∀ J : ℕ, 1 ≤ J →
+      δ ≤ ((M * J : ℕ) : ℝ)⁻¹ • ∑ k ∈ Finset.range (M * J), σ k ^ 2 := by
+    intro J hJ
+    have h1 := hlin J hJ
+    have h2 := hup (M * J)
+    have hMJpos : (0:ℝ) < ((M * J : ℕ) : ℝ) := by
+      have h3 : 0 < M * J := Nat.mul_pos (by omega) (by omega)
+      exact_mod_cast h3
+    rw [smul_eq_mul, inv_mul_eq_div, le_div_iff₀ hMJpos, hδ]
+    have hcast : ((M * J : ℕ) : ℝ) = (M:ℝ) * (J:ℝ) := by push_cast; ring
+    rw [hcast, div_mul_eq_mul_div, div_le_iff₀ (by positivity :
+      (0:ℝ) < cy * ‖a‖ ^ 2 * (M:ℝ))]
+    have h4 : β * c₀ * J ≤ cy * ‖a‖ ^ 2
+        * ∑ k ∈ Finset.range (M * J), σ k ^ 2 := le_trans h1 h2
+    have hMpos : (0:ℝ) < (M:ℝ) := by exact_mod_cast hM1
+    nlinarith [Finset.sum_nonneg (fun k (_ : k ∈ Finset.range (M * J)) =>
+      sq_nonneg (σ k))]
+  obtain ⟨J, hJlt, hJ1⟩ :=
+    ((hsub.eventually_lt_const hδpos).and (eventually_ge_atTop 1)).exists
+  exact absurd (hδle J hJ1) (not_le.mpr hJlt)
+
 end FIESystem
 
 end Estimation
