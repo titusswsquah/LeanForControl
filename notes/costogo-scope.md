@@ -199,11 +199,51 @@ Landed:
   from `Fin n` to arbitrary finite index types (the full system is
   `Fin n₁ ⊕ Fin n₂`-indexed).
 
-**Remaining for M1**: `prop:gas` necessity (C1 direct linear argument;
-C2 per the **patched** `paper.tex` argument — see the C2-necessity
-section below), `lem:coercive`(2)–(3) (two-sided `M_T` bracket, slide,
-C3w rates — GES only), `lem:val-rate`, `thm:ges-fi`, `thm:gas-ges-fi`;
-specialized `fact:eig-orbit` for `lem:val-rate`(2).
+**Status (2026-08-29, session 3, continued): M1 COMPLETE.** The
+headline theorem **`thm:gas-ges-fi` is proven**
+(`Estimation/GES.lean: gas_ges_dichotomy`): the FIE is GAS iff C1 ∧ C2
+(`isGAS_iff_C1_and_C2`) and GES iff C1 ∧ C2 ∧ C3w
+(`isGES_iff_C1_C2_C3w`). `#print axioms` confirms `sorryAx` enters only
+through the two staged M2 facts; **both necessity directions are fully
+sorry-free**. The remaining pieces landed as:
+
+* `Estimation/Necessity` — **C1-necessity** (undetectable modes give
+  zero-cost data pinning the optimizer to the free rollout, which does
+  not decay; sorry-free) and **C2-necessity per the patched `paper.tex`
+  argument** (kernel-witness pinning by Cauchy–Schwarz, window value
+  growth linear in `T` — no IOSS function needed, our window
+  coercivity replaces it — versus the horizon-extension cap
+  `value_le_sum_optTerm` and Cesàro; sorry-free given C1).
+* `Estimation/GAS` (additions) — `exists_optTerm_bound`: the assembly
+  common to GAS and GES, terminal error ≤ geometric + `√(gap)`.
+* `Estimation/GES` — the exponential track:
+  - **`eq:gap-bound`, variational form** (`gap_le_antistable_energy`):
+    derived without ever forming the cross block `Y_T` (the remark in
+    the paper about `Y_T`'s unboundedness is moot on this route for the
+    gap bound itself);
+  - the **polynomial upper bracket** (`exists_upper_bracket`, needs
+    neither C1 nor C2) via the `K̃`-rollout and `fact:poly-growth` on
+    `A₂⁻¹`;
+  - **`lem:val-rate`(2)** (`exists_gap_floor_of_not_C3w`): harmonic
+    floor from a unit-circle mode (no `fact:eig-orbit` needed — the
+    eigenvector's real/imaginary parts are bounded orbits directly);
+  - **`thm:ges-fi` necessity** (`C3w_of_isGES`);
+  - the **variational slide-rate and floor** (`exists_slide_rate`,
+    `lem:coercive`(3)): sliding window coercivity + Schur `A₂⁻¹`;
+  - **`eq:Y-rec`** (`ric_toBlocks₁₂_succ`) and its unrolled form
+    (`ric_toBlocks₁₂_eq_sum`) with uniformly bounded driving terms;
+  - **`lem:val-rate`(1)** (`exists_gap_rate_of_C3w`): the stationarity
+    identity `Q = ⟨Σ₂⁻¹a₂,e₂*⟩ − ⟨Y'ξ*,e₂*⟩`, the floor, and the
+    per-stage propagator×slide pairing give
+    `Q ≤ K²(1+T)²σ^{2T}‖a‖²`; the `σ² < γ` slack absorbs the
+    polynomial;
+  - **`thm:ges-fi` sufficiency** (`isGES_of_C1_C2_C3w`) and the
+    headline **`gas_ges_dichotomy`**.
+
+**Remaining after M1**: only the M2 discharges (`fact:lqr`,
+`fact:detect-inj` — the two `sorry`s), then optional M3/M4. Blueprint
+attributes for the new `Estimation` theorems are sparse and can be
+enriched when the docs pass happens.
 
 Original plan (kept for reference). Prereq: M0, plus the two staged facts
 of M2 as `sorry`'d statements.
