@@ -1,7 +1,7 @@
 import LeanForControl.LinearSystems.LQ
 import LeanForControl.LinearSystems.Schur
 import LeanForControl.LinearSystems.Detectability
-import LeanForControl.LinearSystems.StagedFacts
+import LeanForControl.LinearSystems.LQStability
 import Mathlib.Topology.Instances.Matrix
 import Architect
 

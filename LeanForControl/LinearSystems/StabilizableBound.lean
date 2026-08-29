@@ -1,7 +1,7 @@
 import LeanForControl.LinearSystems.LQ
 import LeanForControl.LinearSystems.Schur
 import LeanForControl.LinearSystems.Detectability
-import LeanForControl.LinearSystems.StagedFacts
+import LeanForControl.LinearSystems.LQStability
 import LeanForControl.LinearSystems.Controllability
 import Mathlib.LinearAlgebra.Matrix.Charpoly.Basic
 import Mathlib.FieldTheory.IsAlgClosed.Basic
