@@ -121,7 +121,60 @@ Ballpark: 2–4k lines.
 
 ### M1 — the paper layer, in reduced coordinates (the results we care about)
 
-Prereq: M0, plus the two staged facts of M2 as `sorry`'d statements.
+**Status (2026-08-29, session 2): foundation + `lem:prelim` + `lem:coercive`(1)
+complete** on `feat/costogo-fie-stability`. All builds green; `#print axioms`
+shows `sorryAx` *only* through the two staged M2 facts, exactly as planned.
+Landed:
+
+* `LinearSystems/QuadForm` — quadratic-form conventions, `fact:psd-bounds`
+  glue (two-sided sup-norm equivalence via the spectral theorem), Loewner
+  comparison both ways, **`PosSemidef.exists_mulVec_eq`** (bounded-below
+  quadratics have solvable stationarity systems — the existence engine for
+  every KKT system), PSD kernel lemma, the `eq:rangebound` mechanism.
+* `LinearSystems/LQ` — the general finite-horizon LQ layer: `LQSystem`,
+  Riccati value iteration, gain algebra (closed/Joseph forms), PSD
+  invariance, **the exact sum-of-squares cost identity**
+  (`cost_eq_quadForm_add_sum`), value lower bound, optimal closed loop,
+  Loewner monotonicity, fixed-point telescoping (`eq:tele`). This is the
+  block-free reformulation of `lem:prelim`(1): the paper's `P/Y/S`
+  recursions are the blocks of one full-state Riccati iteration.
+* `LinearSystems/StagedFacts` — `fact:lqr` and `fact:detect-inj` as
+  precise sorry'd blueprint nodes (the only sorries in the repo's new code).
+* `LinearSystems/UnobservableBlock` — Cayley–Hamilton window extension and
+  the **unobservable-block vanishing theorem** (detectability +
+  antistability kill the antistable component of any output-invisible
+  orbit) via an invariant-slice rank argument — no Jordan form, no limits.
+* `Estimation/FIE` — `FIESystem` (reduced coordinates), C1/C2/C3w,
+  `𝕡_Te` (`fieCost`, pseudoinverse prior + blockwise support constraints,
+  well-posed for *every* PSD prior so C2-necessity is statable),
+  stationarity, **outer gap formula** (`eq:quad-gap`, initial part),
+  existence via the `J = diag(Σ₁,Σ₂)` parameterization, uniqueness,
+  `value` (= `V_T⁰`), joint optimality, `optTerm` (= `e*(T|T)`), and the
+  `IsGAS`/`IsGES` definitions.
+* `Estimation/Prelim` — `ric_toBlocks₁₁` (the `₁₁` block of the full value
+  iterates is the reduced `(A₁,G₁,C₁)` Riccati iteration), C1 ⟹ reduced
+  detectability (complex Hermitian-form argument), staged-LQR
+  instantiation, `lem:prelim`(4) propagator bounds (via `revProd` +
+  `fact:uniexp`), uniform Riccati bound, **`lem:unibounded`**
+  (`exists_value_bound`) and **`eq:apriori`**
+  (`exists_optInit_blk₁_bound`).
+* `Estimation/Coercive` — **`lem:coercive`(1)** complete and sorry-free
+  (`exists_window_coercivity`): generalized Schur complement `Wmat` via the
+  pseudoinverse injection, free-block completion of squares, positive
+  definiteness through zero-cost-trajectory + CH + the vanishing theorem.
+
+**Remaining for M1** (next session): `lem:coercive`(2)–(3) (two-sided
+bracket, slide, C3w rates — needs the trajectory-restart/window-shift
+argument + `fact:poly-growth`/gramian instantiations on `A₂`),
+`prop:infhor` (monotone value limit + Cauchy minimizers via the gap),
+`prop:gas` (sufficiency via output injection with staged `detect-inj`;
+C2-necessity per the patched `paper.tex` argument), `lem:val-rate`,
+`thm:ges-fi`, `thm:gas-ges-fi`. The full-candidate (trajectory-deviation)
+gap formula still needs the `traj`-linearity + cross-vanishing argument
+sketched in the session notes.
+
+Original plan (kept for reference). Prereq: M0, plus the two staged facts
+of M2 as `sorry`'d statements.
 
 1. **Problem setup.** `𝕡_Te` as a finite-dimensional quadratic minimization
    over `(e(0|T), ω : Fin T → input)`; GAS/GES per `def:gas`/`def:ges-fi`

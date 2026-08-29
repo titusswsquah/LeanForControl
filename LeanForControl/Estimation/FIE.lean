@@ -284,8 +284,8 @@ def IsStationary (a e₀ : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) : Prop :=
 
 /-- `Mᵀ = M` for a real symmetric matrix (transposed form of
 `IsHermitian`). -/
-lemma _root_.Matrix.IsHermitian.transpose_eq_self {k : ℕ}
-    {M : Matrix (Fin k) (Fin k) ℝ} (hM : M.IsHermitian) : Mᵀ = M := by
+lemma _root_.Matrix.IsHermitian.transpose_eq_self {ι' : Type*}
+    {M : Matrix ι' ι' ℝ} (hM : M.IsHermitian) : Mᵀ = M := by
   rw [← conjTranspose_eq_transpose_of_trivial]
   exact hM
 

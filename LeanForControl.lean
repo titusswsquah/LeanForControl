@@ -1,5 +1,6 @@
 import LeanForControl.Basic
 import LeanForControl.Estimation.Basic
+import LeanForControl.Estimation.Coercive
 import LeanForControl.Estimation.FIE
 import LeanForControl.Estimation.Prelim
 import LeanForControl.LinearSystems.Basic
@@ -14,6 +15,7 @@ import LeanForControl.LinearSystems.PolynomialSampling
 import LeanForControl.LinearSystems.QuadForm
 import LeanForControl.LinearSystems.Schur
 import LeanForControl.LinearSystems.StagedFacts
+import LeanForControl.LinearSystems.UnobservableBlock
 import LeanForControl.LinearSystems.SpectralDynamics
 import LeanForControl.LinearSystems.SpectralGrowth
 import LeanForControl.LinearSystems.SymmPinv
