@@ -18,6 +18,7 @@ import LeanForControl.LinearSystems.OutputInjection
 import LeanForControl.LinearSystems.LQ
 import LeanForControl.LinearSystems.PolynomialSampling
 import LeanForControl.LinearSystems.RiccatiConvergence
+import LeanForControl.LinearSystems.StabilizableBound
 import LeanForControl.LinearSystems.QuadForm
 import LeanForControl.LinearSystems.Schur
 import LeanForControl.LinearSystems.StagedFacts

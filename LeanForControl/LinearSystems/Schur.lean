@@ -269,4 +269,75 @@ lemma isSchurStable_transpose_iff {A : Matrix ι ι ℝ} :
     IsSchurStable Aᵀ ↔ IsSchurStable A :=
   ⟨fun h => by simpa using h.transpose, IsSchurStable.transpose⟩
 
+/-- **Geometric decay for complex matrices** with spectrum inside the
+open unit disc (the complex-matrix core of the Gelfand argument). -/
+theorem exists_pow_norm_le_of_spectrum_lt_one {M : Matrix ι ι ℂ}
+    (hM : ∀ μ ∈ spectrum ℂ M, ‖μ‖ < 1) :
+    ∃ c ρ : ℝ, 0 < c ∧ 0 < ρ ∧ ρ < 1 ∧ ∀ k : ℕ, ‖M ^ k‖ ≤ c * ρ ^ k := by
+  have hrad : spectralRadius ℂ M < 1 := by
+    rcases isEmpty_or_nonempty ι with hn | hn
+    · haveI : Subsingleton (Matrix ι ι ℂ) :=
+        ⟨fun P Q => by ext i j; exact (hn.false i).elim⟩
+      rw [spectralRadius, spectrum.of_subsingleton (a := M)]
+      simp
+    · haveI : Nontrivial (Matrix ι ι ℂ) := by
+        refine ⟨0, 1, fun h => ?_⟩
+        obtain ⟨i⟩ := hn
+        have := congrFun (congrFun h i) i
+        simp at this
+      have h1 : ∀ z ∈ spectrum ℂ M, ‖z‖₊ < 1 := fun z hz => by
+        have := hM z hz
+        simpa [← NNReal.coe_lt_coe] using this
+      simpa using spectrum.spectralRadius_lt_of_forall_lt M h1
+  obtain ⟨r, hr₁, hr₂⟩ := ENNReal.lt_iff_exists_nnreal_btwn.mp hrad
+  have hr0 : 0 < r := by
+    rcases eq_or_lt_of_le (zero_le r) with h | h
+    · exact absurd (h ▸ hr₁) (by simp)
+    · exact h
+  have hrlt1 : (r : ℝ) < 1 := by exact_mod_cast hr₂
+  have hev : ∀ᶠ k : ℕ in atTop,
+      (‖M ^ k‖₊ : ENNReal) ^ (1 / (k : ℝ)) < (r : ENNReal) :=
+    Filter.eventually_lt_of_limsup_lt
+      (lt_of_le_of_lt
+        (spectrum.limsup_pow_nnnorm_pow_one_div_le_spectralRadius M) hr₁)
+  obtain ⟨K, hK⟩ := Filter.eventually_atTop.mp hev
+  have key : ∀ k : ℕ, K + 1 ≤ k → ‖M ^ k‖ ≤ (r : ℝ) ^ k := by
+    intro k hk
+    have hknz : (k : ℝ) ≠ 0 := Nat.cast_ne_zero.mpr (by omega)
+    have h1 := hK k (le_trans (Nat.le_succ K) hk)
+    have h2 : ((‖M ^ k‖₊ : ENNReal) ^ (1 / (k : ℝ))) ^ (k : ℝ)
+        ≤ ((r : ENNReal)) ^ (k : ℝ) :=
+      ENNReal.rpow_le_rpow h1.le (Nat.cast_nonneg k)
+    rw [← ENNReal.rpow_mul, one_div, inv_mul_cancel₀ hknz,
+      ENNReal.rpow_one, ENNReal.rpow_natCast] at h2
+    have h3 : ‖M ^ k‖₊ ≤ r ^ k := by exact_mod_cast h2
+    calc ‖M ^ k‖ = ((‖M ^ k‖₊ : ℝ)) := rfl
+    _ ≤ ((r ^ k : NNReal) : ℝ) := by exact_mod_cast h3
+    _ = (r : ℝ) ^ k := by push_cast; ring
+  set ρ : ℝ := (r : ℝ) with hρ
+  have hρ0 : 0 < ρ := hr0
+  refine ⟨1 + ∑ j ∈ Finset.range (K + 1), ‖M ^ j‖ / ρ ^ j, ρ,
+    by positivity, hρ0, hrlt1, fun k => ?_⟩
+  rcases lt_or_ge k (K + 1) with hk | hk
+  · have hterm : ‖M ^ k‖ / ρ ^ k
+        ≤ ∑ j ∈ Finset.range (K + 1), ‖M ^ j‖ / ρ ^ j :=
+      Finset.single_le_sum (f := fun j => ‖M ^ j‖ / ρ ^ j)
+        (fun j _ => by positivity) (Finset.mem_range.mpr hk)
+    have hpow : (0 : ℝ) < ρ ^ k := by positivity
+    calc ‖M ^ k‖ = ‖M ^ k‖ / ρ ^ k * ρ ^ k := by field_simp
+    _ ≤ (1 + ∑ j ∈ Finset.range (K + 1), ‖M ^ j‖ / ρ ^ j) * ρ ^ k := by
+        have h1 : ‖M ^ k‖ / ρ ^ k
+            ≤ 1 + ∑ j ∈ Finset.range (K + 1), ‖M ^ j‖ / ρ ^ j :=
+          le_trans hterm (by linarith)
+        exact mul_le_mul_of_nonneg_right h1 hpow.le
+  · have h1 : ‖M ^ k‖ ≤ ρ ^ k := key k hk
+    have h2 : (1 : ℝ) ≤ 1 + ∑ j ∈ Finset.range (K + 1), ‖M ^ j‖ / ρ ^ j := by
+      have : (0 : ℝ) ≤ ∑ j ∈ Finset.range (K + 1), ‖M ^ j‖ / ρ ^ j :=
+        Finset.sum_nonneg fun j _ => by positivity
+      linarith
+    calc ‖M ^ k‖ ≤ ρ ^ k := h1
+    _ = 1 * ρ ^ k := (one_mul _).symm
+    _ ≤ (1 + ∑ j ∈ Finset.range (K + 1), ‖M ^ j‖ / ρ ^ j) * ρ ^ k :=
+        mul_le_mul_of_nonneg_right h2 (by positivity)
+
 end LinearSystems
