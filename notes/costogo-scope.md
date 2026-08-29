@@ -70,8 +70,38 @@ Targets:
 
 ### M0 — definitions and spectral toolkit (Bucket A)
 
-Files: extend `LinearSystems/` (defs are repo-wide useful), new
-`Estimation/` modules for the rest.
+**Status (2026-08-29): core complete on `feat/costogo-fie-stability`** — all
+items below landed except the three marked deferred. No `sorry`; headline
+decls check clean under `#print axioms`. Files (all under
+`LeanForControl/LinearSystems/`, wired into the root module):
+
+* `Complexify` — entrywise `ℝ→ℂ` bridge with norm preservation.
+* `Schur` — `IsSchurStable`, spectralRadius form, iff with geometric power
+  decay (Gelfand one way, eigenvector argument back).
+* `Detectability` — `IsDetectable`/`IsStabilizable`, restricted Hautus
+  tests, observable⟹detectable, controllable⟹stabilizable,
+  Schur⟹detectable.
+* `PolynomialSampling` — `fact:polysample` via mathlib's `fwdDiff` (no
+  Lagrange interpolation needed; `γ_d = 1/(2(d+1)³4^(d+1))`).
+* `SpectralDynamics` — Jordan-free adapted-basis machinery: generalized
+  eigenspace decomposition (`DirectSum.IsInternal.collectedBasis`),
+  truncated binomial expansion, scalarization
+  `repr (f^k v) j = μ_j^k · q_j(k)` with `deg q_j < n` (`coordPoly`).
+* `SpectralGrowth` — `fact:gramian` (quantitative `eq:gramian` form),
+  `fact:no-decay` (via Cesàro), `fact:poly-growth`; endomorphism versions +
+  real-matrix transfers.
+* `UniformExpStability` — `fact:uniexp` (sufficiency direction of
+  Zhou–Zhao) for `transitionProd` products, via block contraction.
+* `SymmPinv` — PSD/symmetric pseudoinverse via the spectral theorem with
+  `P P† P = P`, `P† P P† = P†`, hermitian + PSD preservation.
+
+Deferred (deliberate): **`fact:eig-orbit`** to M1 in the specialized
+2-dimensional form `lem:val-rate`(2) actually needs;
+**`fact:schur`/`fact:psd-bounds` glue** until M1 fixes the quadratic-form
+conventions (both are essentially in mathlib); **C1/C2/C3w named
+predicates** to the M1 `Estimation` setup (they need the block coordinates).
+
+Original plan table (kept for reference):
 
 | Item | Route | Size guess |
 |---|---|---|
