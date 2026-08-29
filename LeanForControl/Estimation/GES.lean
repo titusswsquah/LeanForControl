@@ -1557,6 +1557,87 @@ theorem exists_slide_rate (hC1 : Sys.C1) (hC2 : Sys.C2)
     rw [hrearr] at hbase
     exact hbase.trans (mul_le_mul_of_nonneg_right hkey hq)
 
+/-! ### The cross-block recursion (`eq:Y-rec`) -/
+
+lemma toBlocks₁₂_add (M N : Matrix (Fin n₁ ⊕ Fin n₂) (Fin n₁ ⊕ Fin n₂) ℝ) :
+    (M + N).toBlocks₁₂ = M.toBlocks₁₂ + N.toBlocks₁₂ := rfl
+
+lemma toBlocks₁₂_sub (M N : Matrix (Fin n₁ ⊕ Fin n₂) (Fin n₁ ⊕ Fin n₂) ℝ) :
+    (M - N).toBlocks₁₂ = M.toBlocks₁₂ - N.toBlocks₁₂ := rfl
+
+/-- The reduced closed loop, made explicit. -/
+lemma lqRed_Acl_eq (P : Matrix (Fin n₁) (Fin n₁) ℝ) :
+    Sys.lqRed.Acl P
+      = Sys.A₁ - Sys.G₁ * (Sys.lqRed.gainΓ P)⁻¹ * Sys.G₁ᵀ * P * Sys.A₁ := by
+  unfold LQSystem.Acl LQSystem.gainK
+  have h1 : Sys.lqRed.A = Sys.A₁ := rfl
+  have h2 : Sys.lqRed.B = -Sys.G₁ := rfl
+  rw [h1, h2]
+  simp only [Matrix.transpose_neg, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+  simp only [Matrix.mul_assoc]
+
+/-- Symmetry of the reduced curvature. -/
+lemma lqRed_gainΓ_transpose {P : Matrix (Fin n₁) (Fin n₁) ℝ}
+    (hP : Pᵀ = P) : (Sys.lqRed.gainΓ P)ᵀ = Sys.lqRed.gainΓ P := by
+  unfold LQSystem.gainΓ
+  have h2 : Sys.lqRed.B = -Sys.G₁ := rfl
+  have h3 : Sys.lqRed.Ru = Sys.Qi := rfl
+  rw [h2, h3]
+  simp only [Matrix.transpose_add, Matrix.transpose_mul,
+    Matrix.transpose_transpose, Matrix.transpose_neg,
+    Sys.hQi.posSemidef.1.transpose_eq_self, hP, Matrix.mul_assoc]
+
+/-- **The `₁₂` block of the full Riccati step** (`eq:Y-rec`): the cross
+block evolves by the reduced closed loop on the left and the antistable
+dynamics on the right. -/
+theorem step_fromBlocks_toBlocks₁₂ (P₁₁ : Matrix (Fin n₁) (Fin n₁) ℝ)
+    (P₁₂ : Matrix (Fin n₁) (Fin n₂) ℝ) (P₂₁ : Matrix (Fin n₂) (Fin n₁) ℝ)
+    (P₂₂ : Matrix (Fin n₂) (Fin n₂) ℝ) (hP₁₁ : P₁₁ᵀ = P₁₁) :
+    (Sys.lq.step (Matrix.fromBlocks P₁₁ P₁₂ P₂₁ P₂₂)).toBlocks₁₂
+      = Sys.C₁ᵀ * Sys.Ri * Sys.C₂
+        + (Sys.lqRed.Acl P₁₁)ᵀ * (P₁₁ * Sys.A₁₂ + P₁₂ * Sys.A₂) := by
+  unfold LQSystem.step
+  have hassoc : Sys.lq.Aᵀ * Matrix.fromBlocks P₁₁ P₁₂ P₂₁ P₂₂ * Sys.lq.B *
+        (Sys.lq.gainΓ (Matrix.fromBlocks P₁₁ P₁₂ P₂₁ P₂₂))⁻¹ * Sys.lq.Bᵀ *
+        Matrix.fromBlocks P₁₁ P₁₂ P₂₁ P₂₂ * Sys.lq.A
+      = (Sys.lq.Aᵀ * Matrix.fromBlocks P₁₁ P₁₂ P₂₁ P₂₂ * Sys.lq.B) *
+        (Sys.lq.gainΓ (Matrix.fromBlocks P₁₁ P₁₂ P₂₁ P₂₂))⁻¹ *
+        (Sys.lq.Bᵀ * Matrix.fromBlocks P₁₁ P₁₂ P₂₁ P₂₂ * Sys.lq.A) := by
+    simp only [Matrix.mul_assoc]
+  rw [hassoc, Sys.lq_APB, Sys.lq_BPA, Sys.lq_gainΓ_fromBlocks, Sys.lq_APA,
+    Sys.lq_Qs_fromBlocks]
+  simp only [Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+  rw [Matrix.fromRows_mul, Matrix.fromRows_mul_fromCols]
+  rw [toBlocks₁₂_sub, toBlocks₁₂_add, Matrix.toBlocks_fromBlocks₁₂,
+    Matrix.toBlocks_fromBlocks₁₂, Matrix.toBlocks_fromBlocks₁₂]
+  rw [Sys.lqRed_Acl_eq]
+  have hΓ : (Sys.lqRed.gainΓ P₁₁)ᵀ = Sys.lqRed.gainΓ P₁₁ :=
+    Sys.lqRed_gainΓ_transpose hP₁₁
+  rw [Matrix.transpose_sub, Matrix.transpose_mul, Matrix.transpose_mul,
+    Matrix.transpose_mul, Matrix.transpose_mul,
+    Matrix.transpose_nonsing_inv, hΓ, Matrix.transpose_transpose, hP₁₁]
+  simp only [Matrix.mul_add, Matrix.sub_mul, Matrix.mul_assoc]
+  abel
+
+/-- `eq:Y-rec` on the value iterates. -/
+theorem ric_toBlocks₁₂_succ (T : ℕ) :
+    (Sys.lq.ric (T + 1)).toBlocks₁₂
+      = Sys.C₁ᵀ * Sys.Ri * Sys.C₂
+        + (Sys.lqRed.Acl (Sys.lqRed.ric T))ᵀ
+          * (Sys.lqRed.ric T * Sys.A₁₂
+            + (Sys.lq.ric T).toBlocks₁₂ * Sys.A₂) := by
+  have h1 : Sys.lq.ric (T + 1) = Sys.lq.step (Sys.lq.ric T) := rfl
+  rw [h1]
+  conv_lhs => rw [← Matrix.fromBlocks_toBlocks (Sys.lq.ric T)]
+  rw [Sys.step_fromBlocks_toBlocks₁₂ _ _ _ _
+    (by
+      have h2 := Sys.lq.ric_isHermitian T
+      have h3 : (Sys.lq.ric T)ᵀ = Sys.lq.ric T := h2.transpose_eq_self
+      have h4 := congrArg Matrix.toBlocks₁₁ h3
+      rwa [show (Sys.lq.ric T)ᵀ.toBlocks₁₁ = ((Sys.lq.ric T).toBlocks₁₁)ᵀ
+        from rfl] at h4)]
+  rw [Sys.ric_toBlocks₁₁]
+
 end FIESystem
 
 end Estimation
