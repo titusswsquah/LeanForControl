@@ -406,4 +406,90 @@ theorem transitionProd_norm_le_of_tendsto (F : ℕ → Matrix (Fin n) (Fin n) �
             have h8 : (0 : ℝ) ≤ (Mb / ρ) ^ K := by positivity
             nlinarith
 
+section RevProd
+
+/-- Reverse-ordered product `F i * F (i+1) * ⋯ * F (i+l-1)`: the form the
+horizon-indexed closed-loop propagators of `lem:prelim`(4) take. -/
+def revProd (F : ℕ → Matrix (Fin n) (Fin n) ℝ) : ℕ → ℕ → Matrix (Fin n) (Fin n) ℝ
+  | _, 0 => 1
+  | i, l + 1 => F i * revProd F (i + 1) l
+
+@[simp]
+lemma revProd_zero (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i : ℕ) :
+    revProd F i 0 = 1 := rfl
+
+lemma revProd_succ (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i l : ℕ) :
+    revProd F i (l + 1) = F i * revProd F (i + 1) l := rfl
+
+/-- Appending one factor on the right. -/
+lemma revProd_succ_right (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (l : ℕ) :
+    ∀ i, revProd F i (l + 1) = revProd F i l * F (i + l) := by
+  induction l with
+  | zero =>
+    intro i
+    simp [revProd_succ]
+  | succ l ih =>
+    intro i
+    rw [revProd_succ, ih (i + 1), revProd_succ, Matrix.mul_assoc,
+      show i + 1 + l = i + (l + 1) from by omega]
+
+/-- The reverse product is the transpose of the transition product of the
+transposed factors. -/
+lemma revProd_eq_transpose (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i : ℕ) :
+    ∀ l, revProd F i l = (transitionProd (fun r => (F r)ᵀ) i l)ᵀ
+  | 0 => by simp
+  | l + 1 => by
+    rw [revProd_succ_right, transitionProd_succ, Matrix.transpose_mul,
+      Matrix.transpose_transpose, revProd_eq_transpose F i l]
+
+/-- The `L∞` operator norm of a transpose is controlled up to a dimension
+factor. -/
+lemma linfty_opNorm_transpose_le (M : Matrix (Fin n) (Fin n) ℝ) :
+    ‖Mᵀ‖ ≤ (n : ℝ) * ‖M‖ := by
+  have hnn : ‖Mᵀ‖₊ ≤ (n : ℕ) • ‖M‖₊ := by
+    rw [Matrix.linfty_opNNNorm_def]
+    refine Finset.sup_le fun j _ => ?_
+    have h1 : ∀ i : Fin n, ‖Mᵀ j i‖₊ ≤ ‖M‖₊ := by
+      intro i
+      rw [Matrix.linfty_opNNNorm_def]
+      calc ‖Mᵀ j i‖₊ = ‖M i j‖₊ := rfl
+      _ ≤ ∑ j', ‖M i j'‖₊ :=
+          Finset.single_le_sum (f := fun j' => ‖M i j'‖₊)
+            (fun _ _ => zero_le _) (Finset.mem_univ j)
+      _ ≤ Finset.univ.sup fun i' => ∑ j', ‖M i' j'‖₊ :=
+          Finset.le_sup (f := fun i' => ∑ j', ‖M i' j'‖₊) (Finset.mem_univ i)
+    calc ∑ i, ‖Mᵀ j i‖₊ ≤ ∑ _i : Fin n, ‖M‖₊ := Finset.sum_le_sum fun i _ => h1 i
+    _ = (n : ℕ) • ‖M‖₊ := by rw [Finset.sum_const, Finset.card_univ, Fintype.card_fin]
+  calc ‖Mᵀ‖ = ((‖Mᵀ‖₊ : ℝ)) := rfl
+  _ ≤ (((n : ℕ) • ‖M‖₊ : NNReal) : ℝ) := by exact_mod_cast hnn
+  _ = (n : ℝ) * ‖M‖ := by
+      push_cast
+      ring
+
+/-- **Uniform exponential decay of the reverse products** when the factors
+converge to a Schur matrix — the form `lem:prelim`(4) consumes. -/
+theorem revProd_norm_le_of_tendsto (F : ℕ → Matrix (Fin n) (Fin n) ℝ)
+    (L : Matrix (Fin n) (Fin n) ℝ) (hFL : Tendsto F atTop (nhds L))
+    (hL : IsSchurStable L) :
+    ∃ c ρ : ℝ, 0 < c ∧ 0 < ρ ∧ ρ < 1 ∧ ∀ i l : ℕ,
+      ‖revProd F i l‖ ≤ c * ρ ^ l := by
+  have hFT : Tendsto (fun r => (F r)ᵀ) atTop (nhds Lᵀ) :=
+    ((Continuous.matrix_transpose continuous_id).tendsto L).comp hFL
+  obtain ⟨c, ρ, hc, hρ0, hρ1, hb⟩ :=
+    transitionProd_norm_le_of_tendsto _ Lᵀ hFT hL.transpose
+  refine ⟨(n : ℝ) * c + c, ρ, by positivity, hρ0, hρ1, fun i l => ?_⟩
+  calc ‖revProd F i l‖ = ‖(transitionProd (fun r => (F r)ᵀ) i l)ᵀ‖ := by
+        rw [revProd_eq_transpose]
+  _ ≤ (n : ℝ) * ‖transitionProd (fun r => (F r)ᵀ) i l‖ :=
+      linfty_opNorm_transpose_le _
+  _ ≤ (n : ℝ) * (c * ρ ^ l) := by
+      have h0 : (0 : ℝ) ≤ (n : ℝ) := Nat.cast_nonneg n
+      exact mul_le_mul_of_nonneg_left (hb i l) h0
+  _ ≤ ((n : ℝ) * c + c) * ρ ^ l := by
+      have h0 : (0 : ℝ) ≤ ρ ^ l := by positivity
+      nlinarith [hc.le, h0]
+
+end RevProd
+
+
 end LinearSystems

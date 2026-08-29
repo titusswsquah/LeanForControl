@@ -423,6 +423,59 @@ lemma quadForm_ric_mono_le (x₀ : ι → ℝ) {T T' : ℕ} (h : T ≤ T') :
 
 end Trajectories
 
+section FixedPoint
+
+variable {P : Matrix ι ι ℝ}
+
+/-- At a Riccati fixed point, one closed-loop step pays exactly the drop of
+the value function (`eq:are-cl` in energy form). -/
+lemma stage_closed_loop_eq (hP : P.PosSemidef) (hfix : S.step P = P)
+    (x : ι → ℝ) :
+    quadForm S.Qs x + quadForm S.Ru (-(S.gainK P *ᵥ x))
+      = quadForm P x - quadForm P (S.Acl P *ᵥ x) := by
+  have hb := S.bellman_step hP x (-(S.gainK P *ᵥ x))
+  rw [hfix] at hb
+  have h1 : S.A *ᵥ x + S.B *ᵥ (-(S.gainK P *ᵥ x)) = S.Acl P *ᵥ x := by
+    rw [Matrix.mulVec_neg, Acl, Matrix.sub_mulVec, ← Matrix.mulVec_mulVec]
+    abel
+  have h2 : (-(S.gainK P *ᵥ x)) + S.gainK P *ᵥ x = 0 := by abel
+  rw [h1, h2, quadForm_zero] at hb
+  linarith
+
+/-- The trajectory under the frozen optimal gain is the closed-loop power
+rollout. -/
+lemma traj_fixedGain (x₀ : ι → ℝ) : ∀ k,
+    S.traj x₀ (fun j => -(S.gainK P *ᵥ (S.Acl P ^ j *ᵥ x₀))) k
+      = S.Acl P ^ k *ᵥ x₀
+  | 0 => by simp
+  | k + 1 => by
+    rw [traj_succ, traj_fixedGain x₀ k]
+    have hstep : S.Acl P ^ (k + 1) *ᵥ x₀ = S.Acl P *ᵥ (S.Acl P ^ k *ᵥ x₀) := by
+      rw [Matrix.mulVec_mulVec, ← pow_succ']
+    rw [hstep, Acl, Matrix.sub_mulVec, ← Matrix.mulVec_mulVec,
+      Matrix.mulVec_neg]
+    abel
+
+/-- **Telescoped closed-loop cost** (`eq:tele`): rolling out the frozen
+optimal gain from a Riccati fixed point costs exactly the drop of the
+value function over the horizon. -/
+theorem cost_fixedGain (hP : P.PosSemidef) (hfix : S.step P = P)
+    (x₀ : ι → ℝ) (T : ℕ) :
+    S.cost x₀ (fun j => -(S.gainK P *ᵥ (S.Acl P ^ j *ᵥ x₀))) T
+      = quadForm P x₀ - quadForm P (S.Acl P ^ T *ᵥ x₀) := by
+  induction T with
+  | zero => simp
+  | succ T ih =>
+    rw [cost, Finset.sum_range_succ, ← cost, ih, S.traj_fixedGain x₀ T,
+      S.stage_closed_loop_eq hP hfix]
+    have h1 : S.Acl P *ᵥ (S.Acl P ^ T *ᵥ x₀) = S.Acl P ^ (T + 1) *ᵥ x₀ := by
+      rw [Matrix.mulVec_mulVec, ← pow_succ']
+    rw [h1]
+    ring
+
+end FixedPoint
+
+
 end LQSystem
 
 end LinearSystems

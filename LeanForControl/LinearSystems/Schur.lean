@@ -2,6 +2,7 @@ import LeanForControl.LinearSystems.Complexify
 import Mathlib.Analysis.Normed.Algebra.GelfandFormula
 import Mathlib.FieldTheory.IsAlgClosed.Spectrum
 import Mathlib.LinearAlgebra.Eigenspace.Matrix
+import Mathlib.LinearAlgebra.Matrix.Charpoly.Eigs
 import Architect
 
 /-!
@@ -250,5 +251,23 @@ theorem IsSchurStable.exists_pow_mulVec_le {A : Matrix (Fin n) (Fin n) ℝ}
   refine ⟨c, ρ, hc, hρ0, hρ1, fun k x => ?_⟩
   calc ‖A ^ k *ᵥ x‖ ≤ ‖A ^ k‖ * ‖x‖ := Matrix.linfty_opNorm_mulVec _ _
   _ ≤ c * ρ ^ k * ‖x‖ := mul_le_mul_of_nonneg_right (h k) (norm_nonneg x)
+
+/-- Schur stability is invariant under transposition (the spectrum is). -/
+lemma IsSchurStable.transpose {A : Matrix (Fin n) (Fin n) ℝ}
+    (hA : IsSchurStable A) : IsSchurStable Aᵀ := by
+  intro μ hμ
+  refine hA μ ?_
+  rcases Nat.eq_zero_or_pos n with hn | hn
+  · exfalso
+    subst hn
+    rw [spectrum_complexify_eq_empty Aᵀ inferInstance] at hμ
+    exact absurd hμ (Set.notMem_empty μ)
+  · rw [Matrix.mem_spectrum_iff_isRoot_charpoly] at hμ ⊢
+    rwa [show complexify Aᵀ = (complexify A)ᵀ from rfl,
+      Matrix.charpoly_transpose] at hμ
+
+lemma isSchurStable_transpose_iff {A : Matrix (Fin n) (Fin n) ℝ} :
+    IsSchurStable Aᵀ ↔ IsSchurStable A :=
+  ⟨fun h => by simpa using h.transpose, IsSchurStable.transpose⟩
 
 end LinearSystems
