@@ -625,6 +625,128 @@ def IsGES : Prop :=
     ∀ (T : ℕ) (a : Fin n₁ ⊕ Fin n₂ → ℝ),
       ‖Sys.optTerm a T‖ ≤ c * ρ ^ T * ‖a‖
 
+
+/-! ### The full gap formula (`eq:quad-gap`)
+
+The cost of any feasible decision pair exceeds the value by exactly the
+cost of the *deviation* decision with zero prior mismatch — the
+trajectory-deviation form of `eq:quad-gap` that `prop:infhor` and
+`prop:gas` consume. -/
+
+lemma feasibleDir_smul {d : Fin n₁ ⊕ Fin n₂ → ℝ} (h : Sys.FeasibleDir d)
+    (t : ℝ) : Sys.FeasibleDir (t • d) := by
+  obtain ⟨w, hw⟩ := h
+  exact ⟨t • w, by rw [hw, Matrix.mulVec_smul]⟩
+
+lemma feasible_add_smul_dir {a e₀ d : Fin n₁ ⊕ Fin n₂ → ℝ}
+    (h : Sys.Feasible a e₀) (hd : Sys.FeasibleDir d) (t : ℝ) :
+    Sys.Feasible a (e₀ + t • d) := by
+  rw [feasible_iff] at h ⊢
+  obtain ⟨v, hv⟩ := h
+  obtain ⟨w, hw⟩ := Sys.feasibleDir_smul hd t
+  refine ⟨v + w, ?_⟩
+  rw [Matrix.mulVec_add, ← hv, ← hw]
+  abel
+
+/-- A nonnegative quadratic `2tc + t²D` on the whole line has no linear
+part. -/
+private lemma cross_eq_zero_of_nonneg {c D : ℝ} (hD : 0 ≤ D)
+    (h : ∀ t : ℝ, 0 ≤ 2 * t * c + t ^ 2 * D) : c = 0 := by
+  by_contra hc
+  have hc2 : 0 < c ^ 2 :=
+    lt_of_le_of_ne (sq_nonneg c) (Ne.symm (pow_ne_zero 2 hc))
+  have hD1 : (0 : ℝ) < D + 1 := by linarith
+  have ht := h (-(c / (D + 1)))
+  have heval : 2 * (-(c / (D + 1))) * c + (-(c / (D + 1))) ^ 2 * D
+      = c ^ 2 * (D - 2 * (D + 1)) / (D + 1) ^ 2 := by
+    field_simp
+    ring
+  rw [heval] at ht
+  have hneg : c ^ 2 * (D - 2 * (D + 1)) / (D + 1) ^ 2 < 0 := by
+    apply div_neg_of_neg_of_pos
+    · nlinarith
+    · positivity
+  linarith
+
+/-- Expansion of the prior penalty along a line of initial errors. -/
+lemma priorPenalty_add_smul (a e₀ d : Fin n₁ ⊕ Fin n₂ → ℝ) (t : ℝ) :
+    Sys.priorPenalty a (e₀ + t • d)
+      = Sys.priorPenalty a e₀
+        + 2 * t * ((blk₁ (e₀ - a)) ⬝ᵥ (symmPinv Sys.hSig₁.1 *ᵥ blk₁ d)
+            + (blk₂ (e₀ - a)) ⬝ᵥ (symmPinv Sys.hSig₂.1 *ᵥ blk₂ d))
+        + t ^ 2 * Sys.priorPenalty 0 d := by
+  unfold priorPenalty
+  have h1 : e₀ + t • d - a = (e₀ - a) + t • d := by abel
+  rw [h1, blk₁_add, blk₂_add, blk₁_smul, blk₂_smul,
+    quadForm_add_of_isHermitian (symmPinv_isHermitian Sys.hSig₁.1),
+    quadForm_add_of_isHermitian (symmPinv_isHermitian Sys.hSig₂.1),
+    quadForm_smul, quadForm_smul]
+  have h2 : blk₁ (d - 0) = blk₁ d := by rw [sub_zero]
+  have h3 : blk₂ (d - 0) = blk₂ d := by rw [sub_zero]
+  rw [h2, h3]
+  have h4 : blk₁ (e₀ - a) ⬝ᵥ (symmPinv Sys.hSig₁.1 *ᵥ (t • blk₁ d))
+      = t * (blk₁ (e₀ - a) ⬝ᵥ (symmPinv Sys.hSig₁.1 *ᵥ blk₁ d)) := by
+    rw [Matrix.mulVec_smul, dotProduct_smul, smul_eq_mul]
+  have h5 : blk₂ (e₀ - a) ⬝ᵥ (symmPinv Sys.hSig₂.1 *ᵥ (t • blk₂ d))
+      = t * (blk₂ (e₀ - a) ⬝ᵥ (symmPinv Sys.hSig₂.1 *ᵥ blk₂ d)) := by
+    rw [Matrix.mulVec_smul, dotProduct_smul, smul_eq_mul]
+  rw [h4, h5]
+  ring
+
+/-- **The full gap formula** (`eq:quad-gap`): a feasible decision pays the
+value plus exactly the zero-mismatch cost of its deviation from the
+optimum. -/
+theorem fieCost_gap {a e₀ : Fin n₁ ⊕ Fin n₂ → ℝ} (hfeas : Sys.Feasible a e₀)
+    (ω : ℕ → Fin m → ℝ) (T : ℕ) :
+    Sys.fieCost a e₀ ω T
+      = Sys.value a T
+        + Sys.fieCost 0 (e₀ - Sys.optInit a T)
+            (fun j => ω j - Sys.lq.optCtrl (Sys.optInit a T) T j) T := by
+  set es := Sys.optInit a T with hes
+  set ωs := Sys.lq.optCtrl es T with hωs
+  set d := e₀ - es with hd
+  set δ : ℕ → Fin m → ℝ := fun j => ω j - ωs j with hδ
+  have hdir : Sys.FeasibleDir d := Sys.feasibleDir_sub hfeas (Sys.optInit_feasible a T)
+  set CR : ℝ := (blk₁ (es - a)) ⬝ᵥ (symmPinv Sys.hSig₁.1 *ᵥ blk₁ d)
+      + (blk₂ (es - a)) ⬝ᵥ (symmPinv Sys.hSig₂.1 *ᵥ blk₂ d)
+      + Sys.lq.costCross es d ωs δ T with hCRdef
+  -- the cost along the line through the optimum
+  have hg : ∀ t : ℝ,
+      Sys.fieCost a (es + t • d) (fun j => ωs j + t • δ j) T
+        = Sys.value a T + 2 * t * CR + t ^ 2 * Sys.fieCost 0 d δ T := by
+    intro t
+    unfold fieCost
+    rw [Sys.priorPenalty_add_smul a es d t, Sys.lq.cost_add_smul es d ωs δ T t]
+    have hval : Sys.priorPenalty a es + Sys.lq.cost es ωs T = Sys.value a T := by
+      have h := Sys.fieCost_optCtrl a T
+      unfold fieCost at h
+      rw [← hes, ← hωs] at h
+      exact h
+    rw [hCRdef]
+    linarith [hval]
+  -- optimality along the line kills the cross term
+  have hDpos : 0 ≤ Sys.fieCost 0 d δ T := Sys.fieCost_nonneg 0 d δ T
+  have hCR : CR = 0 := by
+    refine cross_eq_zero_of_nonneg hDpos fun t => ?_
+    have hfeas' : Sys.Feasible a (es + t • d) :=
+      Sys.feasible_add_smul_dir (Sys.optInit_feasible a T) hdir t
+    have h1 := Sys.value_le_fieCost hfeas' (fun j => ωs j + t • δ j) T
+    rw [hg t] at h1
+    linarith
+  -- evaluate at `t = 1`
+  have h1 := hg 1
+  rw [hCR] at h1
+  have h2 : es + (1 : ℝ) • d = e₀ := by
+    rw [hd, one_smul]
+    abel
+  have h3 : (fun j => ωs j + (1 : ℝ) • δ j) = ω := by
+    funext j
+    rw [hδ]
+    simp
+  rw [h2, h3] at h1
+  rw [h1]
+  ring
+
 end FIESystem
 
 end Estimation

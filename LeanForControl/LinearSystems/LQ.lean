@@ -476,6 +476,60 @@ theorem cost_fixedGain (hP : P.PosSemidef) (hfix : S.step P = P)
 end FixedPoint
 
 
+section Linearity
+
+/-- Trajectories are additive in (initial state, input sequence). -/
+lemma traj_add (x x' : ι → ℝ) (u u' : ℕ → κ → ℝ) : ∀ k,
+    S.traj (x + x') (fun j => u j + u' j) k = S.traj x u k + S.traj x' u' k
+  | 0 => rfl
+  | k + 1 => by
+    rw [traj_succ, traj_add x x' u u' k, traj_succ, traj_succ,
+      Matrix.mulVec_add, Matrix.mulVec_add]
+    abel
+
+/-- Trajectories are homogeneous in (initial state, input sequence). -/
+lemma traj_smul (c : ℝ) (x : ι → ℝ) (u : ℕ → κ → ℝ) : ∀ k,
+    S.traj (c • x) (fun j => c • u j) k = c • S.traj x u k
+  | 0 => rfl
+  | k + 1 => by
+    rw [traj_succ, traj_smul c x u k, traj_succ, Matrix.mulVec_smul,
+      Matrix.mulVec_smul, smul_add]
+
+/-- Trajectory along an affine line of decisions. -/
+lemma traj_add_smul (x d : ι → ℝ) (u δ : ℕ → κ → ℝ) (t : ℝ) (k : ℕ) :
+    S.traj (x + t • d) (fun j => u j + t • δ j) k
+      = S.traj x u k + t • S.traj d δ k := by
+  rw [S.traj_add x (t • d) u (fun j => t • δ j) k, S.traj_smul t d δ k]
+
+/-- The cross term of the cost along a line of decisions. -/
+noncomputable def costCross (x d : ι → ℝ) (u δ : ℕ → κ → ℝ) (T : ℕ) : ℝ :=
+  ∑ k ∈ Finset.range T,
+    ((S.traj x u k) ⬝ᵥ (S.Qs *ᵥ S.traj d δ k) + (u k) ⬝ᵥ (S.Ru *ᵥ δ k))
+
+/-- **Quadratic expansion of the cost** along an affine line of decisions. -/
+theorem cost_add_smul (x d : ι → ℝ) (u δ : ℕ → κ → ℝ) (T : ℕ) (t : ℝ) :
+    S.cost (x + t • d) (fun j => u j + t • δ j) T
+      = S.cost x u T + 2 * t * S.costCross x d u δ T
+        + t ^ 2 * S.cost d δ T := by
+  unfold cost costCross
+  rw [Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib,
+    ← Finset.sum_add_distrib]
+  refine Finset.sum_congr rfl fun k _ => ?_
+  rw [S.traj_add_smul x d u δ t k]
+  rw [quadForm_add_of_isHermitian S.hQs.1, quadForm_add_of_isHermitian S.hRu.1]
+  rw [quadForm_smul, quadForm_smul]
+  have h1 : S.traj x u k ⬝ᵥ (S.Qs *ᵥ (t • S.traj d δ k))
+      = t * (S.traj x u k ⬝ᵥ (S.Qs *ᵥ S.traj d δ k)) := by
+    rw [Matrix.mulVec_smul, dotProduct_smul, smul_eq_mul]
+  have h2 : u k ⬝ᵥ (S.Ru *ᵥ (t • δ k))
+      = t * (u k ⬝ᵥ (S.Ru *ᵥ δ k)) := by
+    rw [Matrix.mulVec_smul, dotProduct_smul, smul_eq_mul]
+  rw [h1, h2]
+  ring
+
+end Linearity
+
+
 end LQSystem
 
 end LinearSystems
