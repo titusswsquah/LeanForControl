@@ -530,6 +530,60 @@ theorem cost_add_smul (x d : ι → ℝ) (u δ : ℕ → κ → ℝ) (T : ℕ) (
 end Linearity
 
 
+section Restart
+
+/-- The tail of a trajectory is the trajectory of the restarted problem. -/
+lemma traj_restart (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (s : ℕ) : ∀ k,
+    S.traj x₀ u (s + k) = S.traj (S.traj x₀ u s) (fun j => u (s + j)) k
+  | 0 => rfl
+  | k + 1 => by
+    rw [show s + (k + 1) = (s + k) + 1 from rfl, traj_succ,
+      traj_restart x₀ u s k, traj_succ]
+
+/-- Splitting a cost at an intermediate time. -/
+lemma cost_add (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (s M : ℕ) :
+    S.cost x₀ u (s + M)
+      = S.cost x₀ u s
+        + S.cost (S.traj x₀ u s) (fun j => u (s + j)) M := by
+  induction M with
+  | zero => simp
+  | succ M ih =>
+    have hsucc : S.cost (S.traj x₀ u s) (fun j => u (s + j)) (M + 1)
+        = S.cost (S.traj x₀ u s) (fun j => u (s + j)) M
+          + (quadForm S.Qs (S.traj (S.traj x₀ u s) (fun j => u (s + j)) M)
+            + quadForm S.Ru (u (s + M))) := by
+      rw [cost, Finset.sum_range_succ, ← cost]
+    rw [show s + (M + 1) = (s + M) + 1 from rfl, cost, Finset.sum_range_succ,
+      ← cost, ih, hsucc, S.traj_restart x₀ u s M]
+    ring
+
+/-- Every window of a cost dominates the windowed value. -/
+lemma quadForm_ric_traj_le_cost (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) {s M T : ℕ}
+    (h : s + M ≤ T) :
+    quadForm (S.ric M) (S.traj x₀ u s) ≤ S.cost x₀ u T := by
+  have h1 : quadForm (S.ric M) (S.traj x₀ u s)
+      ≤ S.cost (S.traj x₀ u s) (fun j => u (s + j)) M :=
+    S.quadForm_ric_le_cost _ _ M
+  have h2 : S.cost x₀ u (s + M) ≤ S.cost x₀ u T := S.cost_mono x₀ u h
+  have h3 := S.cost_add x₀ u s M
+  have h4 : 0 ≤ S.cost x₀ u s :=
+    Finset.sum_nonneg fun k _ => S.stage_nonneg _ _
+  linarith
+
+/-- A cost over `J` windows of length `M` is the sum of the windowed
+restarted costs. -/
+lemma cost_eq_sum_windows (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (M : ℕ) : ∀ J,
+    S.cost x₀ u (J * M)
+      = ∑ j ∈ Finset.range J,
+          S.cost (S.traj x₀ u (j * M)) (fun r => u (j * M + r)) M
+  | 0 => by simp
+  | J + 1 => by
+    rw [show (J + 1) * M = J * M + M from by ring, S.cost_add x₀ u (J * M) M,
+      cost_eq_sum_windows x₀ u M J, Finset.sum_range_succ]
+
+end Restart
+
+
 end LQSystem
 
 end LinearSystems
