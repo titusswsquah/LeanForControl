@@ -203,6 +203,226 @@ lemma ric_isHermitian (T : ℕ) : (S.ric T).IsHermitian :=
 
 end GainAlgebra
 
+section Bellman
+
+variable {P : Matrix ι ι ℝ}
+
+/-- **One-step completion of squares**: the Bellman identity for one Riccati
+step. For `P ⪰ 0` and every state `x` and input `u`,
+`x'Qs x + u'Ru u + (Ax+Bu)'P(Ax+Bu) = x'(step P)x + ‖u + K(P)x‖²_{Γ(P)}`. -/
+lemma bellman_step (hP : P.PosSemidef) (x : ι → ℝ) (u : κ → ℝ) :
+    quadForm S.Qs x + quadForm S.Ru u + quadForm P (S.A *ᵥ x + S.B *ᵥ u)
+      = quadForm (S.step P) x + quadForm (S.gainΓ P) (u + S.gainK P *ᵥ x) := by
+  have h3 : quadForm P (S.A *ᵥ x + S.B *ᵥ u)
+      = quadForm (S.Aᵀ * P * S.A) x + x ⬝ᵥ ((S.Aᵀ * P * S.B) *ᵥ u)
+        + u ⬝ᵥ ((S.Bᵀ * P * S.A) *ᵥ x) + quadForm (S.Bᵀ * P * S.B) u := by
+    rw [quadForm_add, quadForm_mulVec, quadForm_mulVec,
+      mulVec_dotProduct_mulVec_mulVec, mulVec_dotProduct_mulVec_mulVec]
+  have h4 : quadForm (S.gainΓ P) (u + S.gainK P *ᵥ x)
+      = quadForm (S.gainΓ P) u + u ⬝ᵥ ((S.Bᵀ * P * S.A) *ᵥ x)
+        + x ⬝ᵥ ((S.Aᵀ * P * S.B) *ᵥ u)
+        + quadForm ((S.gainK P)ᵀ * S.gainΓ P * S.gainK P) x := by
+    rw [quadForm_add, quadForm_mulVec, Matrix.mulVec_mulVec,
+      S.gainΓ_mul_gainK hP, mulVec_dotProduct_eq (S.gainK P),
+      Matrix.mulVec_mulVec, S.gainK_transpose_mul_gainΓ hP]
+  have h5 : quadForm S.Ru u + quadForm (S.Bᵀ * P * S.B) u
+      = quadForm (S.gainΓ P) u := by
+    rw [← quadForm_add_matrix]
+    rfl
+  have h6 : quadForm S.Qs x + quadForm (S.Aᵀ * P * S.A) x
+      = quadForm (S.step P) x
+        + quadForm ((S.gainK P)ᵀ * S.gainΓ P * S.gainK P) x := by
+    rw [← quadForm_add_matrix, ← quadForm_add_matrix]
+    congr 1
+    rw [S.step_eq_closed hP]
+    abel
+  linarith [h3, h4, h5, h6]
+
+end Bellman
+
+section Trajectories
+
+/-- The controlled trajectory of `x⁺ = A x + B u` from `x₀`. -/
+def traj (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) : ℕ → ι → ℝ
+  | 0 => x₀
+  | k + 1 => S.A *ᵥ traj x₀ u k + S.B *ᵥ u k
+
+@[simp]
+lemma traj_zero (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) : S.traj x₀ u 0 = x₀ :=
+  rfl
+
+lemma traj_succ (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (k : ℕ) :
+    S.traj x₀ u (k + 1) = S.A *ᵥ S.traj x₀ u k + S.B *ᵥ u k :=
+  rfl
+
+/-- Shifting time by one step. -/
+lemma traj_shift (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (k : ℕ) :
+    S.traj x₀ u (k + 1)
+      = S.traj (S.A *ᵥ x₀ + S.B *ᵥ u 0) (fun j => u (j + 1)) k := by
+  induction k with
+  | zero => rfl
+  | succ k ih => rw [traj_succ, ih, traj_succ]
+
+/-- The horizon-`T` cost of a control sequence. -/
+noncomputable def cost (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (T : ℕ) : ℝ :=
+  ∑ k ∈ Finset.range T,
+    (quadForm S.Qs (S.traj x₀ u k) + quadForm S.Ru (u k))
+
+@[simp]
+lemma cost_zero (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) : S.cost x₀ u 0 = 0 := by
+  simp [cost]
+
+/-- Peel the first stage off the cost. -/
+lemma cost_succ_first (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (T : ℕ) :
+    S.cost x₀ u (T + 1)
+      = quadForm S.Qs x₀ + quadForm S.Ru (u 0)
+        + S.cost (S.A *ᵥ x₀ + S.B *ᵥ u 0) (fun j => u (j + 1)) T := by
+  rw [cost, Finset.sum_range_succ']
+  rw [cost]
+  have h1 : ∀ k ∈ Finset.range T,
+      quadForm S.Qs (S.traj x₀ u (k + 1)) + quadForm S.Ru (u (k + 1))
+        = quadForm S.Qs
+            (S.traj (S.A *ᵥ x₀ + S.B *ᵥ u 0) (fun j => u (j + 1)) k)
+          + quadForm S.Ru (u (k + 1)) := by
+    intro k _
+    rw [S.traj_shift]
+  rw [Finset.sum_congr rfl h1]
+  simp [traj_zero]
+  ring
+
+/-- Every stage cost is nonnegative. -/
+lemma stage_nonneg (x : ι → ℝ) (u : κ → ℝ) :
+    0 ≤ quadForm S.Qs x + quadForm S.Ru u :=
+  add_nonneg (S.hQs.quadForm_nonneg x) (S.hRu.posSemidef.quadForm_nonneg u)
+
+/-- The cost is monotone in the horizon. -/
+lemma cost_mono (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) {T T' : ℕ} (h : T ≤ T') :
+    S.cost x₀ u T ≤ S.cost x₀ u T' := by
+  unfold cost
+  refine Finset.sum_le_sum_of_subset_of_nonneg ?_ fun k _ _ => S.stage_nonneg _ _
+  exact fun k hk => Finset.mem_range.mpr
+    (lt_of_lt_of_le (Finset.mem_range.mp hk) h)
+
+/-- **The exact sum-of-squares identity**: the cost of any control sequence
+is the optimal value `x₀'(ric T)x₀` plus the `Γ`-weighted squares of the
+deviations from the optimal feedback. Everything else — the value lower
+bound, optimality of the closed loop, the exact optimality gap — reads off
+this identity. -/
+theorem cost_eq_quadForm_add_sum : ∀ (T : ℕ) (x₀ : ι → ℝ) (u : ℕ → κ → ℝ),
+    S.cost x₀ u T = quadForm (S.ric T) x₀
+      + ∑ k ∈ Finset.range T,
+          quadForm (S.gainΓ (S.ric (T - 1 - k)))
+            (u k + S.gainK (S.ric (T - 1 - k)) *ᵥ S.traj x₀ u k) := by
+  intro T
+  induction T with
+  | zero => simp
+  | succ T ih =>
+    intro x₀ u
+    rw [S.cost_succ_first, ih]
+    have hb := S.bellman_step (S.ric_posSemidef T) x₀ (u 0)
+    simp only [Nat.add_sub_cancel]
+    rw [Finset.sum_range_succ']
+    have hsum : ∀ k ∈ Finset.range T,
+        quadForm (S.gainΓ (S.ric (T - (k + 1))))
+          (u (k + 1) + S.gainK (S.ric (T - (k + 1))) *ᵥ S.traj x₀ u (k + 1))
+        = quadForm (S.gainΓ (S.ric (T - 1 - k)))
+            ((fun j => u (j + 1)) k + S.gainK (S.ric (T - 1 - k)) *ᵥ
+              S.traj (S.A *ᵥ x₀ + S.B *ᵥ u 0) (fun j => u (j + 1)) k) := by
+      intro k _
+      rw [S.traj_shift]
+      have hidx : T - (k + 1) = T - 1 - k := by omega
+      rw [hidx]
+    rw [Finset.sum_congr rfl hsum]
+    simp only [Nat.sub_zero, traj_zero]
+    rw [S.ric_succ] at *
+    linarith [hb]
+
+/-- The value lower bound: `x₀'(ric T)x₀ ≤ cost x₀ u T` for every control. -/
+theorem quadForm_ric_le_cost (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (T : ℕ) :
+    quadForm (S.ric T) x₀ ≤ S.cost x₀ u T := by
+  rw [S.cost_eq_quadForm_add_sum T x₀ u]
+  have h1 : (0 : ℝ) ≤ ∑ k ∈ Finset.range T,
+      quadForm (S.gainΓ (S.ric (T - 1 - k)))
+        (u k + S.gainK (S.ric (T - 1 - k)) *ᵥ S.traj x₀ u k) :=
+    Finset.sum_nonneg fun k _ =>
+      (S.gainΓ_posDef (S.ric_posSemidef _)).posSemidef.quadForm_nonneg _
+  linarith
+
+/-- The optimal closed-loop trajectory for horizon `T` (time-varying gains
+`K (ric (T-1-k))`). -/
+noncomputable def optTraj (x₀ : ι → ℝ) (T : ℕ) : ℕ → ι → ℝ
+  | 0 => x₀
+  | k + 1 => S.Acl (S.ric (T - 1 - k)) *ᵥ optTraj x₀ T k
+
+/-- The optimal control for horizon `T`: `u k = -K (ric (T-1-k)) x k`. -/
+noncomputable def optCtrl (x₀ : ι → ℝ) (T : ℕ) (k : ℕ) : κ → ℝ :=
+  -(S.gainK (S.ric (T - 1 - k)) *ᵥ S.optTraj x₀ T k)
+
+/-- The trajectory under the optimal control is the closed-loop rollout. -/
+lemma traj_optCtrl (x₀ : ι → ℝ) (T : ℕ) : ∀ k,
+    S.traj x₀ (S.optCtrl x₀ T) k = S.optTraj x₀ T k
+  | 0 => rfl
+  | k + 1 => by
+    rw [traj_succ, traj_optCtrl x₀ T k, optCtrl, optTraj, Acl,
+      Matrix.sub_mulVec, Matrix.mulVec_neg, ← Matrix.mulVec_mulVec]
+    abel
+
+/-- The optimal control attains the value: `cost x₀ u* T = x₀'(ric T)x₀`. -/
+theorem cost_optCtrl (x₀ : ι → ℝ) (T : ℕ) :
+    S.cost x₀ (S.optCtrl x₀ T) T = quadForm (S.ric T) x₀ := by
+  rw [S.cost_eq_quadForm_add_sum T]
+  have h1 : ∀ k ∈ Finset.range T,
+      quadForm (S.gainΓ (S.ric (T - 1 - k)))
+        (S.optCtrl x₀ T k + S.gainK (S.ric (T - 1 - k)) *ᵥ
+          S.traj x₀ (S.optCtrl x₀ T) k) = 0 := by
+    intro k _
+    rw [S.traj_optCtrl, optCtrl]
+    simp
+  rw [Finset.sum_congr rfl h1]
+  simp
+
+/-- Monotonicity of the value in the horizon, pointwise. -/
+lemma quadForm_ric_mono (x₀ : ι → ℝ) (T : ℕ) :
+    quadForm (S.ric T) x₀ ≤ quadForm (S.ric (T + 1)) x₀ := by
+  calc quadForm (S.ric T) x₀
+      ≤ S.cost x₀ (S.optCtrl x₀ (T + 1)) T := S.quadForm_ric_le_cost _ _ _
+  _ ≤ S.cost x₀ (S.optCtrl x₀ (T + 1)) (T + 1) :=
+      S.cost_mono _ _ (Nat.le_succ T)
+  _ = quadForm (S.ric (T + 1)) x₀ := S.cost_optCtrl x₀ (T + 1)
+
+/-- Monotonicity of the Riccati iterates in the Loewner order. -/
+lemma ric_succ_sub_posSemidef (T : ℕ) :
+    (S.ric (T + 1) - S.ric T).PosSemidef :=
+  posSemidef_sub_of_quadForm_le (S.ric_isHermitian T)
+    (S.ric_isHermitian (T + 1)) (S.quadForm_ric_mono · T)
+
+/-- Monotonicity of the Riccati iterates, general horizons. -/
+lemma ric_sub_posSemidef {T T' : ℕ} (h : T ≤ T') :
+    (S.ric T' - S.ric T).PosSemidef := by
+  induction T' with
+  | zero =>
+    have hT : T = 0 := by omega
+    subst hT
+    simpa using Matrix.PosSemidef.zero
+  | succ T' ih =>
+    rcases Nat.lt_or_ge T (T' + 1) with h1 | h1
+    · have h2 := ih (by omega)
+      have h3 := S.ric_succ_sub_posSemidef T'
+      have h4 := h2.add h3
+      have h5 : S.ric T' - S.ric T + (S.ric (T' + 1) - S.ric T')
+          = S.ric (T' + 1) - S.ric T := by abel
+      rwa [h5] at h4
+    · have hT : T = T' + 1 := by omega
+      subst hT
+      simpa using Matrix.PosSemidef.zero
+
+/-- Pointwise value monotonicity for general horizons. -/
+lemma quadForm_ric_mono_le (x₀ : ι → ℝ) {T T' : ℕ} (h : T ≤ T') :
+    quadForm (S.ric T) x₀ ≤ quadForm (S.ric T') x₀ :=
+  quadForm_le_quadForm_of_posSemidef_sub (S.ric_sub_posSemidef h) x₀
+
+end Trajectories
+
 end LQSystem
 
 end LinearSystems
