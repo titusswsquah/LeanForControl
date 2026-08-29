@@ -69,6 +69,14 @@ def IsStabilizable
     (A : Matrix ι ι ℂ) (B : Matrix ι κ ℂ) : Prop :=
   IsDetectable Aᵀ Bᵀ
 
+/-- Stabilizability is insensitive to the sign of the input matrix. -/
+lemma IsStabilizable.neg {A : Matrix ι ι ℂ} {B : Matrix ι κ ℂ}
+    (h : IsStabilizable A B) : IsStabilizable A (-B) := by
+  intro μ v hμ hAv hBv
+  refine h μ v hμ hAv ?_
+  rw [Matrix.transpose_neg, Matrix.neg_mulVec, neg_eq_zero] at hBv
+  exact hBv
+
 end GeneralIndex
 
 /-- Observability implies detectability. -/

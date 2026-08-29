@@ -101,6 +101,11 @@ lemma complexify_transpose (A : Matrix ι κ ℝ) :
     complexify Aᵀ = (complexify A)ᵀ :=
   rfl
 
+@[simp]
+lemma complexify_neg (A : Matrix ι κ ℝ) : complexify (-A) = -complexify A := by
+  ext i j
+  simp
+
 lemma complexify_mulVec (A : Matrix ι κ ℝ) (v : κ → ℝ) :
     complexify A *ᵥ complexifyVec v = complexifyVec (A *ᵥ v) := by
   funext i
