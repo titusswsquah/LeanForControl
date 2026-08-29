@@ -260,4 +260,140 @@ lemma _root_.Matrix.PosDef.exists_le_quadForm {M : Matrix ι ι ℝ}
 
 end NormBounds
 
+section QuadSolve
+
+set_option linter.unusedDecidableInType false
+
+variable [DecidableEq ι]
+
+/-- **Solvability from bounded-below quadratics**: if `L ⪰ 0` and the
+quadratic `v ↦ v'Lv - 2 r⬝v` is bounded below, then `r ∈ range L`. This is
+the existence half of every KKT system in the estimation layer: costs are
+nonnegative, so their stationarity equations are solvable. -/
+lemma _root_.Matrix.PosSemidef.exists_mulVec_eq {L : Matrix ι ι ℝ}
+    (hL : L.PosSemidef) {r : ι → ℝ} {c : ℝ}
+    (hbdd : ∀ v : ι → ℝ, 2 * (r ⬝ᵥ v) ≤ quadForm L v + c) :
+    ∃ v : ι → ℝ, L *ᵥ v = r := by
+  classical
+  -- Spectral decomposition of `L`.
+  have hspec := hL.1.spectral_theorem
+  rw [Unitary.conjStarAlgAut_apply] at hspec
+  set U : Matrix ι ι ℝ := (hL.1.eigenvectorUnitary : Matrix ι ι ℝ) with hU
+  set lam : ι → ℝ := hL.1.eigenvalues with hlam
+  have hstar : star U = Uᵀ := by
+    rw [star_eq_conjTranspose, conjTranspose_eq_transpose_of_trivial]
+  have hUU : U * star U = 1 := by
+    rw [hU]
+    exact Unitary.coe_mul_star_self _
+  have hUU' : star U * U = 1 := by
+    rw [hU]
+    exact Unitary.coe_star_mul_self _
+  have hLdecomp : L = U * diagonal lam * star U := by
+    simpa [hU, hlam] using hspec
+  set rt : ι → ℝ := star U *ᵥ r with hrt
+  -- Zero eigenvalues force the corresponding transformed coordinates of `r`
+  -- to vanish.
+  have hzero : ∀ i, lam i = 0 → rt i = 0 := by
+    intro i hi
+    by_contra hne
+    -- test with `v = t • (U eᵢ)`
+    have htest : ∀ t : ℝ, 2 * (t * rt i) ≤ c := by
+      intro t
+      have h := hbdd (t • (U *ᵥ Pi.single i 1))
+      have h1 : quadForm L (t • (U *ᵥ Pi.single i 1)) = 0 := by
+        rw [quadForm_smul]
+        have h3 : quadForm L (U *ᵥ Pi.single i 1)
+            = quadForm (Uᵀ * L * U) (Pi.single i 1) := quadForm_mulVec _ _ _
+        have h4 : Uᵀ * L * U = diagonal lam := by
+          rw [hLdecomp, ← hstar]
+          calc star U * (U * diagonal lam * star U) * U
+              = (star U * U) * diagonal lam * (star U * U) := by
+                simp only [Matrix.mul_assoc]
+          _ = diagonal lam := by rw [hUU']; simp
+        rw [h3, h4, quadForm]
+        have h6 : (diagonal lam *ᵥ Pi.single i 1) ⬝ᵥ Pi.single i 1 = lam i := by
+          simp [mulVec_diagonal, dotProduct, Pi.single_apply]
+        rw [dotProduct_comm, h6, hi, mul_zero]
+      have h5 : r ⬝ᵥ (t • (U *ᵥ Pi.single i 1)) = t * rt i := by
+        rw [dotProduct_smul, smul_eq_mul, dotProduct_mulVec_eq]
+        congr 1
+        rw [hrt, hstar]
+        simp [dotProduct, Pi.single_apply]
+      rw [h1, h5] at h
+      linarith
+    have hcontr := htest ((c + 1) / (2 * rt i))
+    have heq : 2 * ((c + 1) / (2 * rt i) * rt i) = c + 1 := by
+      field_simp
+    rw [heq] at hcontr
+    linarith
+  -- Solve in the eigenbasis, killing the zero directions.
+  refine ⟨U *ᵥ (fun i => rt i * (lam i)⁻¹), ?_⟩
+  have hDv : diagonal lam *ᵥ (fun i => rt i * (lam i)⁻¹) = rt := by
+    funext i
+    rw [mulVec_diagonal]
+    rcases eq_or_ne (lam i) 0 with h | h
+    · rw [hzero i h, h]
+      ring
+    · field_simp
+  rw [hLdecomp]
+  calc (U * diagonal lam * star U) *ᵥ (U *ᵥ fun i => rt i * (lam i)⁻¹)
+      = (U * diagonal lam * (star U * U)) *ᵥ (fun i => rt i * (lam i)⁻¹) := by
+        rw [Matrix.mulVec_mulVec]
+        simp only [Matrix.mul_assoc]
+  _ = (U * diagonal lam) *ᵥ (fun i => rt i * (lam i)⁻¹) := by
+        rw [hUU', Matrix.mul_one]
+  _ = U *ᵥ rt := by rw [← Matrix.mulVec_mulVec, hDv]
+  _ = r := by rw [hrt, Matrix.mulVec_mulVec, hUU, Matrix.one_mulVec]
+
+/-- A positive semidefinite quadratic form vanishes only along the kernel:
+`x'Mx = 0` forces `Mx = 0`. -/
+lemma _root_.Matrix.PosSemidef.mulVec_eq_zero_of_quadForm_eq_zero
+    {M : Matrix ι ι ℝ} (hM : M.PosSemidef) {x : ι → ℝ}
+    (hx : quadForm M x = 0) : M *ᵥ x = 0 := by
+  funext j
+  -- For every `y`, expanding `0 ≤ quadForm M (x + t • y)` in `t` forces the
+  -- cross term to vanish; take `y = eⱼ`.
+  have key : ∀ y : ι → ℝ, y ⬝ᵥ (M *ᵥ x) = 0 := by
+    intro y
+    by_contra hne
+    set b : ℝ := y ⬝ᵥ (M *ᵥ x) with hb
+    set q : ℝ := quadForm M y with hq
+    have hexp : ∀ t : ℝ, 0 ≤ t ^ 2 * q + 2 * t * b := by
+      intro t
+      have h := hM.quadForm_nonneg (x + t • y)
+      rw [quadForm_add, hx] at h
+      have h1 : x ⬝ᵥ (M *ᵥ (t • y)) = t * (x ⬝ᵥ (M *ᵥ y)) := by
+        rw [Matrix.mulVec_smul, dotProduct_smul, smul_eq_mul]
+      have h2 : (t • y) ⬝ᵥ (M *ᵥ x) = t * b := by
+        rw [smul_dotProduct, smul_eq_mul, hb]
+      have h3 : quadForm M (t • y) = t ^ 2 * q := by
+        rw [quadForm_smul, hq]
+      rw [h1, h2, h3] at h
+      -- symmetric cross term: x'My = y'Mx = b
+      have h4 : x ⬝ᵥ (M *ᵥ y) = b := by
+        rw [dotProduct_mulVec_comm hM.1, hb]
+      rw [h4] at h
+      linarith
+    -- a quadratic `q t² + 2bt` with `b ≠ 0` takes negative values
+    have hqnn : 0 ≤ q := hM.quadForm_nonneg y
+    have hb2 : 0 < b ^ 2 :=
+      lt_of_le_of_ne (sq_nonneg b) (Ne.symm (pow_ne_zero 2 hne))
+    rcases eq_or_ne q 0 with hq0 | hq0
+    · have h5 := hexp (-b)
+      rw [hq0] at h5
+      nlinarith
+    · have hqpos : 0 < q := lt_of_le_of_ne hqnn (Ne.symm hq0)
+      have h5 := hexp (-(b / q))
+      have h6 : (-(b / q)) ^ 2 * q + 2 * (-(b / q)) * b = -(b ^ 2 / q) := by
+        field_simp
+        ring
+      rw [h6] at h5
+      have h7 : 0 < b ^ 2 / q := div_pos hb2 hqpos
+      linarith
+  have h := key (Pi.single j 1)
+  rw [dotProduct_comm] at h
+  simpa [dotProduct, Pi.single_apply] using h
+
+end QuadSolve
+
 end LinearSystems
