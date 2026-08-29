@@ -356,12 +356,15 @@ private lemma norm_sumElim_zero_le (v : Fin n₁ → ℝ) :
 
 /-! ### `prop:gas`, sufficiency -/
 
-/-- **Global asymptotic stability under C1 ∧ C2** (`prop:gas`,
-sufficiency): the optimal terminal error dies out linearly in the prior
-mismatch, uniformly over mismatches. -/
-theorem isGAS_of_C1_C2 (hC1 : Sys.C1) (hC2 : Sys.C2) : Sys.IsGAS := by
+/-- **The terminal error against the truncation gap**: the optimal
+terminal error is a geometric term plus the square root of the value
+gap `V̄(a) - V_T⁰(a)` — the assembly common to the GAS and GES proofs. -/
+theorem exists_optTerm_bound (hC1 : Sys.C1) (hC2 : Sys.C2) :
+    ∃ cA Cd ρ : ℝ, 0 < cA ∧ 0 < Cd ∧ 0 < ρ ∧ ρ < 1 ∧
+      ∀ (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ),
+        ‖Sys.optTerm a T‖ ≤ cA * ρ ^ T * ‖a‖
+          + Real.sqrt (Cd * (Sys.valueLim a - Sys.value a T)) := by
   classical
-  obtain ⟨η, hη0, hηnn, hηb⟩ := Sys.exists_uniform_gap hC1 hC2
   obtain ⟨cA, ρ, hcA, hρ0, hρ1, hpowA⟩ :=
     (Sys.Pinf_schur hC1).exists_pow_norm_le
   obtain ⟨c₁, hc₁, hξb⟩ := Sys.exists_optInitLim_blk₁_bound hC1 hC2
@@ -374,10 +377,202 @@ theorem isGAS_of_C1_C2 (hC1 : Sys.C1) (hC2 : Sys.C2) : Sys.IsGAS := by
   obtain ⟨cR, hcR, hRb⟩ := Sys.hRi.exists_le_quadForm
   set Cd := cinj * (Cr₁ + Cr₂ + 1 / cR + 1 / cQ) with hCd
   have hCd0 : 0 < Cd := by positivity
-  refine ⟨fun T => cA * c₁ * ρ ^ T + Real.sqrt (Cd * η T), ?_, ?_⟩
-  · have h1 : Tendsto (fun T : ℕ => cA * c₁ * ρ ^ T) atTop (nhds 0) := by
+  refine ⟨cA * c₁, Cd, ρ, by positivity, hCd0, hρ0, hρ1, ?_⟩
+  intro a T
+  set dev := Sys.optInitLim a - Sys.optInit a T with hdev
+  set ωdev : ℕ → Fin m → ℝ := fun j => Sys.ctrlInf hC1 a j
+    - Sys.lq.optCtrl (Sys.optInit a T) T j with hωdev
+  -- deviation cost is within the truncation gap
+  have hdevcost : Sys.fieCost 0 dev ωdev T
+      ≤ Sys.valueLim a - Sys.value a T := by
+    have h1 := Sys.fieCost_dev_le_gap hC1 hC2 a T
+    rw [← hdev, ← hωdev] at h1
+    exact h1
+  have hdevcost0 : 0 ≤ Sys.fieCost 0 dev ωdev T :=
+    Sys.fieCost_nonneg _ _ _ _
+  -- split the deviation cost into prior and tail parts
+  have hcost_expand : Sys.fieCost 0 dev ωdev T
+      = Sys.priorPenalty 0 dev + Sys.lq.cost dev ωdev T := rfl
+  have hcost_nonneg : 0 ≤ Sys.lq.cost dev ωdev T :=
+    Finset.sum_nonneg fun k _ => Sys.lq.stage_nonneg _ _
+  have hprior_nonneg := Sys.priorPenalty_nonneg 0 dev
+  have hprior_le : Sys.priorPenalty 0 dev
+      ≤ Sys.fieCost 0 dev ωdev T := by
+    rw [hcost_expand]; linarith
+  have hcost_le : Sys.lq.cost dev ωdev T
+      ≤ Sys.fieCost 0 dev ωdev T := by
+    rw [hcost_expand]; linarith
+  -- the initial deviation is range-constrained; bound its norm
+  obtain ⟨v, hv⟩ := Sys.feasibleDir_sub
+    (Sys.optInitLim_feasible hC1 hC2 a) (Sys.optInit_feasible a T)
+  have hdev1 : blk₁ dev = Sys.Sig₁ *ᵥ blk₁ v := by
+    rw [hdev, hv, Sys.Jmat_mulVec]
+    simp
+  have hdev2 : blk₂ dev = Sys.Sig₂ *ᵥ blk₂ v := by
+    rw [hdev, hv, Sys.Jmat_mulVec]
+    simp
+  have hprior_eq : Sys.priorPenalty 0 dev
+      = quadForm (symmPinv Sys.hSig₁.1) (blk₁ dev)
+        + quadForm (symmPinv Sys.hSig₂.1) (blk₂ dev) := by
+    unfold priorPenalty
+    rw [sub_zero]
+  have hb1 : ‖blk₁ dev‖ ^ 2
+      ≤ Cr₁ * quadForm (symmPinv Sys.hSig₁.1) (blk₁ dev) := by
+    conv_lhs => rw [hdev1]
+    rw [hdev1, quadForm_symmPinv_image Sys.hSig₁]
+    exact hrb₁ _
+  have hb2 : ‖blk₂ dev‖ ^ 2
+      ≤ Cr₂ * quadForm (symmPinv Sys.hSig₂.1) (blk₂ dev) := by
+    conv_lhs => rw [hdev2]
+    rw [hdev2, quadForm_symmPinv_image Sys.hSig₂]
+    exact hrb₂ _
+  have hq1 := Sys.hSig₁.symmPinv.quadForm_nonneg (blk₁ dev)
+  have hq2 := Sys.hSig₂.symmPinv.quadForm_nonneg (blk₂ dev)
+  have hdevnorm : ‖dev‖ ^ 2
+      ≤ (Cr₁ + Cr₂) * Sys.priorPenalty 0 dev := by
+    have h1 := sq_norm_le_blocks dev
+    rw [hprior_eq]
+    nlinarith
+  -- output and input energies of the deviation trajectory
+  have hsplit : Sys.lq.cost dev ωdev T
+      = ∑ k ∈ Finset.range T,
+        (quadForm Sys.lq.Qs (Sys.lq.traj dev ωdev k)
+          + quadForm Sys.lq.Ru (ωdev k)) := rfl
+  have hsumν : cR * ∑ k ∈ Finset.range T,
+      ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2
+        ≤ Sys.lq.cost dev ωdev T := by
+    rw [hsplit, Finset.mul_sum]
+    refine Finset.sum_le_sum fun k _ => ?_
+    have h1 : cR * ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2
+        ≤ quadForm Sys.lq.Qs (Sys.lq.traj dev ωdev k) := by
+      rw [Sys.quadForm_Qs]
+      exact hRb _
+    have h2 : 0 ≤ quadForm Sys.lq.Ru (ωdev k) :=
+      Sys.lq.hRu.posSemidef.quadForm_nonneg _
+    linarith
+  have hsumω : cQ * ∑ k ∈ Finset.range T, ‖ωdev k‖ ^ 2
+      ≤ Sys.lq.cost dev ωdev T := by
+    rw [hsplit, Finset.mul_sum]
+    refine Finset.sum_le_sum fun k _ => ?_
+    have h1 : cQ * ‖ωdev k‖ ^ 2 ≤ quadForm Sys.lq.Ru (ωdev k) := hQb _
+    have h2 : 0 ≤ quadForm Sys.lq.Qs (Sys.lq.traj dev ωdev k) :=
+      Sys.lq.hQs.quadForm_nonneg _
+    linarith
+  -- terminal bound on the deviation trajectory through the injection
+  have hrec : ∀ k, Sys.lq.traj dev ωdev (k + 1)
+      = Sys.fullA *ᵥ Sys.lq.traj dev ωdev k + Sys.lq.B *ᵥ ωdev k :=
+    fun k => Sys.lq.traj_succ dev ωdev k
+  have hxT := hinj (fun k => Sys.lq.traj dev ωdev k) ωdev hrec T
+  simp only [LQSystem.traj_zero] at hxT
+  have hxT2 : ‖Sys.lq.traj dev ωdev T‖ ^ 2
+      ≤ Cd * (Sys.valueLim a - Sys.value a T) := by
+    have hν2 : ∑ k ∈ Finset.range T,
+        ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2
+          ≤ (1 / cR) * Sys.fieCost 0 dev ωdev T := by
+      rw [div_mul_eq_mul_div, le_div_iff₀ hcR]
+      calc (∑ k ∈ Finset.range T,
+          ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2) * cR
+          = cR * ∑ k ∈ Finset.range T,
+            ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2 := mul_comm _ _
+      _ ≤ Sys.lq.cost dev ωdev T := hsumν
+      _ ≤ 1 * Sys.fieCost 0 dev ωdev T := by
+          rw [one_mul]; exact hcost_le
+    have hω2 : ∑ k ∈ Finset.range T, ‖ωdev k‖ ^ 2
+        ≤ (1 / cQ) * Sys.fieCost 0 dev ωdev T := by
+      rw [div_mul_eq_mul_div, le_div_iff₀ hcQ]
+      calc (∑ k ∈ Finset.range T, ‖ωdev k‖ ^ 2) * cQ
+          = cQ * ∑ k ∈ Finset.range T, ‖ωdev k‖ ^ 2 := mul_comm _ _
+      _ ≤ Sys.lq.cost dev ωdev T := hsumω
+      _ ≤ 1 * Sys.fieCost 0 dev ωdev T := by
+          rw [one_mul]; exact hcost_le
+    have hd2 : ‖dev‖ ^ 2 ≤ (Cr₁ + Cr₂) * Sys.fieCost 0 dev ωdev T := by
+      have h1 : (Cr₁ + Cr₂) * Sys.priorPenalty 0 dev
+          ≤ (Cr₁ + Cr₂) * Sys.fieCost 0 dev ωdev T :=
+        mul_le_mul_of_nonneg_left hprior_le (by positivity)
+      linarith
+    have hsum2 : ∑ k ∈ Finset.range T,
+        (‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2 + ‖ωdev k‖ ^ 2)
+          = (∑ k ∈ Finset.range T,
+            ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2)
+            + ∑ k ∈ Finset.range T, ‖ωdev k‖ ^ 2 :=
+      Finset.sum_add_distrib
+    calc ‖Sys.lq.traj dev ωdev T‖ ^ 2
+        ≤ cinj * (‖dev‖ ^ 2 + ∑ k ∈ Finset.range T,
+          (‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2
+            + ‖ωdev k‖ ^ 2)) := hxT
+    _ ≤ cinj * ((Cr₁ + Cr₂ + 1 / cR + 1 / cQ)
+          * Sys.fieCost 0 dev ωdev T) := by
+        refine mul_le_mul_of_nonneg_left ?_ hcinj.le
+        rw [hsum2]
+        nlinarith
+    _ = Cd * Sys.fieCost 0 dev ωdev T := by rw [hCd]; ring
+    _ ≤ Cd * (Sys.valueLim a - Sys.value a T) :=
+        mul_le_mul_of_nonneg_left hdevcost hCd0.le
+  have hxTn : ‖Sys.lq.traj dev ωdev T‖
+      ≤ Real.sqrt (Cd * (Sys.valueLim a - Sys.value a T)) := by
+    have h1 : ‖Sys.lq.traj dev ωdev T‖
+        = Real.sqrt (‖Sys.lq.traj dev ωdev T‖ ^ 2) :=
+      (Real.sqrt_sq (norm_nonneg _)).symm
+    rw [h1]
+    exact Real.sqrt_le_sqrt hxT2
+  -- terminal identity: optimum = candidate − deviation
+  have hterm : Sys.optTerm a T
+      = Sum.elim (Sys.lqRed.Acl (Sys.Pinf hC1) ^ T
+          *ᵥ blk₁ (Sys.optInitLim a)) 0
+        - Sys.lq.traj dev ωdev T := by
+    have h1 : Sys.optInitLim a = Sys.optInit a T + dev := by
+      rw [hdev]; abel
+    have h2 : Sys.ctrlInf hC1 a = fun j =>
+        Sys.lq.optCtrl (Sys.optInit a T) T j + ωdev j := by
+      funext j
+      simp only [hωdev]
+      abel
+    have h3 := Sys.traj_ctrlInf hC1 hC2 a T
+    have h5 : Sys.lq.traj (Sys.optInitLim a) (Sys.ctrlInf hC1 a) T
+        = Sys.optTerm a T + Sys.lq.traj dev ωdev T := by
+      conv_lhs => rw [h1, h2]
+      rw [Sys.lq.traj_add]
+      congr 1
+      rw [Sys.lq.traj_optCtrl]
+      rfl
+    rw [h5] at h3
+    exact eq_sub_of_add_eq h3
+  -- assemble
+  have hcand : ‖(Sum.elim (Sys.lqRed.Acl (Sys.Pinf hC1) ^ T
+      *ᵥ blk₁ (Sys.optInitLim a)) 0 : Fin n₁ ⊕ Fin n₂ → ℝ)‖
+        ≤ cA * c₁ * ρ ^ T * ‖a‖ := by
+    refine (norm_sumElim_zero_le _).trans ?_
+    have h1 : ‖Sys.lqRed.Acl (Sys.Pinf hC1) ^ T
+        *ᵥ blk₁ (Sys.optInitLim a)‖
+          ≤ ‖Sys.lqRed.Acl (Sys.Pinf hC1) ^ T‖
+            * ‖blk₁ (Sys.optInitLim a)‖ :=
+      Matrix.linfty_opNorm_mulVec _ _
+    have h2 := hpowA T
+    have h3 := hξb a
+    have h4 : (0:ℝ) ≤ ρ ^ T := pow_nonneg hρ0.le T
+    nlinarith [norm_nonneg (blk₁ (Sys.optInitLim a)),
+      norm_nonneg (Sys.lqRed.Acl (Sys.Pinf hC1) ^ T), norm_nonneg a]
+  rw [hterm]
+  calc ‖Sum.elim (Sys.lqRed.Acl (Sys.Pinf hC1) ^ T
+        *ᵥ blk₁ (Sys.optInitLim a)) 0 - Sys.lq.traj dev ωdev T‖
+      ≤ ‖(Sum.elim (Sys.lqRed.Acl (Sys.Pinf hC1) ^ T
+          *ᵥ blk₁ (Sys.optInitLim a)) 0 : Fin n₁ ⊕ Fin n₂ → ℝ)‖
+        + ‖Sys.lq.traj dev ωdev T‖ := norm_sub_le _ _
+  _ ≤ cA * c₁ * ρ ^ T * ‖a‖
+        + Real.sqrt (Cd * (Sys.valueLim a - Sys.value a T)) :=
+      add_le_add hcand hxTn
+
+/-- **Global asymptotic stability under C1 ∧ C2** (`prop:gas`,
+sufficiency): the optimal terminal error dies out linearly in the prior
+mismatch, uniformly over mismatches. -/
+theorem isGAS_of_C1_C2 (hC1 : Sys.C1) (hC2 : Sys.C2) : Sys.IsGAS := by
+  obtain ⟨cA, Cd, ρ, hcA, hCd, hρ0, hρ1, hbound⟩ :=
+    Sys.exists_optTerm_bound hC1 hC2
+  obtain ⟨η, hη0, hηnn, hηb⟩ := Sys.exists_uniform_gap hC1 hC2
+  refine ⟨fun T => cA * ρ ^ T + Real.sqrt (Cd * η T), ?_, ?_⟩
+  · have h1 : Tendsto (fun T : ℕ => cA * ρ ^ T) atTop (nhds 0) := by
       have h2 := tendsto_pow_atTop_nhds_zero_of_lt_one hρ0.le hρ1
-      have h3 := h2.const_mul (cA * c₁)
+      have h3 := h2.const_mul cA
       simpa using h3
     have h4 : Tendsto (fun T => Real.sqrt (Cd * η T)) atTop (nhds 0) := by
       have h5 : Tendsto (fun T => Cd * η T) atTop (nhds 0) := by
@@ -388,194 +583,24 @@ theorem isGAS_of_C1_C2 (hC1 : Sys.C1) (hC2 : Sys.C2) : Sys.IsGAS := by
     have h7 := h1.add h4
     simpa using h7
   · intro T a
-    set dev := Sys.optInitLim a - Sys.optInit a T with hdev
-    set ωdev : ℕ → Fin m → ℝ := fun j => Sys.ctrlInf hC1 a j
-      - Sys.lq.optCtrl (Sys.optInit a T) T j with hωdev
-    -- deviation cost is within the uniform gap
-    have hdevcost : Sys.fieCost 0 dev ωdev T ≤ η T * ‖a‖ ^ 2 := by
-      have h1 := Sys.fieCost_dev_le_gap hC1 hC2 a T
-      have h2 := hηb a T
-      rw [← hdev, ← hωdev] at h1
-      linarith
-    have hdevcost0 : 0 ≤ Sys.fieCost 0 dev ωdev T :=
-      Sys.fieCost_nonneg _ _ _ _
-    -- split the deviation cost into prior and tail parts
-    have hcost_expand : Sys.fieCost 0 dev ωdev T
-        = Sys.priorPenalty 0 dev + Sys.lq.cost dev ωdev T := rfl
-    have hcost_nonneg : 0 ≤ Sys.lq.cost dev ωdev T :=
-      Finset.sum_nonneg fun k _ => Sys.lq.stage_nonneg _ _
-    have hprior_nonneg := Sys.priorPenalty_nonneg 0 dev
-    have hprior_le : Sys.priorPenalty 0 dev
-        ≤ Sys.fieCost 0 dev ωdev T := by
-      rw [hcost_expand]; linarith
-    have hcost_le : Sys.lq.cost dev ωdev T
-        ≤ Sys.fieCost 0 dev ωdev T := by
-      rw [hcost_expand]; linarith
-    -- the initial deviation is range-constrained; bound its norm
-    obtain ⟨v, hv⟩ := Sys.feasibleDir_sub
-      (Sys.optInitLim_feasible hC1 hC2 a) (Sys.optInit_feasible a T)
-    have hdev1 : blk₁ dev = Sys.Sig₁ *ᵥ blk₁ v := by
-      rw [hdev, hv, Sys.Jmat_mulVec]
-      simp
-    have hdev2 : blk₂ dev = Sys.Sig₂ *ᵥ blk₂ v := by
-      rw [hdev, hv, Sys.Jmat_mulVec]
-      simp
-    have hprior_eq : Sys.priorPenalty 0 dev
-        = quadForm (symmPinv Sys.hSig₁.1) (blk₁ dev)
-          + quadForm (symmPinv Sys.hSig₂.1) (blk₂ dev) := by
-      unfold priorPenalty
-      rw [sub_zero]
-    have hb1 : ‖blk₁ dev‖ ^ 2
-        ≤ Cr₁ * quadForm (symmPinv Sys.hSig₁.1) (blk₁ dev) := by
-      conv_lhs => rw [hdev1]
-      rw [hdev1, quadForm_symmPinv_image Sys.hSig₁]
-      exact hrb₁ _
-    have hb2 : ‖blk₂ dev‖ ^ 2
-        ≤ Cr₂ * quadForm (symmPinv Sys.hSig₂.1) (blk₂ dev) := by
-      conv_lhs => rw [hdev2]
-      rw [hdev2, quadForm_symmPinv_image Sys.hSig₂]
-      exact hrb₂ _
-    have hq1 := Sys.hSig₁.symmPinv.quadForm_nonneg (blk₁ dev)
-    have hq2 := Sys.hSig₂.symmPinv.quadForm_nonneg (blk₂ dev)
-    have hdevnorm : ‖dev‖ ^ 2
-        ≤ (Cr₁ + Cr₂) * Sys.priorPenalty 0 dev := by
-      have h1 := sq_norm_le_blocks dev
-      rw [hprior_eq]
-      nlinarith
-    -- output and input energies of the deviation trajectory
-    have hsplit : Sys.lq.cost dev ωdev T
-        = ∑ k ∈ Finset.range T,
-          (quadForm Sys.lq.Qs (Sys.lq.traj dev ωdev k)
-            + quadForm Sys.lq.Ru (ωdev k)) := rfl
-    have hsumν : cR * ∑ k ∈ Finset.range T,
-        ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2
-          ≤ Sys.lq.cost dev ωdev T := by
-      rw [hsplit, Finset.mul_sum]
-      refine Finset.sum_le_sum fun k _ => ?_
-      have h1 : cR * ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2
-          ≤ quadForm Sys.lq.Qs (Sys.lq.traj dev ωdev k) := by
-        rw [Sys.quadForm_Qs]
-        exact hRb _
-      have h2 : 0 ≤ quadForm Sys.lq.Ru (ωdev k) :=
-        Sys.lq.hRu.posSemidef.quadForm_nonneg _
-      linarith
-    have hsumω : cQ * ∑ k ∈ Finset.range T, ‖ωdev k‖ ^ 2
-        ≤ Sys.lq.cost dev ωdev T := by
-      rw [hsplit, Finset.mul_sum]
-      refine Finset.sum_le_sum fun k _ => ?_
-      have h1 : cQ * ‖ωdev k‖ ^ 2 ≤ quadForm Sys.lq.Ru (ωdev k) := hQb _
-      have h2 : 0 ≤ quadForm Sys.lq.Qs (Sys.lq.traj dev ωdev k) :=
-        Sys.lq.hQs.quadForm_nonneg _
-      linarith
-    -- terminal bound on the deviation trajectory through the injection
-    have hrec : ∀ k, Sys.lq.traj dev ωdev (k + 1)
-        = Sys.fullA *ᵥ Sys.lq.traj dev ωdev k + Sys.lq.B *ᵥ ωdev k :=
-      fun k => Sys.lq.traj_succ dev ωdev k
-    have hxT := hinj (fun k => Sys.lq.traj dev ωdev k) ωdev hrec T
-    simp only [LQSystem.traj_zero] at hxT
-    have hxT2 : ‖Sys.lq.traj dev ωdev T‖ ^ 2
-        ≤ Cd * (η T * ‖a‖ ^ 2) := by
-      have hν2 : ∑ k ∈ Finset.range T,
-          ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2
-            ≤ (1 / cR) * Sys.fieCost 0 dev ωdev T := by
-        rw [div_mul_eq_mul_div, le_div_iff₀ hcR]
-        calc (∑ k ∈ Finset.range T,
-            ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2) * cR
-            = cR * ∑ k ∈ Finset.range T,
-              ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2 := mul_comm _ _
-        _ ≤ Sys.lq.cost dev ωdev T := hsumν
-        _ ≤ 1 * Sys.fieCost 0 dev ωdev T := by
-            rw [one_mul]; exact hcost_le
-      have hω2 : ∑ k ∈ Finset.range T, ‖ωdev k‖ ^ 2
-          ≤ (1 / cQ) * Sys.fieCost 0 dev ωdev T := by
-        rw [div_mul_eq_mul_div, le_div_iff₀ hcQ]
-        calc (∑ k ∈ Finset.range T, ‖ωdev k‖ ^ 2) * cQ
-            = cQ * ∑ k ∈ Finset.range T, ‖ωdev k‖ ^ 2 := mul_comm _ _
-        _ ≤ Sys.lq.cost dev ωdev T := hsumω
-        _ ≤ 1 * Sys.fieCost 0 dev ωdev T := by
-            rw [one_mul]; exact hcost_le
-      have hd2 : ‖dev‖ ^ 2 ≤ (Cr₁ + Cr₂) * Sys.fieCost 0 dev ωdev T := by
-        have h1 : (Cr₁ + Cr₂) * Sys.priorPenalty 0 dev
-            ≤ (Cr₁ + Cr₂) * Sys.fieCost 0 dev ωdev T :=
-          mul_le_mul_of_nonneg_left hprior_le (by positivity)
-        linarith
-      have hsum2 : ∑ k ∈ Finset.range T,
-          (‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2 + ‖ωdev k‖ ^ 2)
-            = (∑ k ∈ Finset.range T,
-              ‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2)
-              + ∑ k ∈ Finset.range T, ‖ωdev k‖ ^ 2 :=
-        Finset.sum_add_distrib
-      calc ‖Sys.lq.traj dev ωdev T‖ ^ 2
-          ≤ cinj * (‖dev‖ ^ 2 + ∑ k ∈ Finset.range T,
-            (‖Sys.fullC *ᵥ Sys.lq.traj dev ωdev k‖ ^ 2
-              + ‖ωdev k‖ ^ 2)) := hxT
-      _ ≤ cinj * ((Cr₁ + Cr₂ + 1 / cR + 1 / cQ)
-            * Sys.fieCost 0 dev ωdev T) := by
-          refine mul_le_mul_of_nonneg_left ?_ hcinj.le
-          rw [hsum2]
-          nlinarith
-      _ = Cd * Sys.fieCost 0 dev ωdev T := by rw [hCd]; ring
-      _ ≤ Cd * (η T * ‖a‖ ^ 2) :=
-          mul_le_mul_of_nonneg_left hdevcost hCd0.le
-    have hxTn : ‖Sys.lq.traj dev ωdev T‖
+    have h1 := hbound a T
+    have h2 : Real.sqrt (Cd * (Sys.valueLim a - Sys.value a T))
         ≤ Real.sqrt (Cd * η T) * ‖a‖ := by
-      have h1 : ‖Sys.lq.traj dev ωdev T‖
-          = Real.sqrt (‖Sys.lq.traj dev ωdev T‖ ^ 2) :=
-        (Real.sqrt_sq (norm_nonneg _)).symm
-      rw [h1]
-      have h2 : Cd * (η T * ‖a‖ ^ 2) = Cd * η T * ‖a‖ ^ 2 := by ring
-      calc Real.sqrt (‖Sys.lq.traj dev ωdev T‖ ^ 2)
-          ≤ Real.sqrt (Cd * η T * ‖a‖ ^ 2) :=
-            Real.sqrt_le_sqrt (by linarith [h2 ▸ hxT2])
+      have h3 : Cd * (Sys.valueLim a - Sys.value a T)
+          ≤ Cd * η T * ‖a‖ ^ 2 := by
+        have h4 := hηb a T
+        nlinarith
+      calc Real.sqrt (Cd * (Sys.valueLim a - Sys.value a T))
+          ≤ Real.sqrt (Cd * η T * ‖a‖ ^ 2) := Real.sqrt_le_sqrt h3
       _ = Real.sqrt (Cd * η T) * ‖a‖ := by
-          rw [Real.sqrt_mul (mul_nonneg hCd0.le (hηnn T)),
+          rw [Real.sqrt_mul (mul_nonneg hCd.le (hηnn T)),
             Real.sqrt_sq (norm_nonneg a)]
-    -- terminal identity: optimum = candidate − deviation
-    have hterm : Sys.optTerm a T
-        = Sum.elim (Sys.lqRed.Acl (Sys.Pinf hC1) ^ T
-            *ᵥ blk₁ (Sys.optInitLim a)) 0
-          - Sys.lq.traj dev ωdev T := by
-      have h1 : Sys.optInitLim a = Sys.optInit a T + dev := by
-        rw [hdev]; abel
-      have h2 : Sys.ctrlInf hC1 a = fun j =>
-          Sys.lq.optCtrl (Sys.optInit a T) T j + ωdev j := by
-        funext j
-        simp only [hωdev]
-        abel
-      have h3 := Sys.traj_ctrlInf hC1 hC2 a T
-      have h5 : Sys.lq.traj (Sys.optInitLim a) (Sys.ctrlInf hC1 a) T
-          = Sys.optTerm a T + Sys.lq.traj dev ωdev T := by
-        conv_lhs => rw [h1, h2]
-        rw [Sys.lq.traj_add]
-        congr 1
-        rw [Sys.lq.traj_optCtrl]
-        rfl
-      rw [h5] at h3
-      exact eq_sub_of_add_eq h3
-    -- assemble
-    have hcand : ‖(Sum.elim (Sys.lqRed.Acl (Sys.Pinf hC1) ^ T
-        *ᵥ blk₁ (Sys.optInitLim a)) 0 : Fin n₁ ⊕ Fin n₂ → ℝ)‖
-          ≤ cA * c₁ * ρ ^ T * ‖a‖ := by
-      refine (norm_sumElim_zero_le _).trans ?_
-      have h1 : ‖Sys.lqRed.Acl (Sys.Pinf hC1) ^ T
-          *ᵥ blk₁ (Sys.optInitLim a)‖
-            ≤ ‖Sys.lqRed.Acl (Sys.Pinf hC1) ^ T‖
-              * ‖blk₁ (Sys.optInitLim a)‖ :=
-        Matrix.linfty_opNorm_mulVec _ _
-      have h2 := hpowA T
-      have h3 := hξb a
-      have h4 : (0:ℝ) ≤ ρ ^ T := pow_nonneg hρ0.le T
-      nlinarith [norm_nonneg (blk₁ (Sys.optInitLim a)),
-        norm_nonneg (Sys.lqRed.Acl (Sys.Pinf hC1) ^ T), norm_nonneg a]
-    rw [hterm]
-    calc ‖Sum.elim (Sys.lqRed.Acl (Sys.Pinf hC1) ^ T
-          *ᵥ blk₁ (Sys.optInitLim a)) 0 - Sys.lq.traj dev ωdev T‖
-        ≤ ‖(Sum.elim (Sys.lqRed.Acl (Sys.Pinf hC1) ^ T
-            *ᵥ blk₁ (Sys.optInitLim a)) 0 : Fin n₁ ⊕ Fin n₂ → ℝ)‖
-          + ‖Sys.lq.traj dev ωdev T‖ := norm_sub_le _ _
-    _ ≤ cA * c₁ * ρ ^ T * ‖a‖ + Real.sqrt (Cd * η T) * ‖a‖ :=
-        add_le_add hcand hxTn
-    _ = (cA * c₁ * ρ ^ T + Real.sqrt (Cd * η T)) * ‖a‖ := by ring
+    calc ‖Sys.optTerm a T‖
+        ≤ cA * ρ ^ T * ‖a‖
+          + Real.sqrt (Cd * (Sys.valueLim a - Sys.value a T)) := h1
+    _ ≤ cA * ρ ^ T * ‖a‖ + Real.sqrt (Cd * η T) * ‖a‖ :=
+        add_le_add le_rfl h2
+    _ = (cA * ρ ^ T + Real.sqrt (Cd * η T)) * ‖a‖ := by ring
 
 /-- **`prop:gas`**: the full-information estimator is globally
 asymptotically stable if and only if C1 and C2 hold. -/
