@@ -2185,6 +2185,91 @@ theorem exists_gap_rate_of_C3w (hC1 : Sys.C1) (hC2 : Sys.C2)
   _ = (K ^ 2 * Cabs + cP * (cprop * (1 + c₁)) ^ 2) * γ ^ T * ‖a‖ ^ 2 := by
       ring
 
+/-! ### `thm:ges-fi` and the headline dichotomy (`thm:gas-ges-fi`) -/
+
+/-- **GES under C1 ∧ C2 ∧ C3w** (`thm:ges-fi`, sufficiency): the
+optimal terminal error decays geometrically, linearly in the prior
+mismatch. -/
+theorem isGES_of_C1_C2_C3w (hC1 : Sys.C1) (hC2 : Sys.C2)
+    (hC3 : Sys.C3w) : Sys.IsGES := by
+  obtain ⟨cA, Cd, ρ, hcA, hCd, hρ0, hρ1, hbound⟩ :=
+    Sys.exists_optTerm_bound hC1 hC2
+  obtain ⟨ce, γ, hce, hγ0, hγ1, hrate⟩ :=
+    Sys.exists_gap_rate_of_C3w hC1 hC2 hC3
+  refine ⟨cA + Real.sqrt (Cd * ce), max ρ (Real.sqrt γ), by positivity,
+    lt_max_of_lt_left hρ0, max_lt hρ1 ?_, ?_⟩
+  · rw [show (1:ℝ) = Real.sqrt 1 from Real.sqrt_one.symm]
+    exact Real.sqrt_lt_sqrt hγ0.le hγ1
+  intro T a
+  have h1 := hbound a T
+  have h2 : Real.sqrt (Cd * (Sys.valueLim a - Sys.value a T))
+      ≤ Real.sqrt (Cd * ce) * Real.sqrt γ ^ T * ‖a‖ := by
+    have h3 : Cd * (Sys.valueLim a - Sys.value a T)
+        ≤ Cd * ce * γ ^ T * ‖a‖ ^ 2 := by
+      have h4 := hrate a T
+      nlinarith
+    have h5 : Real.sqrt (Cd * ce * γ ^ T * ‖a‖ ^ 2)
+        = Real.sqrt (Cd * ce) * Real.sqrt γ ^ T * ‖a‖ := by
+      have h6 : Real.sqrt γ ^ T * Real.sqrt γ ^ T = γ ^ T := by
+        rw [← mul_pow, Real.mul_self_sqrt hγ0.le]
+      have h7 : Real.sqrt (γ ^ T) = Real.sqrt γ ^ T := by
+        rw [← h6, Real.sqrt_mul_self
+          (pow_nonneg (Real.sqrt_nonneg γ) T)]
+      rw [Real.sqrt_mul (by positivity), Real.sqrt_mul
+        (mul_nonneg hCd.le hce.le), h7, Real.sqrt_sq (norm_nonneg a)]
+    calc Real.sqrt (Cd * (Sys.valueLim a - Sys.value a T))
+        ≤ Real.sqrt (Cd * ce * γ ^ T * ‖a‖ ^ 2) := Real.sqrt_le_sqrt h3
+    _ = Real.sqrt (Cd * ce) * Real.sqrt γ ^ T * ‖a‖ := h5
+  have h8 : ρ ^ T ≤ max ρ (Real.sqrt γ) ^ T :=
+    pow_le_pow_left₀ hρ0.le (le_max_left _ _) T
+  have h9 : Real.sqrt γ ^ T ≤ max ρ (Real.sqrt γ) ^ T :=
+    pow_le_pow_left₀ (Real.sqrt_nonneg γ) (le_max_right _ _) T
+  calc ‖Sys.optTerm a T‖
+      ≤ cA * ρ ^ T * ‖a‖
+        + Real.sqrt (Cd * (Sys.valueLim a - Sys.value a T)) := h1
+  _ ≤ cA * max ρ (Real.sqrt γ) ^ T * ‖a‖
+        + Real.sqrt (Cd * ce) * max ρ (Real.sqrt γ) ^ T * ‖a‖ := by
+      refine add_le_add ?_ (h2.trans ?_)
+      · refine mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_left h8 hcA.le) (norm_nonneg a)
+      · refine mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_left h9 (Real.sqrt_nonneg _))
+          (norm_nonneg a)
+  _ = (cA + Real.sqrt (Cd * ce)) * max ρ (Real.sqrt γ) ^ T * ‖a‖ := by
+      ring
+
+/-- GES is stronger than GAS. -/
+theorem IsGES.isGAS (h : Sys.IsGES) : Sys.IsGAS := by
+  obtain ⟨c, ρ, hc, hρ0, hρ1, hb⟩ := h
+  refine ⟨fun T => c * ρ ^ T, ?_, hb⟩
+  have h1 := tendsto_pow_atTop_nhds_zero_of_lt_one hρ0.le hρ1
+  have h2 := h1.const_mul c
+  simpa using h2
+
+/-- **`thm:ges-fi`**: given C1 ∧ C2, the estimator is GES iff C3w. -/
+theorem isGES_iff_C3w (hC1 : Sys.C1) (hC2 : Sys.C2) :
+    Sys.IsGES ↔ Sys.C3w :=
+  ⟨fun h => Sys.C3w_of_isGES hC1 hC2 h,
+    fun h => Sys.isGES_of_C1_C2_C3w hC1 hC2 h⟩
+
+/-- **`thm:gas-ges-fi`(ii)**: the estimator is GES iff C1 ∧ C2 ∧ C3w. -/
+theorem isGES_iff_C1_C2_C3w :
+    Sys.IsGES ↔ Sys.C1 ∧ Sys.C2 ∧ Sys.C3w := by
+  constructor
+  · intro h
+    obtain ⟨hC1, hC2⟩ := Sys.isGAS_iff_C1_and_C2.mp h.isGAS
+    exact ⟨hC1, hC2, Sys.C3w_of_isGES hC1 hC2 h⟩
+  · rintro ⟨hC1, hC2, hC3⟩
+    exact Sys.isGES_of_C1_C2_C3w hC1 hC2 hC3
+
+/-- **`thm:gas-ges-fi`** — the stability dichotomy for the
+full-information estimator: GAS iff C1 ∧ C2, and GES iff
+C1 ∧ C2 ∧ C3w. -/
+theorem gas_ges_dichotomy :
+    (Sys.IsGAS ↔ Sys.C1 ∧ Sys.C2)
+      ∧ (Sys.IsGES ↔ Sys.C1 ∧ Sys.C2 ∧ Sys.C3w) :=
+  ⟨Sys.isGAS_iff_C1_and_C2, Sys.isGES_iff_C1_C2_C3w⟩
+
 end FIESystem
 
 end Estimation
