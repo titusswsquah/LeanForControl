@@ -3,6 +3,8 @@ import LeanForControl.Estimation.Basic
 import LeanForControl.Estimation.Coercive
 import LeanForControl.Estimation.FIE
 import LeanForControl.Estimation.Prelim
+import LeanForControl.Estimation.Infhor
+import LeanForControl.Estimation.GAS
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
@@ -19,6 +21,7 @@ import LeanForControl.LinearSystems.UnobservableBlock
 import LeanForControl.LinearSystems.SpectralDynamics
 import LeanForControl.LinearSystems.SpectralGrowth
 import LeanForControl.LinearSystems.SymmPinv
+import LeanForControl.LinearSystems.ConstrainedQuadratic
 import LeanForControl.LinearSystems.UniformExpStability
 import LeanForControl.Lyapunov.Defs
 import LeanForControl.Lyapunov.Autonomous
