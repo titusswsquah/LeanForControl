@@ -394,6 +394,67 @@ lemma _root_.Matrix.PosSemidef.mulVec_eq_zero_of_quadForm_eq_zero
   rw [dotProduct_comm] at h
   simpa [dotProduct, Pi.single_apply] using h
 
+/-- `‖Wz‖² ≤ C·(z'Wz)` for PSD `W`: the image norm is controlled by the
+prior energy (the `eq:rangebound` mechanism of the C2-necessity patch). -/
+lemma _root_.Matrix.PosSemidef.exists_sq_norm_mulVec_le {W : Matrix ι ι ℝ}
+    (hW : W.PosSemidef) :
+    ∃ C : ℝ, 0 < C ∧ ∀ z : ι → ℝ, ‖W *ᵥ z‖ ^ 2 ≤ C * quadForm W z := by
+  classical
+  have hspec := hW.1.spectral_theorem
+  rw [Unitary.conjStarAlgAut_apply] at hspec
+  set U : Matrix ι ι ℝ := (hW.1.eigenvectorUnitary : Matrix ι ι ℝ) with hU
+  set lam : ι → ℝ := hW.1.eigenvalues with hlam
+  have hstar : star U = Uᵀ := by
+    rw [star_eq_conjTranspose, conjTranspose_eq_transpose_of_trivial]
+  have hUU : U * star U = 1 := by
+    rw [hU]; exact Unitary.coe_mul_star_self _
+  have hUU' : star U * U = 1 := by
+    rw [hU]; exact Unitary.coe_star_mul_self _
+  have hWdecomp : W = U * diagonal lam * star U := by
+    simpa [hU, hlam] using hspec
+  refine ⟨1 + ∑ i, lam i, ?_, fun z => ?_⟩
+  · have h : (0 : ℝ) ≤ ∑ i, lam i :=
+      Finset.sum_nonneg fun i _ => hW.eigenvalues_nonneg i
+    linarith
+  · set c : ι → ℝ := star U *ᵥ z with hc
+    -- orthogonal invariance of the Euclidean pairing
+    have horth : ∀ y : ι → ℝ, (U *ᵥ y) ⬝ᵥ (U *ᵥ y) = y ⬝ᵥ y := by
+      intro y
+      rw [mulVec_dotProduct_eq, Matrix.mulVec_mulVec, ← hstar, hUU',
+        Matrix.one_mulVec]
+    have hWz : W *ᵥ z = U *ᵥ (diagonal lam *ᵥ c) := by
+      rw [hWdecomp, hc, ← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec]
+    have h1 : (W *ᵥ z) ⬝ᵥ (W *ᵥ z) = ∑ i, lam i ^ 2 * c i ^ 2 := by
+      rw [hWz, horth]
+      simp only [dotProduct, mulVec_diagonal]
+      exact Finset.sum_congr rfl fun i _ => by ring
+    have h2 : quadForm W z = ∑ i, lam i * c i ^ 2 := by
+      have h0 : quadForm W z
+          = quadForm (U * diagonal lam * star U) z := by
+        conv_lhs => rw [hWdecomp]
+      rw [h0, quadForm, ← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec,
+        dotProduct_mulVec_eq, ← hstar, ← hc]
+      simp only [dotProduct, mulVec_diagonal]
+      exact Finset.sum_congr rfl fun i _ => by ring
+    have h3 : ‖W *ᵥ z‖ ^ 2 ≤ (W *ᵥ z) ⬝ᵥ (W *ᵥ z) := sq_norm_le_dotProduct _
+    have h4 : ∑ i, lam i ^ 2 * c i ^ 2
+        ≤ (1 + ∑ i, lam i) * ∑ i, lam i * c i ^ 2 := by
+      rw [Finset.mul_sum]
+      refine Finset.sum_le_sum fun i _ => ?_
+      have h5 : lam i ≤ 1 + ∑ i', lam i' := by
+        have h6 : lam i ≤ ∑ i', lam i' :=
+          Finset.single_le_sum (f := fun i' => lam i')
+            (fun i' _ => hW.eigenvalues_nonneg i') (Finset.mem_univ i)
+        linarith
+      have h7 : (0 : ℝ) ≤ lam i * c i ^ 2 :=
+        mul_nonneg (hW.eigenvalues_nonneg i) (sq_nonneg _)
+      calc lam i ^ 2 * c i ^ 2 = lam i * (lam i * c i ^ 2) := by ring
+      _ ≤ (1 + ∑ i', lam i') * (lam i * c i ^ 2) :=
+          mul_le_mul_of_nonneg_right h5 h7
+    rw [h1] at h3
+    rw [h2]
+    linarith
+
 end QuadSolve
 
 end LinearSystems

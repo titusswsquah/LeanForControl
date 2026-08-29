@@ -1,5 +1,6 @@
 import LeanForControl.Estimation.FIE
 import LeanForControl.LinearSystems.StagedFacts
+import LeanForControl.LinearSystems.UniformExpStability
 import Architect
 
 /-!
@@ -16,6 +17,8 @@ for the reduced system under C1.
 namespace Estimation
 
 open Matrix LinearSystems
+
+open scoped Matrix.Norms.Operator
 
 variable {n₁ n₂ m p : ℕ}
 
@@ -305,6 +308,205 @@ theorem lqRed_lqr (hC1 : Sys.C1) :
   have h2 : Sys.lqRed.B = -Sys.G₁ := rfl
   rw [h1, h2, complexify_neg]
   exact Sys.hStab.neg
+
+
+/-! ### The propagator bound (`lem:prelim`(4)) and uniform Riccati bounds -/
+
+/-- A convergent sequence of matrices is bounded in norm. -/
+private lemma exists_norm_bound_of_tendsto {k l : ℕ}
+    {f : ℕ → Matrix (Fin k) (Fin l) ℝ} {L : Matrix (Fin k) (Fin l) ℝ}
+    (h : Filter.Tendsto f Filter.atTop (nhds L)) :
+    ∃ c : ℝ, 0 < c ∧ ∀ T, ‖f T‖ ≤ c := by
+  have h1 : ∀ᶠ T in Filter.atTop, dist (f T) L < 1 :=
+    h (Metric.ball_mem_nhds L one_pos)
+  obtain ⟨K, hK⟩ := Filter.eventually_atTop.mp h1
+  refine ⟨‖L‖ + 1 + ∑ k' ∈ Finset.range K, ‖f k'‖ + 1, by positivity, fun T => ?_⟩
+  have hsum : (0 : ℝ) ≤ ∑ k' ∈ Finset.range K, ‖f k'‖ :=
+    Finset.sum_nonneg fun _ _ => norm_nonneg _
+  rcases lt_or_ge T K with hT | hT
+  · have h2 : ‖f T‖ ≤ ∑ k' ∈ Finset.range K, ‖f k'‖ :=
+      Finset.single_le_sum (f := fun k' => ‖f k'‖) (fun _ _ => norm_nonneg _)
+        (Finset.mem_range.mpr hT)
+    have h3 : (0 : ℝ) ≤ ‖L‖ := norm_nonneg _
+    linarith
+  · have h2 := hK T hT
+    rw [dist_eq_norm] at h2
+    have h3 : ‖f T‖ ≤ ‖f T - L‖ + ‖L‖ := by
+      calc ‖f T‖ = ‖f T - L + L‖ := by rw [sub_add_cancel]
+      _ ≤ ‖f T - L‖ + ‖L‖ := norm_add_le _ _
+    linarith
+
+/-- **`lem:prelim`(4)**: the reduced time-varying closed-loop propagators
+decay geometrically, uniformly in start index and length. Consumes the
+staged `fact:lqr` (via `lqRed_lqr`) and `fact:uniexp`. -/
+theorem exists_propagator_bound (hC1 : Sys.C1) :
+    ∃ c ρ : ℝ, 0 < c ∧ 0 < ρ ∧ ρ < 1 ∧ ∀ i l : ℕ,
+      ‖revProd (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r)) i l‖ ≤ c * ρ ^ l := by
+  obtain ⟨P, hPpsd, hfix, hSchur, hric, hK⟩ := Sys.lqRed_lqr hC1
+  have hAcl : Filter.Tendsto (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r))
+      Filter.atTop (nhds (Sys.lqRed.Acl P)) := by
+    have h1 : Filter.Tendsto
+        (fun r => Sys.lqRed.B * Sys.lqRed.gainK (Sys.lqRed.ric r))
+        Filter.atTop (nhds (Sys.lqRed.B * Sys.lqRed.gainK P)) :=
+      ((Continuous.matrix_mul continuous_const continuous_id).tendsto _).comp hK
+    exact Filter.Tendsto.sub tendsto_const_nhds h1
+  exact revProd_norm_le_of_tendsto _ _ hAcl hSchur
+
+/-- Uniform bound on the reduced Riccati iterates, under C1. -/
+theorem exists_ricRed_bound (hC1 : Sys.C1) :
+    ∃ c : ℝ, 0 < c ∧ ∀ T, ‖Sys.lqRed.ric T‖ ≤ c := by
+  obtain ⟨P, _, _, _, hric, _⟩ := Sys.lqRed_lqr hC1
+  exact exists_norm_bound_of_tendsto hric
+
+
+/-! ### The uniform value bound (`lem:unibounded`) and `eq:apriori` -/
+
+/-- Block norms are dominated by the full norm. -/
+lemma norm_blk₁_le (a : Fin n₁ ⊕ Fin n₂ → ℝ) : ‖blk₁ a‖ ≤ ‖a‖ := by
+  refine (pi_norm_le_iff_of_nonneg (norm_nonneg a)).mpr fun i => ?_
+  exact norm_le_pi_norm a (Sum.inl i)
+
+lemma norm_blk₂_le (a : Fin n₁ ⊕ Fin n₂ → ℝ) : ‖blk₂ a‖ ≤ ‖a‖ := by
+  refine (pi_norm_le_iff_of_nonneg (norm_nonneg a)).mpr fun i => ?_
+  exact norm_le_pi_norm a (Sum.inr i)
+
+/-- A trajectory started in the stabilizable block stays there and follows
+the reduced dynamics. -/
+lemma lq_traj_sumElim_zero (x₁ : Fin n₁ → ℝ) (ω : ℕ → Fin m → ℝ) : ∀ k,
+    Sys.lq.traj (Sum.elim x₁ 0) ω k = Sum.elim (Sys.lqRed.traj x₁ ω k) 0
+  | 0 => rfl
+  | k + 1 => by
+    rw [LQSystem.traj_succ, LQSystem.traj_succ,
+      lq_traj_sumElim_zero x₁ ω k, lq_A_eq, lq_B_eq]
+    rw [Matrix.fromBlocks_mulVec]
+    funext i
+    cases i with
+    | inl i =>
+      simp only [Sum.elim_inl, Pi.add_apply, Matrix.neg_mulVec,
+        Matrix.fromRows_mulVec, Pi.neg_apply, Sum.elim_inr]
+      have h1 : Sys.lqRed.A = Sys.A₁ := rfl
+      have h2 : Sys.lqRed.B = -Sys.G₁ := rfl
+      rw [h1, h2]
+      simp [Matrix.neg_mulVec]
+    | inr i =>
+      simp [Matrix.neg_mulVec, Matrix.fromRows_mulVec]
+
+/-- Cost of a stabilizable-block trajectory equals the reduced cost. -/
+lemma lq_cost_sumElim_zero (x₁ : Fin n₁ → ℝ) (ω : ℕ → Fin m → ℝ) (T : ℕ) :
+    Sys.lq.cost (Sum.elim x₁ 0) ω T = Sys.lqRed.cost x₁ ω T := by
+  unfold LQSystem.cost
+  refine Finset.sum_congr rfl fun k _ => ?_
+  rw [Sys.lq_traj_sumElim_zero]
+  congr 1
+  rw [Sys.quadForm_Qs]
+  have h1 : Sys.fullC *ᵥ Sum.elim (Sys.lqRed.traj x₁ ω k) 0
+      = Sys.C₁ *ᵥ Sys.lqRed.traj x₁ ω k := by
+    rw [fullC, Matrix.fromCols_mulVec_sumElim]
+    simp
+  rw [h1]
+  have h2 : quadForm Sys.lqRed.Qs (Sys.lqRed.traj x₁ ω k)
+      = quadForm Sys.Ri (Sys.C₁ *ᵥ Sys.lqRed.traj x₁ ω k) := by
+    have h3 : Sys.lqRed.Qs = Sys.C₁ᵀ * Sys.Ri * Sys.C₁ := rfl
+    rw [h3, ← quadForm_mulVec]
+  rw [h2]
+
+/-- **Uniform value bound** (`lem:unibounded`): under C1 and C2 the optimal
+value is bounded by a fixed multiple of `‖a‖²`, uniformly in the horizon. -/
+theorem exists_value_bound (hC1 : Sys.C1) (hC2 : Sys.C2) :
+    ∃ c : ℝ, 0 < c ∧ ∀ (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ),
+      Sys.value a T ≤ c * ‖a‖ ^ 2 := by
+  obtain ⟨P, hPpsd, hfix, hSchur, hric, hK⟩ := Sys.lqRed_lqr hC1
+  obtain ⟨c₂, hc₂, hqb₂⟩ := exists_quadForm_le (symmPinv Sys.hSig₂.1)
+  obtain ⟨cP, hcP, hqbP⟩ := exists_quadForm_le P
+  refine ⟨c₂ + cP, by positivity, fun a T => ?_⟩
+  -- the candidate: start at `(a₁, 0)` and roll out the frozen reduced gain
+  set e₀ : Fin n₁ ⊕ Fin n₂ → ℝ := Sum.elim (blk₁ a) 0 with he₀
+  set ω : ℕ → Fin m → ℝ := fun j =>
+    -(Sys.lqRed.gainK P *ᵥ (Sys.lqRed.Acl P ^ j *ᵥ blk₁ a)) with hω
+  have hfeas : Sys.Feasible a e₀ := by
+    constructor
+    · refine ⟨0, ?_⟩
+      rw [he₀]
+      funext i
+      simp
+    · refine ⟨Sys.Sig₂⁻¹ *ᵥ (-(blk₂ a)), ?_⟩
+      rw [Matrix.mulVec_mulVec, Matrix.mul_nonsing_inv _
+        ((Matrix.isUnit_iff_isUnit_det _).mp hC2.isUnit), Matrix.one_mulVec,
+        he₀]
+      funext i
+      simp
+  have hval := Sys.value_le_fieCost hfeas ω T
+  -- the candidate's cost
+  have hprior : Sys.priorPenalty a e₀ = quadForm (symmPinv Sys.hSig₂.1) (blk₂ a) := by
+    unfold priorPenalty
+    have h1 : blk₁ (e₀ - a) = 0 := by
+      rw [he₀]
+      funext i
+      simp
+    have h2 : blk₂ (e₀ - a) = -(blk₂ a) := by
+      rw [he₀]
+      funext i
+      simp
+    rw [h1, h2]
+    have h3 : quadForm (symmPinv Sys.hSig₂.1) (-(blk₂ a))
+        = quadForm (symmPinv Sys.hSig₂.1) (blk₂ a) := quadForm_neg _ _
+    rw [h3, quadForm_zero]
+    ring
+  have hcost : Sys.lq.cost e₀ ω T ≤ quadForm P (blk₁ a) := by
+    rw [he₀, Sys.lq_cost_sumElim_zero, hω,
+      Sys.lqRed.cost_fixedGain hPpsd hfix]
+    have h1 : 0 ≤ quadForm P (Sys.lqRed.Acl P ^ T *ᵥ blk₁ a) :=
+      hPpsd.quadForm_nonneg _
+    linarith
+  have h4 : quadForm (symmPinv Sys.hSig₂.1) (blk₂ a) ≤ c₂ * ‖a‖ ^ 2 := by
+    refine le_trans (hqb₂ (blk₂ a)) ?_
+    have h5 := norm_blk₂_le a
+    have h6 : ‖blk₂ a‖ ^ 2 ≤ ‖a‖ ^ 2 := by
+      have h0 : (0 : ℝ) ≤ ‖blk₂ a‖ := norm_nonneg _
+      gcongr
+    exact mul_le_mul_of_nonneg_left h6 hc₂.le
+  have h7 : quadForm P (blk₁ a) ≤ cP * ‖a‖ ^ 2 := by
+    refine le_trans (hqbP (blk₁ a)) ?_
+    have h5 := norm_blk₁_le a
+    have h6 : ‖blk₁ a‖ ^ 2 ≤ ‖a‖ ^ 2 := by
+      have h0 : (0 : ℝ) ≤ ‖blk₁ a‖ := norm_nonneg _
+      gcongr
+    exact mul_le_mul_of_nonneg_left h6 hcP.le
+  unfold fieCost at hval
+  rw [hprior] at hval
+  linarith
+
+/-- **`eq:apriori`**: the optimal initial deviation of the stabilizable
+block is linearly bounded by the prior mismatch, uniformly in the horizon. -/
+theorem exists_optInit_blk₁_bound (hC1 : Sys.C1) (hC2 : Sys.C2) :
+    ∃ c : ℝ, 0 < c ∧ ∀ (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ),
+      ‖blk₁ (Sys.optInit a T - a)‖ ≤ c * ‖a‖ := by
+  obtain ⟨cv, hcv, hval⟩ := Sys.exists_value_bound hC1 hC2
+  obtain ⟨Cr, hCr, hrb⟩ := Sys.hSig₁.exists_sq_norm_mulVec_le
+  refine ⟨Real.sqrt (Cr * cv), Real.sqrt_pos.mpr (by positivity), fun a T => ?_⟩
+  obtain ⟨z, hz⟩ := (Sys.optInit_feasible a T).1
+  -- the prior term of the value dominates the Σ₁-energy of the deviation
+  have h1 : quadForm (symmPinv Sys.hSig₁.1) (blk₁ (Sys.optInit a T - a))
+      ≤ Sys.value a T := by
+    have h2 : 0 ≤ quadForm (symmPinv Sys.hSig₂.1) (blk₂ (Sys.optInit a T - a)) :=
+      Sys.hSig₂.symmPinv.quadForm_nonneg _
+    have h3 : 0 ≤ quadForm (Sys.lq.ric T) (Sys.optInit a T) :=
+      (Sys.lq.ric_posSemidef T).quadForm_nonneg _
+    unfold value outerObj priorPenalty
+    linarith
+  have h4 : ‖blk₁ (Sys.optInit a T - a)‖ ^ 2 ≤ Cr * cv * ‖a‖ ^ 2 := by
+    rw [hz] at h1 ⊢
+    rw [quadForm_symmPinv_mulVec Sys.hSig₁] at h1
+    calc ‖Sys.Sig₁ *ᵥ z‖ ^ 2 ≤ Cr * quadForm Sys.Sig₁ z := hrb z
+    _ ≤ Cr * Sys.value a T := mul_le_mul_of_nonneg_left h1 hCr.le
+    _ ≤ Cr * (cv * ‖a‖ ^ 2) := mul_le_mul_of_nonneg_left (hval a T) hCr.le
+    _ = Cr * cv * ‖a‖ ^ 2 := by ring
+  have h5 : ‖blk₁ (Sys.optInit a T - a)‖ ≤ Real.sqrt (Cr * cv * ‖a‖ ^ 2) := by
+    rw [← Real.sqrt_sq (norm_nonneg (blk₁ (Sys.optInit a T - a)))]
+    exact Real.sqrt_le_sqrt h4
+  calc ‖blk₁ (Sys.optInit a T - a)‖ ≤ Real.sqrt (Cr * cv * ‖a‖ ^ 2) := h5
+  _ = Real.sqrt (Cr * cv) * ‖a‖ := by
+      rw [Real.sqrt_mul (by positivity), Real.sqrt_sq (norm_nonneg a)]
 
 
 end FIESystem

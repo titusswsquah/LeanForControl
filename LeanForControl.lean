@@ -1,5 +1,7 @@
 import LeanForControl.Basic
 import LeanForControl.Estimation.Basic
+import LeanForControl.Estimation.FIE
+import LeanForControl.Estimation.Prelim
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
@@ -7,8 +9,11 @@ import LeanForControl.LinearSystems.Detectability
 import LeanForControl.LinearSystems.Hautus
 import LeanForControl.LinearSystems.MatrixLemmas
 import LeanForControl.LinearSystems.Observability
+import LeanForControl.LinearSystems.LQ
 import LeanForControl.LinearSystems.PolynomialSampling
+import LeanForControl.LinearSystems.QuadForm
 import LeanForControl.LinearSystems.Schur
+import LeanForControl.LinearSystems.StagedFacts
 import LeanForControl.LinearSystems.SpectralDynamics
 import LeanForControl.LinearSystems.SpectralGrowth
 import LeanForControl.LinearSystems.SymmPinv
