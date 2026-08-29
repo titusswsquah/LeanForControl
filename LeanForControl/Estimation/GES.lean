@@ -1,6 +1,8 @@
 import LeanForControl.Estimation.GAS
 import Architect
 
+set_option linter.style.show false
+
 /-!
 # The exponential track (`lem:val-rate`, `thm:ges-fi`)
 
@@ -346,7 +348,7 @@ lemma traj_rollE₁ (Kt : Matrix (Fin m) (Fin n₁) ℝ)
     cases i with
     | inl i =>
       simp only [Sum.elim_inl, Pi.add_apply, Matrix.neg_mulVec,
-        Matrix.fromRows_mulVec, Pi.neg_apply, Sum.elim_inr]
+        Matrix.fromRows_mulVec, Pi.neg_apply]
       show (Sys.A₁ *ᵥ Sys.rollE₁ Kt e₂ k) i
           + (Sys.A₁₂ *ᵥ (Sys.A₂ ^ k *ᵥ e₂)) i
           + -((Sys.G₁ *ᵥ (Kt *ᵥ Sys.rollE₁ Kt e₂ k)) i)
@@ -663,6 +665,434 @@ theorem exists_upper_bracket :
     mul_nonneg hD hA
   rw [hexp]
   linarith [hprior, hcost, hfin1, hfin2]
+
+/-! ### The harmonic gap floor (`lem:val-rate`(2)) -/
+
+/-- For a positive definite matrix the symmetric pseudoinverse is a
+genuine left inverse. -/
+lemma _root_.LinearSystems.posDef_symmPinv_mul_self {k : ℕ}
+    {P : Matrix (Fin k) (Fin k) ℝ} (hP : P.PosDef) :
+    symmPinv hP.1 * P = 1 := by
+  have hunit : IsUnit P.det := isUnit_iff_ne_zero.mpr (ne_of_gt hP.det_pos)
+  calc symmPinv hP.1 * P = 1 * (symmPinv hP.1 * P) :=
+        (Matrix.one_mul _).symm
+  _ = P⁻¹ * P * (symmPinv hP.1 * P) := by
+      rw [Matrix.nonsing_inv_mul _ hunit]
+  _ = P⁻¹ * (P * symmPinv hP.1 * P) := by
+      simp only [Matrix.mul_assoc]
+  _ = P⁻¹ * P := by rw [self_mul_symmPinv_mul_self hP.1]
+  _ = 1 := Matrix.nonsing_inv_mul _ hunit
+
+/-- Cost of the `K̃`-rollout under a uniform orbit bound: linear in the
+horizon. -/
+theorem exists_rollout_cost_bound :
+    ∃ c : ℝ, 0 < c ∧ ∀ (u : Fin n₂ → ℝ) (b : ℝ) (T : ℕ), 0 ≤ b →
+      (∀ k, ‖Sys.A₂ ^ k *ᵥ u‖ ≤ b) →
+      quadForm (Sys.lq.ric T) (Sum.elim 0 u)
+        ≤ c * (1 + T : ℝ) * b ^ 2 := by
+  classical
+  obtain ⟨Kt, hKt⟩ := Sys.exists_stabilizing_gain
+  obtain ⟨cs, ρs, hcs, hρ0, hρ1, hpow⟩ := hKt.exists_pow_norm_le
+  obtain ⟨cQs, hcQs, hQs⟩ := exists_quadForm_le Sys.lq.Qs
+  obtain ⟨cRu, hcRu, hRu⟩ := exists_quadForm_le Sys.lq.Ru
+  set cE : ℝ := cs * ‖Sys.A₁₂‖ * (1 - ρs)⁻¹ + 1 with hcE
+  have hρinv : 0 < (1 - ρs)⁻¹ := by
+    rw [inv_pos]
+    linarith
+  have hcE0 : 0 < cE := by positivity
+  refine ⟨(cQs * 4 + cRu * ‖Kt‖ ^ 2 * 2) * cE ^ 2, ?_, ?_⟩
+  · have hb : (0:ℝ) ≤ cRu * ‖Kt‖ ^ 2 := mul_nonneg hcRu.le (sq_nonneg _)
+    have hc : (0:ℝ) < cQs * 4 + cRu * ‖Kt‖ ^ 2 * 2 := by linarith
+    exact mul_pos hc (pow_pos hcE0 2)
+  intro u b T hb horb
+  -- the rollout's stable block is uniformly bounded
+  have hr : ∀ k, ‖Sys.rollE₁ Kt u k‖ ≤ cE * b := by
+    intro k
+    have hrec : ∀ j, Sys.rollE₁ Kt u (j + 1)
+        = (Sys.A₁ - Sys.G₁ * Kt) *ᵥ Sys.rollE₁ Kt u j
+          + (Sys.A₁₂ *ᵥ (Sys.A₂ ^ j *ᵥ u)) := fun j => rfl
+    have hvc := varConst (Sys.A₁ - Sys.G₁ * Kt) (Sys.rollE₁ Kt u)
+      (fun j => Sys.A₁₂ *ᵥ (Sys.A₂ ^ j *ᵥ u)) hrec k
+    have h0 : Sys.rollE₁ Kt u 0 = 0 := rfl
+    rw [h0, Matrix.mulVec_zero, zero_add] at hvc
+    rw [hvc]
+    have h1 : ∀ j ∈ Finset.range k,
+        ‖(Sys.A₁ - Sys.G₁ * Kt) ^ (k - 1 - j)
+            *ᵥ (Sys.A₁₂ *ᵥ (Sys.A₂ ^ j *ᵥ u))‖
+          ≤ cs * ρs ^ (k - 1 - j) * (‖Sys.A₁₂‖ * b) := by
+      intro j _
+      have h2 : ‖(Sys.A₁ - Sys.G₁ * Kt) ^ (k - 1 - j)
+          *ᵥ (Sys.A₁₂ *ᵥ (Sys.A₂ ^ j *ᵥ u))‖
+            ≤ ‖(Sys.A₁ - Sys.G₁ * Kt) ^ (k - 1 - j)‖
+              * (‖Sys.A₁₂‖ * ‖Sys.A₂ ^ j *ᵥ u‖) := by
+        refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+        exact mul_le_mul_of_nonneg_left (Matrix.linfty_opNorm_mulVec _ _)
+          (norm_nonneg _)
+      refine h2.trans (mul_le_mul (hpow _)
+        (mul_le_mul_of_nonneg_left (horb j) (norm_nonneg _))
+        (mul_nonneg (norm_nonneg _) (norm_nonneg _))
+        (mul_nonneg hcs.le (pow_nonneg hρ0.le _)))
+    have h10 : ‖∑ j ∈ Finset.range k, (Sys.A₁ - Sys.G₁ * Kt) ^ (k - 1 - j)
+        *ᵥ (Sys.A₁₂ *ᵥ (Sys.A₂ ^ j *ᵥ u))‖
+          ≤ ∑ j ∈ Finset.range k,
+            cs * ρs ^ (k - 1 - j) * (‖Sys.A₁₂‖ * b) :=
+      (norm_sum_le _ _).trans (Finset.sum_le_sum h1)
+    have h12 : ∑ j ∈ Finset.range k, ρs ^ (k - 1 - j) ≤ (1 - ρs)⁻¹ := by
+      rw [Finset.sum_range_reflect (fun j => ρs ^ j) k]
+      have hpos : 0 < 1 - ρs := by linarith
+      have hgs := geom_sum_eq (ne_of_lt hρ1) k
+      have heq : (ρs ^ k - 1) / (ρs - 1) = (1 - ρs ^ k) / (1 - ρs) := by
+        rw [show (1 - ρs ^ k) = -(ρs ^ k - 1) from by ring,
+          show (1 - ρs) = -(ρs - 1) from by ring, neg_div_neg_eq]
+      rw [hgs, heq, div_le_iff₀ hpos, inv_mul_cancel₀ (ne_of_gt hpos)]
+      nlinarith [pow_pos hρ0 k]
+    have h13 : (0:ℝ) ≤ ‖Sys.A₁₂‖ * b :=
+      mul_nonneg (norm_nonneg _) hb
+    have h11 : ∑ j ∈ Finset.range k,
+        cs * ρs ^ (k - 1 - j) * (‖Sys.A₁₂‖ * b)
+          ≤ cs * (1 - ρs)⁻¹ * (‖Sys.A₁₂‖ * b) := by
+      calc ∑ j ∈ Finset.range k, cs * ρs ^ (k - 1 - j) * (‖Sys.A₁₂‖ * b)
+          = cs * (∑ j ∈ Finset.range k, ρs ^ (k - 1 - j))
+            * (‖Sys.A₁₂‖ * b) := by
+            simp only [Finset.sum_mul, Finset.mul_sum]
+      _ ≤ cs * (1 - ρs)⁻¹ * (‖Sys.A₁₂‖ * b) := by
+            refine mul_le_mul_of_nonneg_right ?_ h13
+            exact mul_le_mul_of_nonneg_left h12 hcs.le
+    refine (h10.trans h11).trans ?_
+    rw [hcE]
+    nlinarith [mul_nonneg (mul_nonneg (mul_nonneg hcs.le
+      (norm_nonneg Sys.A₁₂)) hρinv.le) hb]
+  -- stage costs are bounded, and there are `T` of them
+  have h1 := Sys.lq.quadForm_ric_le_cost (Sum.elim 0 u)
+    (fun j => Kt *ᵥ Sys.rollE₁ Kt u j) T
+  refine h1.trans ?_
+  have h2 : Sys.lq.cost (Sum.elim 0 u)
+      (fun j => Kt *ᵥ Sys.rollE₁ Kt u j) T
+        = ∑ k ∈ Finset.range T,
+          (quadForm Sys.lq.Qs (Sum.elim (Sys.rollE₁ Kt u k)
+              (Sys.A₂ ^ k *ᵥ u))
+            + quadForm Sys.lq.Ru (Kt *ᵥ Sys.rollE₁ Kt u k)) := by
+    unfold LQSystem.cost
+    refine Finset.sum_congr rfl fun k _ => ?_
+    rw [Sys.traj_rollE₁]
+  rw [h2]
+  set Y : ℝ := cE * b with hY
+  have hYnn : (0:ℝ) ≤ Y := mul_nonneg hcE0.le hb
+  have hstage : ∀ k ∈ Finset.range T,
+      quadForm Sys.lq.Qs (Sum.elim (Sys.rollE₁ Kt u k)
+          (Sys.A₂ ^ k *ᵥ u))
+        + quadForm Sys.lq.Ru (Kt *ᵥ Sys.rollE₁ Kt u k)
+      ≤ (cQs * 4 + cRu * ‖Kt‖ ^ 2 * 2) * cE ^ 2 * b ^ 2 := by
+    intro k _
+    have hrk := hr k
+    have hbE : b ≤ cE * b := by
+      nlinarith [mul_nonneg (mul_nonneg (mul_nonneg hcs.le
+        (norm_nonneg Sys.A₁₂)) hρinv.le) hb]
+    have hsum : ‖Sum.elim (Sys.rollE₁ Kt u k) (Sys.A₂ ^ k *ᵥ u)‖
+        ≤ 2 * Y := by
+      refine (pi_norm_le_iff_of_nonneg (by linarith)).mpr fun i => ?_
+      cases i with
+      | inl i =>
+        show ‖Sys.rollE₁ Kt u k i‖ ≤ 2 * Y
+        refine le_trans (norm_le_pi_norm _ i) (hrk.trans ?_)
+        linarith
+      | inr i =>
+        show ‖(Sys.A₂ ^ k *ᵥ u) i‖ ≤ 2 * Y
+        refine le_trans (norm_le_pi_norm _ i)
+          ((horb k).trans (hbE.trans ?_))
+        rw [hY]
+        linarith
+    have hKtb : ‖Kt *ᵥ Sys.rollE₁ Kt u k‖ ≤ ‖Kt‖ * Y := by
+      refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+      rw [hY]
+      exact mul_le_mul_of_nonneg_left hrk (norm_nonneg Kt)
+    have hq1 : quadForm Sys.lq.Qs (Sum.elim (Sys.rollE₁ Kt u k)
+        (Sys.A₂ ^ k *ᵥ u)) ≤ cQs * (2 * Y) ^ 2 :=
+      (hQs _).trans (mul_le_mul_of_nonneg_left
+        (pow_le_pow_left₀ (norm_nonneg _) hsum 2) hcQs.le)
+    have hq2 : quadForm Sys.lq.Ru (Kt *ᵥ Sys.rollE₁ Kt u k)
+        ≤ cRu * (‖Kt‖ * Y) ^ 2 :=
+      (hRu _).trans (mul_le_mul_of_nonneg_left
+        (pow_le_pow_left₀ (norm_nonneg _) hKtb 2) hcRu.le)
+    have h23 : Y ^ 2 = cE ^ 2 * b ^ 2 := by
+      rw [hY, mul_pow]
+    calc quadForm Sys.lq.Qs (Sum.elim (Sys.rollE₁ Kt u k)
+          (Sys.A₂ ^ k *ᵥ u))
+        + quadForm Sys.lq.Ru (Kt *ᵥ Sys.rollE₁ Kt u k)
+        ≤ cQs * (2 * Y) ^ 2 + cRu * (‖Kt‖ * Y) ^ 2 := add_le_add hq1 hq2
+    _ ≤ (cQs * 4 + cRu * ‖Kt‖ ^ 2 * 2) * Y ^ 2 := by
+        nlinarith [sq_nonneg Y, sq_nonneg ‖Kt‖,
+          mul_nonneg hcRu.le (sq_nonneg (‖Kt‖ * Y))]
+    _ = (cQs * 4 + cRu * ‖Kt‖ ^ 2 * 2) * cE ^ 2 * b ^ 2 := by
+        rw [h23]
+        ring
+  calc ∑ k ∈ Finset.range T,
+      (quadForm Sys.lq.Qs (Sum.elim (Sys.rollE₁ Kt u k)
+          (Sys.A₂ ^ k *ᵥ u))
+        + quadForm Sys.lq.Ru (Kt *ᵥ Sys.rollE₁ Kt u k))
+      ≤ ∑ _k ∈ Finset.range T,
+        (cQs * 4 + cRu * ‖Kt‖ ^ 2 * 2) * cE ^ 2 * b ^ 2 :=
+        Finset.sum_le_sum hstage
+  _ = T * ((cQs * 4 + cRu * ‖Kt‖ ^ 2 * 2) * cE ^ 2 * b ^ 2) := by
+      rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul]
+  _ ≤ (cQs * 4 + cRu * ‖Kt‖ ^ 2 * 2) * cE ^ 2 * (1 + T : ℝ) * b ^ 2 := by
+      have h24 : (T : ℝ) ≤ 1 + T := by linarith
+      have h26b : (0:ℝ) ≤ cRu * ‖Kt‖ ^ 2 :=
+        mul_nonneg hcRu.le (sq_nonneg _)
+      have h26 : (0:ℝ) ≤ (cQs * 4 + cRu * ‖Kt‖ ^ 2 * 2) * cE ^ 2 :=
+        mul_nonneg (by linarith) (sq_nonneg cE)
+      nlinarith [mul_nonneg h26 (sq_nonneg b)]
+
+/-- **`lem:val-rate`(2)**: without C3w, the value gap closes no faster
+than harmonically — a unit-circle mode keeps `1/(1+T)` of the budget
+out of reach at every horizon. -/
+theorem exists_gap_floor_of_not_C3w (hC1 : Sys.C1) (hC2 : Sys.C2)
+    (hnc3 : ¬Sys.C3w) :
+    ∃ (a : Fin n₁ ⊕ Fin n₂ → ℝ) (c' : ℝ), a ≠ 0 ∧ 0 < c' ∧
+      ∀ T : ℕ, c' / (1 + T : ℝ) ≤ Sys.valueLim a - Sys.value a T := by
+  classical
+  -- a unit-circle eigenvalue and a bounded real direction
+  rw [C3w] at hnc3
+  push Not at hnc3
+  obtain ⟨μ, hμmem, hμle⟩ := hnc3
+  have hμ1 : ‖μ‖ = 1 := le_antisymm hμle (Sys.hAnti μ hμmem)
+  have hspec : μ ∈ spectrum ℂ (Matrix.toLin' (complexify Sys.A₂)) := by
+    rw [Matrix.spectrum_toLin']
+    exact hμmem
+  obtain ⟨v, hv⟩ := (Module.End.hasEigenvalue_iff_mem_spectrum.mpr
+    hspec).exists_hasEigenvector
+  have hAv : complexify Sys.A₂ *ᵥ v = μ • v := by
+    have := hv.apply_eq_smul
+    rwa [Matrix.toLin'_apply] at this
+  have heig : ∀ k, (complexify Sys.A₂) ^ k *ᵥ v = μ ^ k • v := by
+    intro k
+    induction k with
+    | zero => simp
+    | succ k ih =>
+      rw [pow_succ', ← Matrix.mulVec_mulVec, ih, Matrix.mulVec_smul,
+        hAv, smul_smul, ← pow_succ]
+  -- pick a nonzero real direction from the eigenvector
+  set vr : Fin n₂ → ℝ := fun i => (v i).re with hvr
+  set vi : Fin n₂ → ℝ := fun i => (v i).im with hvi
+  have horb : ∀ (u : Fin n₂ → ℝ), (u = vr ∨ u = vi) → ∀ k,
+      ‖Sys.A₂ ^ k *ᵥ u‖ ≤ ‖v‖ := by
+    rintro u hu k
+    refine (pi_norm_le_iff_of_nonneg (norm_nonneg v)).mpr fun i => ?_
+    have h1 : ((complexify Sys.A₂ ^ k *ᵥ v) i) = μ ^ k * v i := by
+      rw [heig k]
+      rfl
+    have h2 : ‖μ ^ k * v i‖ = ‖v i‖ := by
+      rw [norm_mul, norm_pow, hμ1, one_pow, one_mul]
+    have h3 : ‖v i‖ ≤ ‖v‖ := norm_le_pi_norm v i
+    rcases hu with rfl | rfl
+    · have h4 : (Sys.A₂ ^ k *ᵥ vr) i
+          = ((complexify Sys.A₂ ^ k *ᵥ v) i).re := by
+        rw [← complexify_pow]
+        exact (complexify_mulVec_re _ v i).symm
+      rw [h4, h1]
+      calc ‖(μ ^ k * v i).re‖ ≤ ‖μ ^ k * v i‖ := by
+            rw [Real.norm_eq_abs]
+            exact Complex.abs_re_le_norm _
+      _ ≤ ‖v‖ := by rw [h2]; exact h3
+    · have h4 : (Sys.A₂ ^ k *ᵥ vi) i
+          = ((complexify Sys.A₂ ^ k *ᵥ v) i).im := by
+        rw [← complexify_pow]
+        exact (complexify_mulVec_im _ v i).symm
+      rw [h4, h1]
+      calc ‖(μ ^ k * v i).im‖ ≤ ‖μ ^ k * v i‖ := by
+            rw [Real.norm_eq_abs]
+            exact Complex.abs_im_le_norm _
+      _ ≤ ‖v‖ := by rw [h2]; exact h3
+  obtain ⟨u, hu, hune⟩ : ∃ u : Fin n₂ → ℝ,
+      (u = vr ∨ u = vi) ∧ u ≠ 0 := by
+    by_contra hno
+    push Not at hno
+    have h1 : vr = 0 := hno vr (Or.inl rfl)
+    have h2 : vi = 0 := hno vi (Or.inr rfl)
+    apply hv.2
+    funext i
+    have h3 : (v i).re = 0 := congrFun h1 i
+    have h4 : (v i).im = 0 := congrFun h2 i
+    exact Complex.ext h3 h4
+  have horbu : ∀ k, ‖Sys.A₂ ^ k *ᵥ u‖ ≤ ‖v‖ := horb u hu
+  have hv0 : 0 < ‖v‖ := norm_pos_iff.mpr hv.2
+  -- the adversarial prior mismatch
+  set a : Fin n₁ ⊕ Fin n₂ → ℝ := Sum.elim 0 (Sys.Sig₂ *ᵥ u) with ha
+  have hane : a ≠ 0 := by
+    intro h0
+    apply hune
+    have h1 : Sys.Sig₂ *ᵥ u = 0 := by
+      have h2 : blk₂ a = Sys.Sig₂ *ᵥ u := rfl
+      rw [h0] at h2
+      exact h2.symm.trans rfl
+    have h3 : quadForm Sys.Sig₂ u = 0 := by
+      rw [quadForm, h1, dotProduct_zero]
+    by_contra hune'
+    exact absurd h3 (ne_of_gt (hC2.quadForm_pos hune'))
+  -- the limiting value keeps the whole antistable budget
+  have hVbar : quadForm Sys.Sig₂ u ≤ Sys.valueLim a := by
+    rw [Sys.valueLim_eq_valueInf hC1 hC2 a]
+    unfold valueInf
+    have h1 := Sys.hSig₁.symmPinv.quadForm_nonneg
+      (Sys.xiInf hC1 a - blk₁ a)
+    have h2 := (Sys.Pinf_posSemidef hC1).quadForm_nonneg (Sys.xiInf hC1 a)
+    have h3 : blk₂ a = Sys.Sig₂ *ᵥ u := rfl
+    rw [h3, quadForm_symmPinv_image Sys.hSig₂]
+    linarith
+  -- the scaled antistable candidate spends `2t‖u‖² - t²B_T` of it
+  obtain ⟨cB, hcB, hroll⟩ := Sys.exists_rollout_cost_bound
+  obtain ⟨cW, hcW, hW⟩ := exists_quadForm_le (symmPinv Sys.hSig₂.1)
+  set B : ℕ → ℝ := fun T => quadForm (symmPinv Sys.hSig₂.1) u
+    + quadForm (Sys.lq.ric T) (Sum.elim 0 u) with hB
+  have hWinv : symmPinv Sys.hSig₂.1 *ᵥ (Sys.Sig₂ *ᵥ u) = u := by
+    rw [Matrix.mulVec_mulVec, posDef_symmPinv_mul_self hC2,
+      Matrix.one_mulVec]
+  have hBpos : ∀ T, 0 < B T := by
+    intro T
+    have h1 : 0 < quadForm (symmPinv Sys.hSig₂.1) u := by
+      have h2 : quadForm (symmPinv Sys.hSig₂.1) u
+          = u ⬝ᵥ (symmPinv Sys.hSig₂.1 *ᵥ u) := rfl
+      have h3 : u = Sys.Sig₂ *ᵥ (Sys.Sig₂⁻¹ *ᵥ u) := by
+        rw [Matrix.mulVec_mulVec, Matrix.mul_nonsing_inv _
+          (isUnit_iff_ne_zero.mpr hC2.det_pos.ne'), Matrix.one_mulVec]
+      have h4 : quadForm (symmPinv Sys.hSig₂.1) u
+          = quadForm Sys.Sig₂ (Sys.Sig₂⁻¹ *ᵥ u) := by
+        conv_lhs => rw [h3]
+        exact quadForm_symmPinv_image Sys.hSig₂ _
+      rw [h4]
+      refine hC2.quadForm_pos ?_
+      intro h5
+      apply hune
+      rw [h3, h5, Matrix.mulVec_zero]
+    have h6 := (Sys.lq.ric_posSemidef T).quadForm_nonneg (Sum.elim 0 u)
+    rw [hB]
+    linarith
+  have hval : ∀ T, Sys.value a T
+      ≤ quadForm Sys.Sig₂ u - (u ⬝ᵥ u) ^ 2 / B T := by
+    intro T
+    set t : ℝ := (u ⬝ᵥ u) / B T with ht
+    -- the candidate `(0, t•u)`
+    set e₀t : Fin n₁ ⊕ Fin n₂ → ℝ := Sum.elim 0 (t • u) with he₀t
+    have hfeas : Sys.Feasible a e₀t := by
+      constructor
+      · refine ⟨0, ?_⟩
+        rw [Matrix.mulVec_zero, blk₁_sub]
+        have h6a : blk₁ e₀t = 0 := rfl
+        have h6b : blk₁ a = 0 := rfl
+        rw [h6a, h6b, sub_self]
+      · refine ⟨t • (Sys.Sig₂⁻¹ *ᵥ u) - u, ?_⟩
+        have h1 : blk₂ (e₀t - a) = t • u - Sys.Sig₂ *ᵥ u := by
+          rw [blk₂_sub]
+          rfl
+        rw [h1, Matrix.mulVec_sub, Matrix.mulVec_smul,
+          Matrix.mulVec_mulVec, Matrix.mul_nonsing_inv _
+            (isUnit_iff_ne_zero.mpr hC2.det_pos.ne'), Matrix.one_mulVec]
+      -- feasible
+    have h1 := Sys.value_le_fieCost hfeas (Sys.lq.optCtrl e₀t T) T
+    have h2 : Sys.fieCost a e₀t (Sys.lq.optCtrl e₀t T) T
+        = Sys.priorPenalty a e₀t + quadForm (Sys.lq.ric T) e₀t := by
+      unfold fieCost
+      rw [Sys.lq.cost_optCtrl]
+    have h3 : quadForm (Sys.lq.ric T) e₀t
+        = t ^ 2 * quadForm (Sys.lq.ric T) (Sum.elim 0 u) := by
+      have h4 : e₀t = t • (Sum.elim 0 u : Fin n₁ ⊕ Fin n₂ → ℝ) := by
+        funext i
+        cases i with
+        | inl i => exact (mul_zero t).symm
+        | inr i => rfl
+      rw [h4, quadForm_smul]
+    have h5 : Sys.priorPenalty a e₀t
+        = t ^ 2 * quadForm (symmPinv Sys.hSig₂.1) u
+          - 2 * t * (u ⬝ᵥ u) + quadForm Sys.Sig₂ u := by
+      unfold priorPenalty
+      have h6 : blk₁ (e₀t - a) = 0 := by
+        rw [blk₁_sub]
+        have h6a : blk₁ e₀t = 0 := rfl
+        have h6b : blk₁ a = 0 := rfl
+        rw [h6a, h6b, sub_self]
+      have h7 : blk₂ (e₀t - a) = t • u + -(Sys.Sig₂ *ᵥ u) := by
+        rw [blk₂_sub]
+        have : blk₂ e₀t = t • u := rfl
+        rw [this]
+        rfl
+      rw [h6, h7]
+      have h8 : quadForm (symmPinv Sys.hSig₁.1) (0 : Fin n₁ → ℝ) = 0 := by
+        simp [quadForm]
+      rw [h8, quadForm_add_of_isHermitian (symmPinv_isHermitian _),
+        quadForm_neg, quadForm_smul, quadForm_symmPinv_image Sys.hSig₂]
+      have h9 : (t • u) ⬝ᵥ (symmPinv Sys.hSig₂.1 *ᵥ -(Sys.Sig₂ *ᵥ u))
+          = -(t * (u ⬝ᵥ u)) := by
+        rw [Matrix.mulVec_neg, hWinv, dotProduct_neg, smul_dotProduct,
+          smul_eq_mul]
+      rw [h9]
+      ring
+    have h10 : t ^ 2 * B T - 2 * t * (u ⬝ᵥ u)
+        = -((u ⬝ᵥ u) ^ 2 / B T) := by
+      rw [ht, hB]
+      field_simp
+      ring
+    rw [h2, h3, h5] at h1
+    rw [hB] at h10
+    linarith [h1, h10]
+  -- the curvature grows at most linearly
+  have hBup : ∀ T, B T ≤ (cW * ‖v‖ ^ 2 + cB * ‖v‖ ^ 2) * (1 + T : ℝ) := by
+    intro T
+    have h1 : quadForm (symmPinv Sys.hSig₂.1) u ≤ cW * ‖v‖ ^ 2 := by
+      refine (hW u).trans ?_
+      have h2 : ‖u‖ ≤ ‖v‖ := by
+        have h3 := horbu 0
+        simpa using h3
+      have h4 : ‖u‖ ^ 2 ≤ ‖v‖ ^ 2 :=
+        pow_le_pow_left₀ (norm_nonneg u) h2 2
+      exact mul_le_mul_of_nonneg_left h4 hcW.le
+    have h5 := hroll u ‖v‖ T (norm_nonneg v) horbu
+    have h6 : (1:ℝ) ≤ 1 + T := by
+      have := Nat.cast_nonneg (α := ℝ) T
+      linarith
+    have h7 : cW * ‖v‖ ^ 2 ≤ cW * ‖v‖ ^ 2 * (1 + T : ℝ) := by
+      have h8 : (0:ℝ) ≤ cW * ‖v‖ ^ 2 := by positivity
+      nlinarith
+    rw [hB]
+    have h9 : cB * (1 + T : ℝ) * ‖v‖ ^ 2 = cB * ‖v‖ ^ 2 * (1 + T : ℝ) := by
+      ring
+    rw [h9] at h5
+    have h10 : (cW * ‖v‖ ^ 2 + cB * ‖v‖ ^ 2) * (1 + T : ℝ)
+        = cW * ‖v‖ ^ 2 * (1 + T : ℝ) + cB * ‖v‖ ^ 2 * (1 + T : ℝ) := by
+      ring
+    rw [h10]
+    linarith
+  -- assemble the harmonic floor
+  have huu : 0 < u ⬝ᵥ u := by
+    obtain ⟨j, hj⟩ : ∃ j, u j ≠ 0 := by
+      by_contra hall
+      push Not at hall
+      exact hune (funext hall)
+    have h1 : (0:ℝ) < u j * u j := mul_self_pos.mpr hj
+    have h2 : ∀ i ∈ Finset.univ, (0:ℝ) ≤ u i * u i :=
+      fun i _ => mul_self_nonneg _
+    exact Finset.sum_pos' h2 ⟨j, Finset.mem_univ j, h1⟩
+  set cM := cW * ‖v‖ ^ 2 + cB * ‖v‖ ^ 2 with hcM
+  have hcM0 : 0 < cM := by
+    rw [hcM]
+    have h1 : 0 < cW * ‖v‖ ^ 2 := by positivity
+    have h2 : 0 < cB * ‖v‖ ^ 2 := by positivity
+    linarith
+  refine ⟨a, (u ⬝ᵥ u) ^ 2 / cM, hane, by positivity, fun T => ?_⟩
+  have h1 := hval T
+  have h2 := hVbar
+  have h3 := hBpos T
+  have h4 := hBup T
+  have h1T : (0:ℝ) < 1 + T := by
+    have := Nat.cast_nonneg (α := ℝ) T
+    linarith
+  -- `(u⬝u)²/(cM(1+T)) ≤ (u⬝u)²/B_T` since `B_T ≤ cM(1+T)`
+  have h5 : (u ⬝ᵥ u) ^ 2 / cM / (1 + T : ℝ)
+      ≤ (u ⬝ᵥ u) ^ 2 / B T := by
+    rw [div_div]
+    refine div_le_div_of_nonneg_left (sq_nonneg _) h3 ?_
+    calc B T ≤ cM * (1 + T : ℝ) := h4
+    _ = cM * (1 + T : ℝ) := rfl
+  linarith
 
 end FIESystem
 
