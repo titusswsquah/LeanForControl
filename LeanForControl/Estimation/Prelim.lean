@@ -313,7 +313,7 @@ theorem lqRed_lqr (hC1 : Sys.C1) :
 /-! ### The propagator bound (`lem:prelim`(4)) and uniform Riccati bounds -/
 
 /-- A convergent sequence of matrices is bounded in norm. -/
-private lemma exists_norm_bound_of_tendsto {k l : ℕ}
+lemma exists_norm_bound_of_tendsto {k l : ℕ}
     {f : ℕ → Matrix (Fin k) (Fin l) ℝ} {L : Matrix (Fin k) (Fin l) ℝ}
     (h : Filter.Tendsto f Filter.atTop (nhds L)) :
     ∃ c : ℝ, 0 < c ∧ ∀ T, ‖f T‖ ≤ c := by

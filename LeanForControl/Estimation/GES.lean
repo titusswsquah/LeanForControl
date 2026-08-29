@@ -1638,6 +1638,116 @@ theorem ric_toBlocks₁₂_succ (T : ℕ) :
         from rfl] at h4)]
   rw [Sys.ric_toBlocks₁₁]
 
+/-! ### The unrolled cross block and its rate -/
+
+/-- The bounded driving term of the cross-block recursion. -/
+noncomputable def Xim (j : ℕ) : Matrix (Fin n₁) (Fin n₂) ℝ :=
+  Sys.C₁ᵀ * Sys.Ri * Sys.C₂
+    + (Sys.lqRed.Acl (Sys.lqRed.ric j))ᵀ
+      * (Sys.lqRed.ric j * Sys.A₁₂)
+
+/-- The unrolled cross block: closed-loop propagators against
+antistable powers. -/
+theorem ric_toBlocks₁₂_eq_sum : ∀ T : ℕ,
+    (Sys.lq.ric T).toBlocks₁₂
+      = ∑ j ∈ Finset.range T,
+          (revProd (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r))
+              (j + 1) (T - 1 - j))ᵀ
+            * Sys.Xim j * Sys.A₂ ^ (T - 1 - j)
+  | 0 => by
+    simp [LQSystem.ric]
+    rfl
+  | T + 1 => by
+    rw [Sys.ric_toBlocks₁₂_succ, ric_toBlocks₁₂_eq_sum T,
+      Finset.sum_range_succ]
+    -- the newest term is the driving matrix itself
+    have hlast : (revProd (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r))
+        (T + 1) (T + 1 - 1 - T))ᵀ * Sys.Xim T
+          * Sys.A₂ ^ (T + 1 - 1 - T)
+        = Sys.C₁ᵀ * Sys.Ri * Sys.C₂
+          + (Sys.lqRed.Acl (Sys.lqRed.ric T))ᵀ
+            * (Sys.lqRed.ric T * Sys.A₁₂) := by
+      rw [show T + 1 - 1 - T = 0 from by omega, revProd_zero,
+        Matrix.transpose_one, Matrix.one_mul, pow_zero, Matrix.mul_one]
+      rfl
+    -- the older terms pick up one closed-loop factor and one `A₂`
+    have hold : ∀ j ∈ Finset.range T,
+        (revProd (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r))
+            (j + 1) (T + 1 - 1 - j))ᵀ * Sys.Xim j
+          * Sys.A₂ ^ (T + 1 - 1 - j)
+        = (Sys.lqRed.Acl (Sys.lqRed.ric T))ᵀ
+            * ((revProd (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r))
+                (j + 1) (T - 1 - j))ᵀ * Sys.Xim j
+              * Sys.A₂ ^ (T - 1 - j)) * Sys.A₂ := by
+      intro j hj
+      have hjT := Finset.mem_range.mp hj
+      have h1 : T + 1 - 1 - j = (T - 1 - j) + 1 := by omega
+      rw [h1, revProd_succ_right, pow_succ]
+      have h2 : j + 1 + (T - 1 - j) = T := by omega
+      rw [h2, Matrix.transpose_mul]
+      simp only [Matrix.mul_assoc]
+    rw [Finset.sum_congr rfl hold, hlast]
+    have h3 : ∑ j ∈ Finset.range T,
+        (Sys.lqRed.Acl (Sys.lqRed.ric T))ᵀ
+          * ((revProd (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r))
+              (j + 1) (T - 1 - j))ᵀ * Sys.Xim j
+            * Sys.A₂ ^ (T - 1 - j)) * Sys.A₂
+        = (Sys.lqRed.Acl (Sys.lqRed.ric T))ᵀ
+          * ((∑ j ∈ Finset.range T,
+              (revProd (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r))
+                (j + 1) (T - 1 - j))ᵀ * Sys.Xim j
+              * Sys.A₂ ^ (T - 1 - j)) * Sys.A₂) := by
+      rw [Matrix.sum_mul, Matrix.mul_sum]
+      refine Finset.sum_congr rfl fun j _ => ?_
+      simp only [Matrix.mul_assoc]
+    rw [h3, Matrix.mul_add]
+    abel
+
+/-- The closed-loop factors along the iteration are uniformly bounded. -/
+theorem exists_Acl_bound (hC1 : Sys.C1) :
+    ∃ cF : ℝ, 0 < cF ∧ ∀ r, ‖Sys.lqRed.Acl (Sys.lqRed.ric r)‖ ≤ cF := by
+  obtain ⟨P, _, _, _, _, hK⟩ := Sys.lqRed_lqr hC1
+  have hAcl : Tendsto (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r))
+      atTop (nhds (Sys.lqRed.Acl P)) := by
+    have h1 : Tendsto
+        (fun r => Sys.lqRed.B * Sys.lqRed.gainK (Sys.lqRed.ric r))
+        atTop (nhds (Sys.lqRed.B * Sys.lqRed.gainK P)) :=
+      ((Continuous.matrix_mul continuous_const continuous_id).tendsto
+        _).comp hK
+    exact Tendsto.sub tendsto_const_nhds h1
+  exact exists_norm_bound_of_tendsto hAcl
+
+/-- The driving terms are uniformly bounded. -/
+theorem exists_Xim_bound (hC1 : Sys.C1) :
+    ∃ cX : ℝ, 0 < cX ∧ ∀ j, ‖Sys.Xim j‖ ≤ cX := by
+  obtain ⟨cF, hcF, hF⟩ := Sys.exists_Acl_bound hC1
+  obtain ⟨cR, hcR, hRb⟩ := Sys.exists_ricRed_bound hC1
+  refine ⟨‖Sys.C₁ᵀ * Sys.Ri * Sys.C₂‖
+      + (n₁ : ℝ) * cF * (cR * ‖Sys.A₁₂‖) + 1,
+    by positivity, fun j => ?_⟩
+  unfold Xim
+  refine (norm_add_le _ _).trans ?_
+  have h1 : ‖(Sys.lqRed.Acl (Sys.lqRed.ric j))ᵀ
+      * (Sys.lqRed.ric j * Sys.A₁₂)‖
+        ≤ ‖(Sys.lqRed.Acl (Sys.lqRed.ric j))ᵀ‖
+          * (‖Sys.lqRed.ric j‖ * ‖Sys.A₁₂‖) := by
+    refine (Matrix.linfty_opNorm_mul _ _).trans ?_
+    exact mul_le_mul_of_nonneg_left (Matrix.linfty_opNorm_mul _ _)
+      (norm_nonneg _)
+  have h2 : ‖(Sys.lqRed.Acl (Sys.lqRed.ric j))ᵀ‖
+      ≤ (n₁ : ℝ) * cF := by
+    refine (linfty_opNorm_transpose_le _).trans ?_
+    exact mul_le_mul_of_nonneg_left (hF j) (Nat.cast_nonneg n₁)
+  have h3 : ‖Sys.lqRed.ric j‖ * ‖Sys.A₁₂‖ ≤ cR * ‖Sys.A₁₂‖ :=
+    mul_le_mul_of_nonneg_right (hRb j) (norm_nonneg _)
+  have h4 : (0:ℝ) ≤ ‖Sys.lqRed.ric j‖ * ‖Sys.A₁₂‖ :=
+    mul_nonneg (norm_nonneg _) (norm_nonneg _)
+  have h5 : ‖(Sys.lqRed.Acl (Sys.lqRed.ric j))ᵀ‖
+      * (‖Sys.lqRed.ric j‖ * ‖Sys.A₁₂‖)
+        ≤ (n₁ : ℝ) * cF * (cR * ‖Sys.A₁₂‖) :=
+    mul_le_mul h2 h3 h4 (by positivity)
+  linarith
+
 end FIESystem
 
 end Estimation
