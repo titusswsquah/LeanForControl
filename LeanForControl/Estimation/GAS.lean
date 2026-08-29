@@ -210,7 +210,7 @@ theorem valueLim_eq_quadForm_PimatInf (hC1 : Sys.C1) (hC2 : Sys.C2)
     simpa only [Sys.value_eq_quadForm_Pimat] using h3
   exact tendsto_nhds_unique h2 h1
 
-private lemma abs_dotProduct_le {ι : Type*} [Fintype ι] (x y : ι → ℝ) :
+lemma abs_dotProduct_le {ι : Type*} [Fintype ι] (x y : ι → ℝ) :
     |x ⬝ᵥ y| ≤ (Fintype.card ι : ℝ) * ‖x‖ * ‖y‖ := by
   calc |x ⬝ᵥ y| ≤ ∑ i, |x i * y i| := Finset.abs_sum_le_sum_abs _ _
   _ ≤ ∑ _i : ι, ‖x‖ * ‖y‖ := by

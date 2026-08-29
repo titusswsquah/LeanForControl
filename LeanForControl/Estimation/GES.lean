@@ -1748,6 +1748,443 @@ theorem exists_Xim_bound (hC1 : Sys.C1) :
     mul_le_mul h2 h3 h4 (by positivity)
   linarith
 
+/-! ### Exponential value convergence (`lem:val-rate`(1)) -/
+
+/-- The symmetric cross block. -/
+lemma ric_toBlocks₂₁_eq (T : ℕ) :
+    (Sys.lq.ric T).toBlocks₂₁ = ((Sys.lq.ric T).toBlocks₁₂)ᵀ := by
+  have h := (Sys.lq.ric_isHermitian T).transpose_eq_self
+  funext i j
+  show (Sys.lq.ric T) (Sum.inr i) (Sum.inl j)
+    = (Sys.lq.ric T) (Sum.inl j) (Sum.inr i)
+  conv_lhs => rw [← h]
+  rfl
+
+set_option maxHeartbeats 1600000 in
+-- a long chain of per-stage propagator/slide estimates
+/-- **`lem:val-rate`(1)**: under C1 ∧ C2 ∧ C3w the value gap closes
+geometrically, uniformly in the prior mismatch — the floor carries
+`ρ₂^{-2T}`, the cross-rate carries `σ^T`, and together they extinguish
+the polynomial bracket. -/
+theorem exists_gap_rate_of_C3w (hC1 : Sys.C1) (hC2 : Sys.C2)
+    (hC3 : Sys.C3w) :
+    ∃ ce γ : ℝ, 0 < ce ∧ 0 < γ ∧ γ < 1 ∧
+      ∀ (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ),
+        Sys.valueLim a - Sys.value a T ≤ ce * γ ^ T * ‖a‖ ^ 2 := by
+  classical
+  obtain ⟨chat, ρ₂, hchat, hρ₂0, hρ₂1, hSR⟩ :=
+    Sys.exists_slide_rate hC1 hC2 hC3
+  obtain ⟨cX, hcX, hXb⟩ := Sys.exists_Xim_bound hC1
+  obtain ⟨cprop, ρc, hcprop, hρc0, hρc1, hprop⟩ :=
+    Sys.exists_propagator_bound hC1
+  obtain ⟨c₁, hc₁, hblk⟩ := Sys.exists_optInit_blk₁_bound hC1 hC2
+  obtain ⟨cP, hcP, hPb⟩ := exists_quadForm_le (Sys.Pinf hC1)
+  set σ := max ρc ρ₂ with hσ
+  have hσ0 : 0 < σ := lt_max_of_lt_left hρc0
+  have hσ1 : σ < 1 := max_lt hρc1 hρ₂1
+  have hρcσ : ρc ≤ σ := le_max_left _ _
+  have hρ₂σ : ρ₂ ≤ σ := le_max_right _ _
+  set γ : ℝ := (1 + σ ^ 2) / 2 with hγ
+  have hσ2γ : σ ^ 2 < γ := by
+    rw [hγ]
+    nlinarith
+  have hγ1 : γ < 1 := by
+    rw [hγ]
+    nlinarith
+  have hγ0 : 0 < γ := by
+    rw [hγ]
+    positivity
+  -- absorb the quadratic polynomial into the slack between `σ²` and `γ`
+  have habs := (tendsto_poly_geo 2 (r := σ ^ 2 / γ)
+    (by positivity) (by rwa [div_lt_one hγ0])).bddAbove_range
+  obtain ⟨Cabs, hCabs⟩ := habs
+  have hCabs' : ∀ T : ℕ, (1 + T : ℝ) ^ 2 * (σ ^ 2 / γ) ^ T ≤ Cabs :=
+    fun T => hCabs (Set.mem_range_self T)
+  have hCabs0 : 0 < Cabs := by
+    have h1 := hCabs' 0
+    simp at h1
+    linarith
+  -- the two master constants
+  set card2 : ℝ := (Fintype.card (Fin n₂) : ℝ) with hcard2
+  have hcard2nn : 0 ≤ card2 := Nat.cast_nonneg _
+  set card1 : ℝ := (Fintype.card (Fin n₁) : ℝ) with hcard1
+  have hcard1nn : (0:ℝ) ≤ card1 := Nat.cast_nonneg _
+  set W1c : ℝ := card2 * ‖symmPinv Sys.hSig₂.1‖ * Real.sqrt chat
+    with hW1c
+  set W2c : ℝ := card1 * cprop * cX * Real.sqrt chat * (1 + c₁)
+    with hW2c
+  have hW1nn : 0 ≤ W1c := by
+    rw [hW1c]
+    have := norm_nonneg (symmPinv Sys.hSig₂.1)
+    have := Real.sqrt_nonneg chat
+    positivity
+  have hW2nn : 0 ≤ W2c := by
+    rw [hW2c]
+    have := Real.sqrt_nonneg chat
+    positivity
+  set K : ℝ := W1c + W2c with hK
+  have hK0 : 0 ≤ K := by
+    rw [hK]
+    linarith
+  refine ⟨K ^ 2 * Cabs + cP * (cprop * (1 + c₁)) ^ 2, γ,
+    by positivity, hγ0, hγ1, ?_⟩
+  intro a T
+  have hgap := Sys.gap_le_antistable_energy hC1 hC2 a T
+  set ξ := blk₁ (Sys.optInit a T) with hξ
+  set e₂ := blk₂ (Sys.optInit a T) with he₂
+  set Q : ℝ := quadForm (symmPinv Sys.hSig₂.1) e₂
+    + quadForm (Sys.lq.ric T) (Sum.elim 0 e₂) with hQdef
+  have hQnn : 0 ≤ Q := by
+    rw [hQdef]
+    exact add_nonneg (Sys.hSig₂.symmPinv.quadForm_nonneg _)
+      ((Sys.lq.ric_posSemidef T).quadForm_nonneg _)
+  have hξb : ‖ξ‖ ≤ (1 + c₁) * ‖a‖ := by
+    have h9 := hblk a T
+    have h10 : ξ = blk₁ (Sys.optInit a T - a) + blk₁ a := by
+      rw [hξ, ← blk₁_add]
+      congr 1
+      abel
+    have h11 := norm_blk₁_le a
+    calc ‖ξ‖ ≤ ‖blk₁ (Sys.optInit a T - a)‖ + ‖blk₁ a‖ := by
+          rw [h10]
+          exact norm_add_le _ _
+    _ ≤ c₁ * ‖a‖ + ‖a‖ := add_le_add h9 h11
+    _ = (1 + c₁) * ‖a‖ := by ring
+  -- (1) the stationarity identity: `Q = ⟨W₂ a₂, e₂⟩ - ⟨Y'ξ, e₂⟩`
+  have hstat : Q = (symmPinv Sys.hSig₂.1 *ᵥ blk₂ a) ⬝ᵥ e₂
+      - (((Sys.lq.ric T).toBlocks₁₂)ᵀ *ᵥ ξ) ⬝ᵥ e₂ := by
+    obtain ⟨_, hvar⟩ := Sys.optInit_isStationary a T
+    have hdir : Sys.FeasibleDir (Sum.elim 0 e₂ : Fin n₁ ⊕ Fin n₂ → ℝ) := by
+      refine ⟨Sum.elim 0 (Sys.Sig₂⁻¹ *ᵥ e₂), ?_⟩
+      rw [Sys.Jmat_mulVec]
+      have h1 : blk₁ (Sum.elim (0 : Fin n₁ → ℝ)
+          (Sys.Sig₂⁻¹ *ᵥ e₂)) = 0 := rfl
+      have h2 : blk₂ (Sum.elim (0 : Fin n₁ → ℝ)
+          (Sys.Sig₂⁻¹ *ᵥ e₂)) = Sys.Sig₂⁻¹ *ᵥ e₂ := rfl
+      rw [h1, h2, Matrix.mulVec_zero, Matrix.mulVec_mulVec,
+        Matrix.mul_nonsing_inv _
+          (isUnit_iff_ne_zero.mpr hC2.det_pos.ne'),
+        Matrix.one_mulVec]
+    have h3 := hvar (Sum.elim 0 e₂) hdir
+    have h4 : blk₁ (Sum.elim (0 : Fin n₁ → ℝ) e₂) = 0 := rfl
+    have h5 : blk₂ (Sum.elim (0 : Fin n₁ → ℝ) e₂) = e₂ := rfl
+    rw [h4, h5, dotProduct_zero] at h3
+    -- split the value-matrix term along `e* = (ξ,0) + (0,e₂)`
+    have hsum : Sys.optInit a T
+        = (Sum.elim ξ 0 : Fin n₁ ⊕ Fin n₂ → ℝ)
+          + (Sum.elim 0 e₂ : Fin n₁ ⊕ Fin n₂ → ℝ) := by
+      conv_lhs => rw [← sumElim_blk (Sys.optInit a T)]
+      funext i
+      cases i with
+      | inl i => simp [← hξ]
+      | inr i => simp [← he₂]
+    have h6 : (Sys.lq.ric T *ᵥ Sys.optInit a T)
+        ⬝ᵥ (Sum.elim 0 e₂ : Fin n₁ ⊕ Fin n₂ → ℝ)
+        = (((Sys.lq.ric T).toBlocks₁₂)ᵀ *ᵥ ξ) ⬝ᵥ e₂
+          + quadForm (Sys.lq.ric T) (Sum.elim 0 e₂) := by
+      conv_lhs => rw [hsum]
+      rw [Matrix.mulVec_add, add_dotProduct]
+      congr 1
+      · -- the pure cross term
+        rw [dotProduct_blocks]
+        have h7 : blk₁ (Sum.elim (0 : Fin n₁ → ℝ) e₂) = 0 := rfl
+        have h8 : blk₂ (Sum.elim (0 : Fin n₁ → ℝ) e₂) = e₂ := rfl
+        rw [h7, h8, dotProduct_zero, zero_add]
+        congr 1
+        -- `blk₂ (ric (ξ,0)) = toBlocks₂₁ ξ = (toBlocks₁₂)ᵀ ξ`
+        have h9 : blk₂ (Sys.lq.ric T *ᵥ (Sum.elim ξ 0 :
+            Fin n₁ ⊕ Fin n₂ → ℝ)) = (Sys.lq.ric T).toBlocks₂₁ *ᵥ ξ := by
+          conv_lhs => rw [← Matrix.fromBlocks_toBlocks (Sys.lq.ric T)]
+          rw [Matrix.fromBlocks_mulVec]
+          funext i
+          show ((Sys.lq.ric T).toBlocks₂₁
+              *ᵥ ((Sum.elim ξ 0 : Fin n₁ ⊕ Fin n₂ → ℝ) ∘ Sum.inl)
+              + (Sys.lq.ric T).toBlocks₂₂
+              *ᵥ ((Sum.elim ξ 0 : Fin n₁ ⊕ Fin n₂ → ℝ) ∘ Sum.inr)) i = _
+          have h10 : (Sum.elim ξ 0 : Fin n₁ ⊕ Fin n₂ → ℝ) ∘ Sum.inl
+              = ξ := rfl
+          have h11 : (Sum.elim ξ 0 : Fin n₁ ⊕ Fin n₂ → ℝ) ∘ Sum.inr
+              = 0 := rfl
+          rw [h10, h11, Matrix.mulVec_zero]
+          simp
+        rw [h9, Sys.ric_toBlocks₂₁_eq]
+      · -- the pure antistable quadratic
+        rw [quadForm]
+        exact dotProduct_comm _ _
+    -- the prior part of the stationarity
+    have h13 : (symmPinv Sys.hSig₂.1
+        *ᵥ blk₂ (Sys.optInit a T - a)) ⬝ᵥ e₂
+        = quadForm (symmPinv Sys.hSig₂.1) e₂
+          - (symmPinv Sys.hSig₂.1 *ᵥ blk₂ a) ⬝ᵥ e₂ := by
+      rw [blk₂_sub, ← he₂, Matrix.mulVec_sub, sub_dotProduct]
+      congr 1
+      rw [quadForm, dotProduct_comm]
+    rw [h6, h13] at h3
+    rw [hQdef]
+    linarith
+  -- (2) the prior-mismatch part carries the floor
+  have hfloor : ‖e₂‖ ≤ Real.sqrt chat * ρ₂ ^ T * Real.sqrt Q := by
+    have h1 := hSR e₂ T 0 (Nat.zero_le T)
+    rw [pow_zero, Matrix.one_mulVec, Nat.sub_zero] at h1
+    rw [← hQdef] at h1
+    have h2 : ‖e₂‖ = Real.sqrt (‖e₂‖ ^ 2) :=
+      (Real.sqrt_sq (norm_nonneg _)).symm
+    rw [h2]
+    calc Real.sqrt (‖e₂‖ ^ 2)
+        ≤ Real.sqrt (chat * ρ₂ ^ (2 * T) * Q) := Real.sqrt_le_sqrt h1
+    _ = Real.sqrt chat * ρ₂ ^ T * Real.sqrt Q := by
+        rw [Real.sqrt_mul (by positivity), Real.sqrt_mul hchat.le,
+          show (2 : ℕ) * T = T * 2 from mul_comm 2 T, pow_mul,
+          Real.sqrt_sq (pow_nonneg hρ₂0.le T)]
+  have hterm1 : (symmPinv Sys.hSig₂.1 *ᵥ blk₂ a) ⬝ᵥ e₂
+      ≤ card2 * ‖symmPinv Sys.hSig₂.1‖ * Real.sqrt chat * ρ₂ ^ T
+        * ‖a‖ * Real.sqrt Q := by
+    refine (le_abs_self _).trans ((abs_dotProduct_le _ _).trans ?_)
+    have h1 : ‖symmPinv Sys.hSig₂.1 *ᵥ blk₂ a‖
+        ≤ ‖symmPinv Sys.hSig₂.1‖ * ‖a‖ := by
+      refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+      exact mul_le_mul_of_nonneg_left (norm_blk₂_le a) (norm_nonneg _)
+    calc card2 * ‖symmPinv Sys.hSig₂.1 *ᵥ blk₂ a‖ * ‖e₂‖
+        ≤ card2 * (‖symmPinv Sys.hSig₂.1‖ * ‖a‖)
+          * (Real.sqrt chat * ρ₂ ^ T * Real.sqrt Q) := by
+          refine mul_le_mul (mul_le_mul_of_nonneg_left h1 hcard2nn) hfloor
+            (norm_nonneg _) ?_
+          have := norm_nonneg (symmPinv Sys.hSig₂.1)
+          positivity
+    _ = card2 * ‖symmPinv Sys.hSig₂.1‖ * Real.sqrt chat * ρ₂ ^ T
+          * ‖a‖ * Real.sqrt Q := by ring
+  -- (3) the cross part carries the rate
+  have hterm2 : -((((Sys.lq.ric T).toBlocks₁₂)ᵀ *ᵥ ξ) ⬝ᵥ e₂)
+      ≤ card1 * cprop * cX * Real.sqrt chat * ((1 + c₁) * ‖a‖)
+        * ((T : ℝ) * σ ^ T) * Real.sqrt Q := by
+    have h1 : (((Sys.lq.ric T).toBlocks₁₂)ᵀ *ᵥ ξ) ⬝ᵥ e₂
+        = ξ ⬝ᵥ ((Sys.lq.ric T).toBlocks₁₂ *ᵥ e₂) := by
+      rw [mulVec_dotProduct_eq, Matrix.transpose_transpose]
+    rw [h1, Sys.ric_toBlocks₁₂_eq_sum T, Matrix.sum_mulVec,
+      dotProduct_sum]
+    refine (neg_le_abs _).trans
+      ((Finset.abs_sum_le_sum_abs _ _).trans ?_)
+    have hstagebd : ∀ j ∈ Finset.range T,
+        |ξ ⬝ᵥ (((revProd (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r))
+            (j + 1) (T - 1 - j))ᵀ * Sys.Xim j * Sys.A₂ ^ (T - 1 - j))
+              *ᵥ e₂)|
+          ≤ card1 * cprop * cX * Real.sqrt chat * ((1 + c₁) * ‖a‖)
+            * σ ^ T * Real.sqrt Q := by
+      intro j hj
+      have hjT := Finset.mem_range.mp hj
+      set R := revProd (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r))
+        (j + 1) (T - 1 - j) with hR
+      have h2 : ξ ⬝ᵥ ((Rᵀ * Sys.Xim j * Sys.A₂ ^ (T - 1 - j)) *ᵥ e₂)
+          = (R *ᵥ ξ) ⬝ᵥ (Sys.Xim j
+            *ᵥ (Sys.A₂ ^ (T - 1 - j) *ᵥ e₂)) := by
+        have ha : (Rᵀ * Sys.Xim j * Sys.A₂ ^ (T - 1 - j)) *ᵥ e₂
+            = Rᵀ *ᵥ (Sys.Xim j *ᵥ (Sys.A₂ ^ (T - 1 - j) *ᵥ e₂)) := by
+          rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec,
+            Matrix.mul_assoc]
+        rw [ha, dotProduct_mulVec_eq, Matrix.transpose_transpose]
+      rw [h2]
+      refine (abs_dotProduct_le _ _).trans ?_
+      have h3 : ‖R *ᵥ ξ‖ ≤ cprop * ρc ^ (T - 1 - j) * ((1 + c₁) * ‖a‖) := by
+        refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+        refine (mul_le_mul (hprop (j + 1) (T - 1 - j)) hξb
+          (norm_nonneg _) ?_).trans (le_of_eq (by ring))
+        positivity
+      have h4 : ‖Sys.A₂ ^ (T - 1 - j) *ᵥ e₂‖
+          ≤ Real.sqrt chat * ρ₂ ^ (j + 1) * Real.sqrt Q := by
+        have h5 := hSR e₂ T (T - 1 - j) (by omega)
+        rw [← hQdef] at h5
+        have h6 : T - (T - 1 - j) = j + 1 := by omega
+        rw [h6] at h5
+        have h7 : ‖Sys.A₂ ^ (T - 1 - j) *ᵥ e₂‖
+            = Real.sqrt (‖Sys.A₂ ^ (T - 1 - j) *ᵥ e₂‖ ^ 2) :=
+          (Real.sqrt_sq (norm_nonneg _)).symm
+        rw [h7]
+        calc Real.sqrt (‖Sys.A₂ ^ (T - 1 - j) *ᵥ e₂‖ ^ 2)
+            ≤ Real.sqrt (chat * ρ₂ ^ (2 * (j + 1)) * Q) :=
+              Real.sqrt_le_sqrt h5
+        _ = Real.sqrt chat * ρ₂ ^ (j + 1) * Real.sqrt Q := by
+            rw [Real.sqrt_mul (by positivity), Real.sqrt_mul hchat.le,
+              show (2 : ℕ) * (j + 1) = (j + 1) * 2 from mul_comm _ _,
+              pow_mul, Real.sqrt_sq (pow_nonneg hρ₂0.le _)]
+      have h8 : ‖Sys.Xim j *ᵥ (Sys.A₂ ^ (T - 1 - j) *ᵥ e₂)‖
+          ≤ cX * (Real.sqrt chat * ρ₂ ^ (j + 1) * Real.sqrt Q) := by
+        refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+        exact mul_le_mul (hXb j) h4 (norm_nonneg _) hcX.le
+      have h9 : ρc ^ (T - 1 - j) * ρ₂ ^ (j + 1) ≤ σ ^ T := by
+        have h10 : ρc ^ (T - 1 - j) ≤ σ ^ (T - 1 - j) :=
+          pow_le_pow_left₀ hρc0.le hρcσ _
+        have h11 : ρ₂ ^ (j + 1) ≤ σ ^ (j + 1) :=
+          pow_le_pow_left₀ hρ₂0.le hρ₂σ _
+        have h12 : (T - 1 - j) + (j + 1) = T := by omega
+        calc ρc ^ (T - 1 - j) * ρ₂ ^ (j + 1)
+            ≤ σ ^ (T - 1 - j) * σ ^ (j + 1) := by
+              refine mul_le_mul h10 h11 (pow_nonneg hρ₂0.le _)
+                (pow_nonneg hσ0.le _)
+        _ = σ ^ T := by rw [← pow_add, h12]
+      calc card1 * ‖R *ᵥ ξ‖
+            * ‖Sys.Xim j *ᵥ (Sys.A₂ ^ (T - 1 - j) *ᵥ e₂)‖
+          ≤ card1 * (cprop * ρc ^ (T - 1 - j) * ((1 + c₁) * ‖a‖))
+            * (cX * (Real.sqrt chat * ρ₂ ^ (j + 1) * Real.sqrt Q)) := by
+            refine mul_le_mul (mul_le_mul_of_nonneg_left h3 hcard1nn) h8
+              (norm_nonneg _) ?_
+            positivity
+      _ = card1 * cprop * cX * Real.sqrt chat * ((1 + c₁) * ‖a‖)
+            * (ρc ^ (T - 1 - j) * ρ₂ ^ (j + 1)) * Real.sqrt Q := by
+          ring
+      _ ≤ card1 * cprop * cX * Real.sqrt chat * ((1 + c₁) * ‖a‖)
+            * σ ^ T * Real.sqrt Q := by
+          have hnn : (0:ℝ) ≤ card1 * cprop * cX * Real.sqrt chat
+              * ((1 + c₁) * ‖a‖) := by positivity
+          have hnn2 : (0:ℝ) ≤ Real.sqrt Q := Real.sqrt_nonneg Q
+          have h13 := mul_le_mul_of_nonneg_left h9 hnn
+          exact mul_le_mul_of_nonneg_right h13 hnn2
+    calc ∑ j ∈ Finset.range T,
+        |ξ ⬝ᵥ (((revProd (fun r => Sys.lqRed.Acl (Sys.lqRed.ric r))
+            (j + 1) (T - 1 - j))ᵀ * Sys.Xim j * Sys.A₂ ^ (T - 1 - j))
+              *ᵥ e₂)|
+        ≤ ∑ _j ∈ Finset.range T,
+          card1 * cprop * cX * Real.sqrt chat * ((1 + c₁) * ‖a‖)
+            * σ ^ T * Real.sqrt Q := Finset.sum_le_sum hstagebd
+    _ = (T : ℝ) * (card1 * cprop * cX * Real.sqrt chat
+          * ((1 + c₁) * ‖a‖) * σ ^ T * Real.sqrt Q) := by
+        rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul]
+    _ = card1 * cprop * cX * Real.sqrt chat * ((1 + c₁) * ‖a‖)
+          * ((T : ℝ) * σ ^ T) * Real.sqrt Q := by ring
+  -- (4) the quadratic self-bound
+  have hρσ' : ρ₂ ^ T ≤ (1 + T : ℝ) * σ ^ T := by
+    have h1 : ρ₂ ^ T ≤ σ ^ T := pow_le_pow_left₀ hρ₂0.le hρ₂σ T
+    have h2 : (1:ℝ) ≤ 1 + T := by
+      have := Nat.cast_nonneg (α := ℝ) T
+      linarith
+    nlinarith [pow_nonneg hσ0.le T]
+  have hT' : (T : ℝ) * σ ^ T ≤ (1 + T : ℝ) * σ ^ T := by
+    have h2 : (T:ℝ) ≤ 1 + T := by linarith
+    exact mul_le_mul_of_nonneg_right h2 (pow_nonneg hσ0.le T)
+  set B : ℝ := (1 + T : ℝ) * σ ^ T * (‖a‖ * Real.sqrt Q) with hB
+  have hBnn : 0 ≤ B := by
+    rw [hB]
+    have h1 : (0:ℝ) ≤ (1 + T : ℝ) := by
+      have := Nat.cast_nonneg (α := ℝ) T
+      linarith
+    have := Real.sqrt_nonneg Q
+    have := pow_nonneg hσ0.le T
+    positivity
+  have h3 : (symmPinv Sys.hSig₂.1 *ᵥ blk₂ a) ⬝ᵥ e₂ ≤ W1c * B := by
+    refine hterm1.trans ?_
+    have heq1 : card2 * ‖symmPinv Sys.hSig₂.1‖ * Real.sqrt chat
+        * ρ₂ ^ T * ‖a‖ * Real.sqrt Q
+        = W1c * (ρ₂ ^ T * (‖a‖ * Real.sqrt Q)) := by
+      rw [hW1c]
+      ring
+    have heq2 : W1c * B
+        = W1c * ((1 + T : ℝ) * σ ^ T * (‖a‖ * Real.sqrt Q)) := by
+      rw [hB]
+    rw [heq1, heq2]
+    refine mul_le_mul_of_nonneg_left ?_ hW1nn
+    exact mul_le_mul_of_nonneg_right hρσ'
+      (mul_nonneg (norm_nonneg a) (Real.sqrt_nonneg Q))
+  have h4 : -((((Sys.lq.ric T).toBlocks₁₂)ᵀ *ᵥ ξ) ⬝ᵥ e₂) ≤ W2c * B := by
+    refine hterm2.trans ?_
+    have heq1 : card1 * cprop * cX * Real.sqrt chat * ((1 + c₁) * ‖a‖)
+        * ((T : ℝ) * σ ^ T) * Real.sqrt Q
+        = W2c * ((T : ℝ) * σ ^ T * (‖a‖ * Real.sqrt Q)) := by
+      rw [hW2c]
+      ring
+    have heq2 : W2c * B
+        = W2c * ((1 + T : ℝ) * σ ^ T * (‖a‖ * Real.sqrt Q)) := by
+      rw [hB]
+    rw [heq1, heq2]
+    refine mul_le_mul_of_nonneg_left ?_ hW2nn
+    exact mul_le_mul_of_nonneg_right hT'
+      (mul_nonneg (norm_nonneg a) (Real.sqrt_nonneg Q))
+  have hself : Q ≤ K * B := by
+    rw [hK, add_mul]
+    linarith [hstat, h3, h4]
+  -- the square-root trick
+  have hQle : Q ≤ (K * ((1 + T : ℝ) * σ ^ T) * ‖a‖) ^ 2 := by
+    set b : ℝ := K * ((1 + T : ℝ) * σ ^ T) * ‖a‖ with hb
+    have hbnn : 0 ≤ b := by
+      rw [hb]
+      have h1 : (0:ℝ) ≤ (1 + T : ℝ) := by
+        have := Nat.cast_nonneg (α := ℝ) T
+        linarith
+      have := pow_nonneg hσ0.le T
+      positivity
+    have hself' : Q ≤ b * Real.sqrt Q := by
+      refine hself.trans (le_of_eq ?_)
+      rw [hb, hB]
+      ring
+    rcases eq_or_lt_of_le hQnn with h | h
+    · rw [← h]
+      exact sq_nonneg b
+    · have hsq : Real.sqrt Q * Real.sqrt Q = Q := Real.mul_self_sqrt hQnn
+      have hsqpos : 0 < Real.sqrt Q := Real.sqrt_pos.mpr h
+      nlinarith
+  -- (5) absorb the polynomial into the `σ² < γ` slack
+  have habs2 : ((1 + T : ℝ) * σ ^ T) ^ 2 ≤ Cabs * γ ^ T := by
+    have h1 := hCabs' T
+    have h2 : ((1 + T : ℝ) * σ ^ T) ^ 2
+        = (1 + T : ℝ) ^ 2 * (σ ^ 2) ^ T := by
+      rw [mul_pow, ← pow_mul, mul_comm T 2, pow_mul]
+    have h3 : (σ ^ 2 / γ) ^ T * γ ^ T = (σ ^ 2) ^ T := by
+      rw [← mul_pow, div_mul_cancel₀ _ (ne_of_gt hγ0)]
+    calc ((1 + T : ℝ) * σ ^ T) ^ 2
+        = (1 + T : ℝ) ^ 2 * ((σ ^ 2 / γ) ^ T * γ ^ T) := by
+          rw [h2, h3]
+    _ = ((1 + T : ℝ) ^ 2 * (σ ^ 2 / γ) ^ T) * γ ^ T := by ring
+    _ ≤ Cabs * γ ^ T :=
+        mul_le_mul_of_nonneg_right h1 (pow_nonneg hγ0.le T)
+  have hQfinal : Q ≤ K ^ 2 * Cabs * γ ^ T * ‖a‖ ^ 2 := by
+    refine hQle.trans ?_
+    have h2 : (K * ((1 + T : ℝ) * σ ^ T) * ‖a‖) ^ 2
+        = K ^ 2 * ((1 + T : ℝ) * σ ^ T) ^ 2 * ‖a‖ ^ 2 := by ring
+    rw [h2]
+    calc K ^ 2 * ((1 + T : ℝ) * σ ^ T) ^ 2 * ‖a‖ ^ 2
+        ≤ K ^ 2 * (Cabs * γ ^ T) * ‖a‖ ^ 2 := by
+          refine mul_le_mul_of_nonneg_right
+            (mul_le_mul_of_nonneg_left habs2 (sq_nonneg K)) (sq_nonneg _)
+    _ = K ^ 2 * Cabs * γ ^ T * ‖a‖ ^ 2 := by ring
+  -- (6) the closed-loop endpoint term
+  have hPterm : quadForm (Sys.Pinf hC1) (Sys.lqRed.optTraj ξ T T)
+      ≤ cP * (cprop * (1 + c₁)) ^ 2 * γ ^ T * ‖a‖ ^ 2 := by
+    have h7 : ‖Sys.lqRed.optTraj ξ T T‖
+        ≤ cprop * ρc ^ T * ((1 + c₁) * ‖a‖) := by
+      rw [Sys.lqRed.optTraj_eq_revProd ξ T T le_rfl, Nat.sub_self]
+      refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+      refine (mul_le_mul (hprop 0 T) hξb (norm_nonneg _) ?_).trans
+        (le_of_eq (by ring))
+      positivity
+    have h13 := (hPb _).trans (mul_le_mul_of_nonneg_left
+      (pow_le_pow_left₀ (norm_nonneg _) h7 2) hcP.le)
+    have hpow2 : (ρc ^ T) ^ 2 = (ρc ^ 2) ^ T := by
+      rw [← pow_mul, mul_comm T 2, pow_mul]
+    have h14 : (cprop * ρc ^ T * ((1 + c₁) * ‖a‖)) ^ 2
+        = (cprop * (1 + c₁)) ^ 2 * (ρc ^ 2) ^ T * ‖a‖ ^ 2 := by
+      rw [← hpow2]
+      ring
+    have h15 : (ρc ^ 2) ^ T ≤ γ ^ T := by
+      refine pow_le_pow_left₀ (sq_nonneg ρc) ?_ T
+      nlinarith
+    calc quadForm (Sys.Pinf hC1) (Sys.lqRed.optTraj ξ T T)
+        ≤ cP * ((cprop * (1 + c₁)) ^ 2 * (ρc ^ 2) ^ T * ‖a‖ ^ 2) := by
+          rw [← h14]
+          exact h13
+    _ ≤ cP * ((cprop * (1 + c₁)) ^ 2 * γ ^ T * ‖a‖ ^ 2) := by
+        refine mul_le_mul_of_nonneg_left ?_ hcP.le
+        refine mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_left h15 (sq_nonneg _)) (sq_nonneg _)
+    _ = cP * (cprop * (1 + c₁)) ^ 2 * γ ^ T * ‖a‖ ^ 2 := by ring
+  -- final assembly through the gap bound
+  calc Sys.valueLim a - Sys.value a T
+      ≤ Q + quadForm (Sys.Pinf hC1) (Sys.lqRed.optTraj ξ T T) := by
+        rw [hQdef]
+        linarith [hgap]
+  _ ≤ K ^ 2 * Cabs * γ ^ T * ‖a‖ ^ 2
+        + cP * (cprop * (1 + c₁)) ^ 2 * γ ^ T * ‖a‖ ^ 2 :=
+      add_le_add hQfinal hPterm
+  _ = (K ^ 2 * Cabs + cP * (cprop * (1 + c₁)) ^ 2) * γ ^ T * ‖a‖ ^ 2 := by
+      ring
+
 end FIESystem
 
 end Estimation
