@@ -368,6 +368,7 @@ lemma traj_rollE₁ (Kt : Matrix (Fin m) (Fin n₁) ℝ)
       rw [Matrix.mulVec_mulVec, ← pow_succ']
       simp [Matrix.zero_mulVec]
 
+-- the rollout norm chains at every stage make this proof elaboration-heavy
 set_option maxHeartbeats 1000000 in
 /-- **The polynomial upper bracket** (`eq:bracket`, upper half): the
 antistable energy of the horizon-`T` value is at most polynomially
@@ -1093,6 +1094,151 @@ theorem exists_gap_floor_of_not_C3w (hC1 : Sys.C1) (hC2 : Sys.C2)
     calc B T ≤ cM * (1 + T : ℝ) := h4
     _ = cM * (1 + T : ℝ) := rfl
   linarith
+
+/-! ### C3w is necessary for GES (`thm:ges-fi`, necessity) -/
+
+private lemma tendsto_poly_geo (k : ℕ) {r : ℝ} (h0 : 0 ≤ r) (h1 : r < 1) :
+    Tendsto (fun T : ℕ => (1 + T : ℝ) ^ k * r ^ T) atTop (nhds 0) := by
+  rcases eq_or_lt_of_le h0 with h | h
+  · refine Tendsto.congr' ?_ tendsto_const_nhds
+    filter_upwards [eventually_ge_atTop 1] with T hT
+    rw [← h, zero_pow (by omega), mul_zero]
+  · have hs := summable_pow_mul_geometric_of_norm_lt_one (R := ℝ) k
+      (r := r) (by rwa [Real.norm_eq_abs, abs_of_nonneg h0])
+    have ht := hs.tendsto_atTop_zero
+    have ht2 : Tendsto (fun T : ℕ => ((T + 1 : ℕ) : ℝ) ^ k * r ^ (T + 1))
+        atTop (nhds 0) := ht.comp (tendsto_add_atTop_nat 1)
+    have ht3 := ht2.const_mul r⁻¹
+    rw [mul_zero] at ht3
+    refine ht3.congr fun T => ?_
+    push_cast
+    rw [pow_succ]
+    field_simp
+    ring
+
+/-- **C3w is necessary for GES** (given C1 ∧ C2): an exponentially
+stable terminal error closes the value gap exponentially, but an
+on-circle mode holds it open harmonically. -/
+theorem C3w_of_isGES (hC1 : Sys.C1) (hC2 : Sys.C2) (hges : Sys.IsGES) :
+    Sys.C3w := by
+  classical
+  by_contra hnc3
+  obtain ⟨a, c', hane, hc', hfloor⟩ :=
+    Sys.exists_gap_floor_of_not_C3w hC1 hC2 hnc3
+  obtain ⟨C, γ, hC0, hγ0, hγ1, hb⟩ := hges
+  obtain ⟨cbr, qbr, hcbr, hbr⟩ := Sys.exists_upper_bracket
+  obtain ⟨cprop, ρc, hcprop, hρc0, hρc1, hprop⟩ :=
+    Sys.exists_propagator_bound hC1
+  obtain ⟨c₁, hc₁0, hblk⟩ := Sys.exists_optInit_blk₁_bound hC1 hC2
+  obtain ⟨cP, hcP, hPb⟩ := exists_quadForm_le (Sys.Pinf hC1)
+  -- the gap closes exponentially fast
+  have hgap : ∀ T : ℕ, Sys.valueLim a - Sys.value a T
+      ≤ cbr * (1 + T : ℝ) ^ qbr * (C * ‖a‖) ^ 2 * (γ ^ 2) ^ T
+        + cP * (cprop * (1 + c₁) * ‖a‖) ^ 2 * (ρc ^ 2) ^ T := by
+    intro T
+    have h1 := Sys.gap_le_antistable_energy hC1 hC2 a T
+    -- the antistable terms through the bracket and GES
+    have h2 : Sys.A₂ ^ T *ᵥ blk₂ (Sys.optInit a T)
+        = blk₂ (Sys.optTerm a T) := by
+      unfold optTerm
+      rw [← Sys.lq.traj_optCtrl, Sys.blk₂_traj]
+    have h3 : ‖Sys.A₂ ^ T *ᵥ blk₂ (Sys.optInit a T)‖
+        ≤ C * γ ^ T * ‖a‖ := by
+      rw [h2]
+      exact le_trans (norm_blk₂_le _) (hb T a)
+    have h4 := hbr (blk₂ (Sys.optInit a T)) T
+    have h5 : ‖Sys.A₂ ^ T *ᵥ blk₂ (Sys.optInit a T)‖ ^ 2
+        ≤ (C * γ ^ T * ‖a‖) ^ 2 :=
+      pow_le_pow_left₀ (norm_nonneg _) h3 2
+    have h6 : quadForm (symmPinv Sys.hSig₂.1) (blk₂ (Sys.optInit a T))
+        + quadForm (Sys.lq.ric T) (Sum.elim 0 (blk₂ (Sys.optInit a T)))
+          ≤ cbr * (1 + T : ℝ) ^ qbr * (C * γ ^ T * ‖a‖) ^ 2 := by
+      refine h4.trans ?_
+      refine mul_le_mul_of_nonneg_left h5 ?_
+      positivity
+    -- the block-1 endpoint through the propagator
+    have h7 : ‖Sys.lqRed.optTraj (blk₁ (Sys.optInit a T)) T T‖
+        ≤ cprop * ρc ^ T * ((1 + c₁) * ‖a‖) := by
+      rw [Sys.lqRed.optTraj_eq_revProd _ T T le_rfl, Nat.sub_self]
+      refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+      have h8 : ‖blk₁ (Sys.optInit a T)‖ ≤ (1 + c₁) * ‖a‖ := by
+        have h9 := hblk a T
+        have h10 : blk₁ (Sys.optInit a T)
+            = blk₁ (Sys.optInit a T - a) + blk₁ a := by
+          rw [← blk₁_add]
+          congr 1
+          abel
+        have h11 := norm_blk₁_le a
+        calc ‖blk₁ (Sys.optInit a T)‖
+            ≤ ‖blk₁ (Sys.optInit a T - a)‖ + ‖blk₁ a‖ := by
+              rw [h10]
+              exact norm_add_le _ _
+        _ ≤ c₁ * ‖a‖ + ‖a‖ := add_le_add h9 h11
+        _ = (1 + c₁) * ‖a‖ := by ring
+      have h12 := hprop 0 T
+      refine (mul_le_mul h12 h8 (norm_nonneg _) ?_).trans (le_of_eq ?_)
+      · positivity
+      · ring
+    have h13 : quadForm (Sys.Pinf hC1)
+        (Sys.lqRed.optTraj (blk₁ (Sys.optInit a T)) T T)
+          ≤ cP * (cprop * ρc ^ T * ((1 + c₁) * ‖a‖)) ^ 2 :=
+      (hPb _).trans (mul_le_mul_of_nonneg_left
+        (pow_le_pow_left₀ (norm_nonneg _) h7 2) hcP.le)
+    have h14 : (C * γ ^ T * ‖a‖) ^ 2
+        = (C * ‖a‖) ^ 2 * (γ ^ 2) ^ T := by
+      rw [← pow_mul, mul_comm 2 T, pow_mul]
+      ring
+    have h15 : (cprop * ρc ^ T * ((1 + c₁) * ‖a‖)) ^ 2
+        = (cprop * (1 + c₁) * ‖a‖) ^ 2 * (ρc ^ 2) ^ T := by
+      rw [← pow_mul, mul_comm 2 T, pow_mul]
+      ring
+    rw [h14] at h6
+    rw [h15] at h13
+    have h16 : cbr * (1 + T : ℝ) ^ qbr
+        * ((C * ‖a‖) ^ 2 * (γ ^ 2) ^ T)
+        = cbr * (1 + T : ℝ) ^ qbr * (C * ‖a‖) ^ 2 * (γ ^ 2) ^ T := by
+      ring
+    rw [h16] at h6
+    linarith
+  -- the harmonic floor cannot survive the exponential closure
+  have hkey : ∀ T : ℕ, c'
+      ≤ cbr * (C * ‖a‖) ^ 2 * ((1 + T : ℝ) ^ (qbr + 1) * (γ ^ 2) ^ T)
+        + cP * (cprop * (1 + c₁) * ‖a‖) ^ 2
+          * ((1 + T : ℝ) ^ 1 * (ρc ^ 2) ^ T) := by
+    intro T
+    have h1T : (0:ℝ) < 1 + T := by
+      have := Nat.cast_nonneg (α := ℝ) T
+      linarith
+    have h1 := hfloor T
+    have h2 := hgap T
+    have h3 : c' ≤ (1 + T : ℝ) * (Sys.valueLim a - Sys.value a T) := by
+      rw [div_le_iff₀ h1T] at h1
+      linarith [h1]
+    have h4 := mul_le_mul_of_nonneg_left h2 h1T.le
+    have h5 : (1 + T : ℝ)
+        * (cbr * (1 + T : ℝ) ^ qbr * (C * ‖a‖) ^ 2 * (γ ^ 2) ^ T
+          + cP * (cprop * (1 + c₁) * ‖a‖) ^ 2 * (ρc ^ 2) ^ T)
+        = cbr * (C * ‖a‖) ^ 2 * ((1 + T : ℝ) ^ (qbr + 1) * (γ ^ 2) ^ T)
+          + cP * (cprop * (1 + c₁) * ‖a‖) ^ 2
+            * ((1 + T : ℝ) ^ 1 * (ρc ^ 2) ^ T) := by
+      rw [pow_succ, pow_one]
+      ring
+    rw [h5] at h4
+    linarith
+  have htend : Tendsto (fun T : ℕ =>
+      cbr * (C * ‖a‖) ^ 2 * ((1 + T : ℝ) ^ (qbr + 1) * (γ ^ 2) ^ T)
+        + cP * (cprop * (1 + c₁) * ‖a‖) ^ 2
+          * ((1 + T : ℝ) ^ 1 * (ρc ^ 2) ^ T)) atTop (nhds 0) := by
+    have h1 := (tendsto_poly_geo (qbr + 1) (r := γ ^ 2) (sq_nonneg γ)
+      (by nlinarith)).const_mul (cbr * (C * ‖a‖) ^ 2)
+    have h2 := (tendsto_poly_geo 1 (r := ρc ^ 2) (sq_nonneg ρc)
+      (by nlinarith)).const_mul (cP * (cprop * (1 + c₁) * ‖a‖) ^ 2)
+    rw [mul_zero] at h1 h2
+    have h3 := h1.add h2
+    rw [add_zero] at h3
+    exact h3
+  obtain ⟨T, hT⟩ := (htend.eventually_lt_const hc').exists
+  exact absurd (hkey T) (not_le.mpr hT)
 
 end FIESystem
 
