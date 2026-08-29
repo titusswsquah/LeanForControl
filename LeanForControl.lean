@@ -3,6 +3,7 @@ import LeanForControl.Estimation.Basic
 import LeanForControl.Estimation.Coercive
 import LeanForControl.Estimation.FIE
 import LeanForControl.Estimation.Prelim
+import LeanForControl.Estimation.Necessity
 import LeanForControl.Estimation.Infhor
 import LeanForControl.Estimation.GAS
 import LeanForControl.LinearSystems.Basic

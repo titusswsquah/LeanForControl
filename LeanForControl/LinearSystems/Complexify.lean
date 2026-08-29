@@ -106,6 +106,18 @@ lemma complexify_neg (A : Matrix ι κ ℝ) : complexify (-A) = -complexify A :=
   ext i j
   simp
 
+/-- Real part of a complexified action on a complex vector. -/
+lemma complexify_mulVec_re (A : Matrix ι κ ℝ) (w : κ → ℂ) (i : ι) :
+    ((complexify A *ᵥ w) i).re = (A *ᵥ fun j => (w j).re) i := by
+  simp only [Matrix.mulVec, dotProduct, complexify_apply, Complex.re_sum]
+  exact Finset.sum_congr rfl fun j _ => Complex.re_ofReal_mul _ _
+
+/-- Imaginary part of a complexified action on a complex vector. -/
+lemma complexify_mulVec_im (A : Matrix ι κ ℝ) (w : κ → ℂ) (i : ι) :
+    ((complexify A *ᵥ w) i).im = (A *ᵥ fun j => (w j).im) i := by
+  simp only [Matrix.mulVec, dotProduct, complexify_apply, Complex.im_sum]
+  exact Finset.sum_congr rfl fun j _ => Complex.im_ofReal_mul _ _
+
 lemma complexify_mulVec (A : Matrix ι κ ℝ) (v : κ → ℝ) :
     complexify A *ᵥ complexifyVec v = complexifyVec (A *ᵥ v) := by
   funext i

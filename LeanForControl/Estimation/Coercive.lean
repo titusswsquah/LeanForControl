@@ -183,7 +183,7 @@ theorem quadForm_Wmat_le (T : ℕ) (ξ : Fin n₁ → ℝ) (e₂ : Fin n₂ → 
 
 
 /-- Trajectories under vanishing inputs are matrix-power orbits. -/
-private lemma traj_eq_pow_of_zero_inputs (e₀ : Fin n₁ ⊕ Fin n₂ → ℝ)
+lemma traj_eq_pow_of_zero_inputs (e₀ : Fin n₁ ⊕ Fin n₂ → ℝ)
     (u : ℕ → Fin m → ℝ) {T : ℕ} (hu : ∀ k < T, u k = 0) :
     ∀ k ≤ T, Sys.lq.traj e₀ u k = Sys.fullA ^ k *ᵥ e₀ := by
   intro k
