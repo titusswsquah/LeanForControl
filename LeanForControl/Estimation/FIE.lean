@@ -220,6 +220,411 @@ lemma fieCost_nonneg (a e₀ : Fin n₁ ⊕ Fin n₂ → ℝ) (ω : ℕ → Fin 
 lemma feasible_self (a : Fin n₁ ⊕ Fin n₂ → ℝ) : Sys.Feasible a a := by
   refine ⟨⟨0, ?_⟩, ⟨0, ?_⟩⟩ <;> simp
 
+/-! ### The outer problem: optimal initial error
+
+The inner (noise) minimization is solved exactly by the LQ layer, leaving
+the outer problem `min φ_T(e₀) = priorPenalty a e₀ + e₀'(ric T)e₀` over the
+feasible affine set. We characterize its solutions variationally
+(`IsStationary`), construct one through the parameterization
+`e₀ = a + J v`, `J = diag(Σ₁, Σ₂)` (which turns the constrained problem into
+an unconstrained bounded-below quadratic), and prove the exact outer gap
+formula. None of this requires C2. -/
+
+/-- The reduced outer objective `φ_T`. -/
+noncomputable def outerObj (a e₀ : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) : ℝ :=
+  Sys.priorPenalty a e₀ + quadForm (Sys.lq.ric T) e₀
+
+/-- The block-diagonal prior matrix `J = diag(Σ₁, Σ₂)`, used to
+parameterize the feasible set. -/
+def Jmat : Matrix (Fin n₁ ⊕ Fin n₂) (Fin n₁ ⊕ Fin n₂) ℝ :=
+  Matrix.fromBlocks Sys.Sig₁ 0 0 Sys.Sig₂
+
+lemma Jmat_mulVec (v : Fin n₁ ⊕ Fin n₂ → ℝ) :
+    Sys.Jmat *ᵥ v
+      = Sum.elim (Sys.Sig₁ *ᵥ blk₁ v) (Sys.Sig₂ *ᵥ blk₂ v) := by
+  rw [Jmat, Matrix.fromBlocks_mulVec]
+  simp [blk₁, blk₂]
+
+/-- Feasibility is surjectively parameterized by `e₀ = a + J v`. -/
+lemma feasible_iff (a e₀ : Fin n₁ ⊕ Fin n₂ → ℝ) :
+    Sys.Feasible a e₀ ↔ ∃ v, e₀ - a = Sys.Jmat *ᵥ v := by
+  constructor
+  · rintro ⟨⟨z, hz⟩, ⟨w, hw⟩⟩
+    refine ⟨Sum.elim z w, ?_⟩
+    rw [Jmat_mulVec]
+    rw [← sumElim_blk (e₀ - a), hz, hw]
+    simp
+  · rintro ⟨v, hv⟩
+    constructor
+    · exact ⟨blk₁ v, by rw [hv, Sys.Jmat_mulVec]; simp⟩
+    · exact ⟨blk₂ v, by rw [hv, Sys.Jmat_mulVec]; simp⟩
+
+/-- A feasible **direction**: a difference of feasible points. -/
+def FeasibleDir (d : Fin n₁ ⊕ Fin n₂ → ℝ) : Prop :=
+  ∃ v, d = Sys.Jmat *ᵥ v
+
+lemma feasibleDir_sub {a e₀ e₀' : Fin n₁ ⊕ Fin n₂ → ℝ}
+    (h : Sys.Feasible a e₀) (h' : Sys.Feasible a e₀') :
+    Sys.FeasibleDir (e₀ - e₀') := by
+  rw [feasible_iff] at h h'
+  obtain ⟨v, hv⟩ := h
+  obtain ⟨v', hv'⟩ := h'
+  refine ⟨v - v', ?_⟩
+  rw [Matrix.mulVec_sub, ← hv, ← hv']
+  abel
+
+/-- First-order (variational) optimality of an initial-error decision for
+the outer problem: feasibility plus vanishing directional derivative along
+every feasible direction. -/
+def IsStationary (a e₀ : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) : Prop :=
+  Sys.Feasible a e₀ ∧ ∀ d : Fin n₁ ⊕ Fin n₂ → ℝ, Sys.FeasibleDir d →
+    (symmPinv Sys.hSig₁.1 *ᵥ blk₁ (e₀ - a)) ⬝ᵥ blk₁ d
+      + (symmPinv Sys.hSig₂.1 *ᵥ blk₂ (e₀ - a)) ⬝ᵥ blk₂ d
+      + (Sys.lq.ric T *ᵥ e₀) ⬝ᵥ d = 0
+
+/-- `Mᵀ = M` for a real symmetric matrix (transposed form of
+`IsHermitian`). -/
+lemma _root_.Matrix.IsHermitian.transpose_eq_self {k : ℕ}
+    {M : Matrix (Fin k) (Fin k) ℝ} (hM : M.IsHermitian) : Mᵀ = M := by
+  rw [← conjTranspose_eq_transpose_of_trivial]
+  exact hM
+
+lemma ric_transpose_eq (T : ℕ) : (Sys.lq.ric T)ᵀ = Sys.lq.ric T := by
+  rw [← conjTranspose_eq_transpose_of_trivial]
+  exact Sys.lq.ric_isHermitian T
+
+/-- The prior energy of an image point: `(Wz)'W†(Wz) = z'Wz`. -/
+lemma quadForm_symmPinv_mulVec {k : ℕ} {W : Matrix (Fin k) (Fin k) ℝ}
+    (hW : W.PosSemidef) (z : Fin k → ℝ) :
+    quadForm (symmPinv hW.1) (W *ᵥ z) = quadForm W z := by
+  rw [quadForm_mulVec, hW.1.transpose_eq_self,
+    self_mul_symmPinv_mul_self hW.1]
+
+lemma Jmat_isHermitian : Sys.Jmat.IsHermitian := by
+  unfold Jmat Matrix.IsHermitian
+  rw [Matrix.fromBlocks_conjTranspose]
+  rw [Sys.hSig₁.1, Sys.hSig₂.1]
+  simp
+
+lemma Jmat_transpose_eq : Sys.Jmatᵀ = Sys.Jmat := by
+  rw [← conjTranspose_eq_transpose_of_trivial]
+  exact Sys.Jmat_isHermitian
+
+/-- The quadratic form of `J` splits blockwise. -/
+lemma quadForm_Jmat (v : Fin n₁ ⊕ Fin n₂ → ℝ) :
+    quadForm Sys.Jmat v
+      = quadForm Sys.Sig₁ (blk₁ v) + quadForm Sys.Sig₂ (blk₂ v) := by
+  rw [quadForm, Sys.Jmat_mulVec, dotProduct_blocks]
+  simp [quadForm]
+
+lemma Jmat_posSemidef : Sys.Jmat.PosSemidef := by
+  refine Matrix.PosSemidef.of_dotProduct_mulVec_nonneg Sys.Jmat_isHermitian
+    fun v => ?_
+  have h : 0 ≤ quadForm Sys.Jmat v := by
+    rw [Sys.quadForm_Jmat]
+    exact add_nonneg (Sys.hSig₁.quadForm_nonneg _) (Sys.hSig₂.quadForm_nonneg _)
+  simpa [quadForm] using h
+
+/-- **Outer gap formula** (`eq:quad-gap`, initial-error part): at a
+stationary point, every feasible competitor pays exactly the deviation
+energy on top. -/
+theorem outerObj_gap {a e₀s : Fin n₁ ⊕ Fin n₂ → ℝ} {T : ℕ}
+    (hstat : Sys.IsStationary a e₀s T) {e₀ : Fin n₁ ⊕ Fin n₂ → ℝ}
+    (hfeas : Sys.Feasible a e₀) :
+    Sys.outerObj a e₀ T = Sys.outerObj a e₀s T
+      + (quadForm (symmPinv Sys.hSig₁.1) (blk₁ (e₀ - e₀s))
+        + quadForm (symmPinv Sys.hSig₂.1) (blk₂ (e₀ - e₀s))
+        + quadForm (Sys.lq.ric T) (e₀ - e₀s)) := by
+  obtain ⟨hfs, hvar⟩ := hstat
+  have hdir : Sys.FeasibleDir (e₀ - e₀s) := Sys.feasibleDir_sub hfeas hfs
+  have hvd := hvar (e₀ - e₀s) hdir
+  have hsplit : e₀ - a = (e₀s - a) + (e₀ - e₀s) := by abel
+  have hsplit' : e₀ = e₀s + (e₀ - e₀s) := by abel
+  -- expand the three quadratic forms
+  have hq1 : quadForm (symmPinv Sys.hSig₁.1) (blk₁ (e₀ - a))
+      = quadForm (symmPinv Sys.hSig₁.1) (blk₁ (e₀s - a))
+        + 2 * (blk₁ (e₀s - a) ⬝ᵥ (symmPinv Sys.hSig₁.1 *ᵥ blk₁ (e₀ - e₀s)))
+        + quadForm (symmPinv Sys.hSig₁.1) (blk₁ (e₀ - e₀s)) := by
+    rw [hsplit, blk₁_add,
+      quadForm_add_of_isHermitian (symmPinv_isHermitian Sys.hSig₁.1)]
+  have hq2 : quadForm (symmPinv Sys.hSig₂.1) (blk₂ (e₀ - a))
+      = quadForm (symmPinv Sys.hSig₂.1) (blk₂ (e₀s - a))
+        + 2 * (blk₂ (e₀s - a) ⬝ᵥ (symmPinv Sys.hSig₂.1 *ᵥ blk₂ (e₀ - e₀s)))
+        + quadForm (symmPinv Sys.hSig₂.1) (blk₂ (e₀ - e₀s)) := by
+    rw [hsplit, blk₂_add,
+      quadForm_add_of_isHermitian (symmPinv_isHermitian Sys.hSig₂.1)]
+  have hq3 : quadForm (Sys.lq.ric T) e₀
+      = quadForm (Sys.lq.ric T) e₀s
+        + 2 * (e₀s ⬝ᵥ (Sys.lq.ric T *ᵥ (e₀ - e₀s)))
+        + quadForm (Sys.lq.ric T) (e₀ - e₀s) := by
+    conv_lhs => rw [hsplit']
+    rw [quadForm_add_of_isHermitian (Sys.lq.ric_isHermitian T)]
+  -- convert the cross terms to the stationarity form
+  have hc1 : blk₁ (e₀s - a) ⬝ᵥ (symmPinv Sys.hSig₁.1 *ᵥ blk₁ (e₀ - e₀s))
+      = (symmPinv Sys.hSig₁.1 *ᵥ blk₁ (e₀s - a)) ⬝ᵥ blk₁ (e₀ - e₀s) := by
+    rw [dotProduct_mulVec_eq,
+      (symmPinv_isHermitian Sys.hSig₁.1).transpose_eq_self]
+  have hc2 : blk₂ (e₀s - a) ⬝ᵥ (symmPinv Sys.hSig₂.1 *ᵥ blk₂ (e₀ - e₀s))
+      = (symmPinv Sys.hSig₂.1 *ᵥ blk₂ (e₀s - a)) ⬝ᵥ blk₂ (e₀ - e₀s) := by
+    rw [dotProduct_mulVec_eq,
+      (symmPinv_isHermitian Sys.hSig₂.1).transpose_eq_self]
+  have hc3 : e₀s ⬝ᵥ (Sys.lq.ric T *ᵥ (e₀ - e₀s))
+      = (Sys.lq.ric T *ᵥ e₀s) ⬝ᵥ (e₀ - e₀s) := by
+    rw [dotProduct_mulVec_eq, Sys.ric_transpose_eq]
+  unfold outerObj priorPenalty
+  rw [hq1, hq2, hq3, hc1, hc2, hc3]
+  linarith [hvd]
+
+/-- **Existence of a stationary point** (no C2 required): the objective is
+a bounded-below quadratic in the parameterization `e₀ = a + J v`. -/
+theorem exists_isStationary (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) :
+    ∃ e₀, Sys.IsStationary a e₀ T := by
+  classical
+  set L := Sys.Jmat + Sys.Jmatᵀ * Sys.lq.ric T * Sys.Jmat with hL
+  set sv : Fin n₁ ⊕ Fin n₂ → ℝ
+    := Sys.Jmatᵀ *ᵥ (Sys.lq.ric T *ᵥ a) with hsv
+  have hLpsd : L.PosSemidef := by
+    refine Sys.Jmat_posSemidef.add ?_
+    have h := (Sys.lq.ric_posSemidef T).mul_mul_conjTranspose_same Sys.Jmatᵀ
+    rwa [show (Sys.Jmatᵀ)ᴴ = Sys.Jmat from by
+      rw [conjTranspose_eq_transpose_of_trivial, transpose_transpose]] at h
+  -- the objective along the parameterization
+  have hψ : ∀ v, Sys.outerObj a (a + Sys.Jmat *ᵥ v) T
+      = quadForm L v + 2 * (sv ⬝ᵥ v) + quadForm (Sys.lq.ric T) a := by
+    intro v
+    have hd1 : blk₁ ((a + Sys.Jmat *ᵥ v) - a) = Sys.Sig₁ *ᵥ blk₁ v := by
+      rw [add_sub_cancel_left, Sys.Jmat_mulVec]
+      simp
+    have hd2 : blk₂ ((a + Sys.Jmat *ᵥ v) - a) = Sys.Sig₂ *ᵥ blk₂ v := by
+      rw [add_sub_cancel_left, Sys.Jmat_mulVec]
+      simp
+    have hprior : Sys.priorPenalty a (a + Sys.Jmat *ᵥ v)
+        = quadForm Sys.Sig₁ (blk₁ v) + quadForm Sys.Sig₂ (blk₂ v) := by
+      unfold priorPenalty
+      rw [hd1, hd2, quadForm_symmPinv_mulVec Sys.hSig₁,
+        quadForm_symmPinv_mulVec Sys.hSig₂]
+    have hric : quadForm (Sys.lq.ric T) (a + Sys.Jmat *ᵥ v)
+        = quadForm (Sys.lq.ric T) a + 2 * (sv ⬝ᵥ v)
+          + quadForm (Sys.Jmatᵀ * Sys.lq.ric T * Sys.Jmat) v := by
+      rw [quadForm_add_of_isHermitian (Sys.lq.ric_isHermitian T),
+        quadForm_mulVec]
+      congr 2
+      rw [hsv, Matrix.mulVec_mulVec, dotProduct_mulVec_eq,
+        Matrix.transpose_mul, Sys.ric_transpose_eq, ← Matrix.mulVec_mulVec]
+    unfold outerObj
+    rw [hprior, hric, hL, quadForm_add_matrix, ← Sys.quadForm_Jmat]
+    ring
+  -- boundedness below gives solvability of the stationarity system
+  have hbdd : ∀ v, 2 * ((-sv) ⬝ᵥ v) ≤ quadForm L v
+      + quadForm (Sys.lq.ric T) a := by
+    intro v
+    have h1 : 0 ≤ Sys.outerObj a (a + Sys.Jmat *ᵥ v) T := by
+      unfold outerObj
+      exact add_nonneg (Sys.priorPenalty_nonneg _ _)
+        ((Sys.lq.ric_posSemidef T).quadForm_nonneg _)
+    rw [hψ v] at h1
+    have h2 : (-sv) ⬝ᵥ v = -(sv ⬝ᵥ v) := by simp
+    rw [h2]
+    linarith
+  obtain ⟨v, hv⟩ := hLpsd.exists_mulVec_eq hbdd
+  refine ⟨a + Sys.Jmat *ᵥ v, ⟨?_, ?_⟩⟩
+  · rw [feasible_iff]
+    exact ⟨v, by rw [add_sub_cancel_left]⟩
+  · rintro d ⟨w, hw⟩
+    have hd1 : blk₁ ((a + Sys.Jmat *ᵥ v) - a) = Sys.Sig₁ *ᵥ blk₁ v := by
+      rw [add_sub_cancel_left, Sys.Jmat_mulVec]
+      simp
+    have hd2 : blk₂ ((a + Sys.Jmat *ᵥ v) - a) = Sys.Sig₂ *ᵥ blk₂ v := by
+      rw [add_sub_cancel_left, Sys.Jmat_mulVec]
+      simp
+    have hw1 : blk₁ d = Sys.Sig₁ *ᵥ blk₁ w := by
+      rw [hw, Sys.Jmat_mulVec]
+      simp
+    have hw2 : blk₂ d = Sys.Sig₂ *ᵥ blk₂ w := by
+      rw [hw, Sys.Jmat_mulVec]
+      simp
+    -- first two terms collapse to `(J v) ⬝ᵥ w`
+    have ht1 : (symmPinv Sys.hSig₁.1 *ᵥ blk₁ ((a + Sys.Jmat *ᵥ v) - a))
+          ⬝ᵥ blk₁ d
+        = (Sys.Sig₁ *ᵥ blk₁ v) ⬝ᵥ blk₁ w := by
+      rw [hd1, hw1, dotProduct_mulVec_eq, Sys.hSig₁.1.transpose_eq_self,
+        Matrix.mulVec_mulVec, Matrix.mulVec_mulVec,
+        self_mul_symmPinv_mul_self Sys.hSig₁.1]
+    have ht2 : (symmPinv Sys.hSig₂.1 *ᵥ blk₂ ((a + Sys.Jmat *ᵥ v) - a))
+          ⬝ᵥ blk₂ d
+        = (Sys.Sig₂ *ᵥ blk₂ v) ⬝ᵥ blk₂ w := by
+      rw [hd2, hw2, dotProduct_mulVec_eq, Sys.hSig₂.1.transpose_eq_self,
+        Matrix.mulVec_mulVec, Matrix.mulVec_mulVec,
+        self_mul_symmPinv_mul_self Sys.hSig₂.1]
+    have hJvw : (Sys.Jmat *ᵥ v) ⬝ᵥ w
+        = (Sys.Sig₁ *ᵥ blk₁ v) ⬝ᵥ blk₁ w
+          + (Sys.Sig₂ *ᵥ blk₂ v) ⬝ᵥ blk₂ w := by
+      rw [Sys.Jmat_mulVec, dotProduct_blocks]
+      simp
+    -- third term: expand along `d = J w`
+    have htA : (Sys.lq.ric T *ᵥ a) ⬝ᵥ (Sys.Jmat *ᵥ w) = sv ⬝ᵥ w := by
+      rw [dotProduct_mulVec_eq, ← hsv]
+    have hMsymm : (Sys.Jmatᵀ * Sys.lq.ric T * Sys.Jmat)ᵀ
+        = Sys.Jmatᵀ * Sys.lq.ric T * Sys.Jmat := by
+      rw [Matrix.transpose_mul, Matrix.transpose_mul,
+        Matrix.transpose_transpose, Sys.ric_transpose_eq, ← Matrix.mul_assoc]
+    have htB : (Sys.lq.ric T *ᵥ (Sys.Jmat *ᵥ v)) ⬝ᵥ (Sys.Jmat *ᵥ w)
+        = ((Sys.Jmatᵀ * Sys.lq.ric T * Sys.Jmat) *ᵥ v) ⬝ᵥ w := by
+      rw [Matrix.mulVec_mulVec, mulVec_dotProduct_eq, Matrix.mulVec_mulVec,
+        Matrix.transpose_mul, Sys.ric_transpose_eq, dotProduct_mulVec_eq,
+        hMsymm]
+    rw [ht1, ht2, hw, Matrix.mulVec_add, add_dotProduct, htA, htB, ← hJvw]
+    have hfin : (Sys.Jmat *ᵥ v) ⬝ᵥ w
+          + ((Sys.Jmatᵀ * Sys.lq.ric T * Sys.Jmat) *ᵥ v) ⬝ᵥ w
+        = (L *ᵥ v) ⬝ᵥ w := by
+      rw [hL, Matrix.add_mulVec, add_dotProduct]
+    have hneg : (L *ᵥ v) ⬝ᵥ w = -(sv ⬝ᵥ w) := by
+      rw [hv, neg_dotProduct]
+    linarith [hfin, hneg]
+
+/-- **Uniqueness** of the stationary point (hence of the optimal initial
+error), for every PSD prior. -/
+theorem isStationary_unique {a e₀ e₀' : Fin n₁ ⊕ Fin n₂ → ℝ} {T : ℕ}
+    (h : Sys.IsStationary a e₀ T) (h' : Sys.IsStationary a e₀' T) :
+    e₀ = e₀' := by
+  have hg := Sys.outerObj_gap h h'.1
+  have hg' := Sys.outerObj_gap h' h.1
+  set d := e₀' - e₀ with hd
+  have hd' : e₀ - e₀' = -d := by rw [hd]; abel
+  have hgap : quadForm (symmPinv Sys.hSig₁.1) (blk₁ d)
+      + quadForm (symmPinv Sys.hSig₂.1) (blk₂ d)
+      + quadForm (Sys.lq.ric T) d = 0 := by
+    have e1 : quadForm (symmPinv Sys.hSig₁.1) (blk₁ (e₀ - e₀'))
+        = quadForm (symmPinv Sys.hSig₁.1) (blk₁ d) := by
+      rw [hd']
+      have : blk₁ (-d) = -(blk₁ d) := rfl
+      rw [this, quadForm_neg]
+    have e2 : quadForm (symmPinv Sys.hSig₂.1) (blk₂ (e₀ - e₀'))
+        = quadForm (symmPinv Sys.hSig₂.1) (blk₂ d) := by
+      rw [hd']
+      have : blk₂ (-d) = -(blk₂ d) := rfl
+      rw [this, quadForm_neg]
+    have e3 : quadForm (Sys.lq.ric T) (e₀ - e₀') = quadForm (Sys.lq.ric T) d := by
+      rw [hd', quadForm_neg]
+    rw [e1, e2, e3] at hg'
+    linarith
+  -- each summand is nonnegative, hence zero
+  have h1 : 0 ≤ quadForm (symmPinv Sys.hSig₁.1) (blk₁ d) :=
+    Sys.hSig₁.symmPinv.quadForm_nonneg _
+  have h2 : 0 ≤ quadForm (symmPinv Sys.hSig₂.1) (blk₂ d) :=
+    Sys.hSig₂.symmPinv.quadForm_nonneg _
+  have h3 : 0 ≤ quadForm (Sys.lq.ric T) d :=
+    (Sys.lq.ric_posSemidef T).quadForm_nonneg _
+  have hz1 : quadForm (symmPinv Sys.hSig₁.1) (blk₁ d) = 0 := by linarith
+  have hz2 : quadForm (symmPinv Sys.hSig₂.1) (blk₂ d) = 0 := by linarith
+  -- the deviation is a feasible direction, so vanishing prior energy kills it
+  obtain ⟨w, hwd⟩ := Sys.feasibleDir_sub h'.1 h.1
+  rw [← hd] at hwd
+  have hw1 : blk₁ d = Sys.Sig₁ *ᵥ blk₁ w := by
+    rw [hwd, Sys.Jmat_mulVec]
+    simp
+  have hw2 : blk₂ d = Sys.Sig₂ *ᵥ blk₂ w := by
+    rw [hwd, Sys.Jmat_mulVec]
+    simp
+  have hb1 : blk₁ d = 0 := by
+    rw [hw1] at hz1 ⊢
+    rw [quadForm_symmPinv_mulVec Sys.hSig₁] at hz1
+    have := Sys.hSig₁.mulVec_eq_zero_of_quadForm_eq_zero hz1
+    rw [this]
+  have hb2 : blk₂ d = 0 := by
+    rw [hw2] at hz2 ⊢
+    rw [quadForm_symmPinv_mulVec Sys.hSig₂] at hz2
+    have := Sys.hSig₂.mulVec_eq_zero_of_quadForm_eq_zero hz2
+    rw [this]
+  have hdz : d = 0 := by
+    rw [← sumElim_blk d, hb1, hb2]
+    funext i
+    cases i <;> rfl
+  have := hdz
+  rw [hd] at this
+  have : e₀' = e₀ := by
+    have h0 := this
+    rwa [sub_eq_zero] at h0
+  exact this.symm
+
+/-! ### The optimal initial error, value, and stability notions -/
+
+/-- The optimal initial error `e*(0|T)` of the horizon-`T` problem (the
+unique stationary point of the outer objective). -/
+noncomputable def optInit (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) :
+    Fin n₁ ⊕ Fin n₂ → ℝ :=
+  Classical.choose (Sys.exists_isStationary a T)
+
+lemma optInit_isStationary (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) :
+    Sys.IsStationary a (Sys.optInit a T) T :=
+  Classical.choose_spec (Sys.exists_isStationary a T)
+
+lemma optInit_feasible (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) :
+    Sys.Feasible a (Sys.optInit a T) :=
+  (Sys.optInit_isStationary a T).1
+
+/-- The optimal value `V_T⁰` of the horizon-`T` full-information problem. -/
+noncomputable def value (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) : ℝ :=
+  Sys.outerObj a (Sys.optInit a T) T
+
+lemma value_nonneg (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) :
+    0 ≤ Sys.value a T :=
+  add_nonneg (Sys.priorPenalty_nonneg _ _)
+    ((Sys.lq.ric_posSemidef T).quadForm_nonneg _)
+
+/-- **Joint optimality**: the value lower-bounds the cost of every feasible
+decision pair. -/
+theorem value_le_fieCost {a e₀ : Fin n₁ ⊕ Fin n₂ → ℝ}
+    (hfeas : Sys.Feasible a e₀) (ω : ℕ → Fin m → ℝ) (T : ℕ) :
+    Sys.value a T ≤ Sys.fieCost a e₀ ω T := by
+  have h1 : Sys.outerObj a e₀ T ≤ Sys.fieCost a e₀ ω T := by
+    unfold outerObj fieCost
+    have := Sys.lq.quadForm_ric_le_cost e₀ ω T
+    linarith
+  have h2 : Sys.value a T ≤ Sys.outerObj a e₀ T := by
+    rw [Sys.outerObj_gap (Sys.optInit_isStationary a T) hfeas]
+    have h3 : 0 ≤ quadForm (symmPinv Sys.hSig₁.1) (blk₁ (e₀ - Sys.optInit a T))
+        + quadForm (symmPinv Sys.hSig₂.1) (blk₂ (e₀ - Sys.optInit a T))
+        + quadForm (Sys.lq.ric T) (e₀ - Sys.optInit a T) := by
+      have g1 := Sys.hSig₁.symmPinv.quadForm_nonneg
+        (blk₁ (e₀ - Sys.optInit a T))
+      have g2 := Sys.hSig₂.symmPinv.quadForm_nonneg
+        (blk₂ (e₀ - Sys.optInit a T))
+      have g3 := (Sys.lq.ric_posSemidef T).quadForm_nonneg
+        (e₀ - Sys.optInit a T)
+      linarith
+    unfold value
+    linarith
+  linarith
+
+/-- The value is attained by the optimal initial error and the optimal
+noise sequence. -/
+theorem fieCost_optCtrl (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) :
+    Sys.fieCost a (Sys.optInit a T)
+      (Sys.lq.optCtrl (Sys.optInit a T) T) T = Sys.value a T := by
+  unfold fieCost value outerObj
+  rw [Sys.lq.cost_optCtrl]
+
+/-- The optimal terminal error `e*(T|T)`: the endpoint of the optimal
+trajectory of the horizon-`T` problem. -/
+noncomputable def optTerm (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) :
+    Fin n₁ ⊕ Fin n₂ → ℝ :=
+  Sys.lq.optTraj (Sys.optInit a T) T T
+
+/-- **Global asymptotic stability** of the full-information estimator
+(`def:gas`): the optimal terminal error dies out, linearly in the prior
+mismatch, uniformly over mismatches. -/
+def IsGAS : Prop :=
+  ∃ σ : ℕ → ℝ, Filter.Tendsto σ Filter.atTop (nhds 0) ∧
+    ∀ (T : ℕ) (a : Fin n₁ ⊕ Fin n₂ → ℝ), ‖Sys.optTerm a T‖ ≤ σ T * ‖a‖
+
+/-- **Global exponential stability** of the full-information estimator
+(`def:ges-fi`). -/
+def IsGES : Prop :=
+  ∃ c ρ : ℝ, 0 < c ∧ 0 < ρ ∧ ρ < 1 ∧
+    ∀ (T : ℕ) (a : Fin n₁ ⊕ Fin n₂ → ℝ),
+      ‖Sys.optTerm a T‖ ≤ c * ρ ^ T * ‖a‖
+
 end FIESystem
 
 end Estimation
