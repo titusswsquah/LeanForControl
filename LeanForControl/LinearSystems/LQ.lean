@@ -281,6 +281,15 @@ noncomputable def cost (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (T : ℕ) : 
 lemma cost_zero (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) : S.cost x₀ u 0 = 0 := by
   simp [cost]
 
+/-- The horizon-`T` cost depends only on the inputs before `T`. -/
+lemma cost_congr (x₀ : ι → ℝ) {u u' : ℕ → κ → ℝ} {T : ℕ}
+    (h : ∀ j < T, u j = u' j) : S.cost x₀ u T = S.cost x₀ u' T := by
+  unfold cost
+  refine Finset.sum_congr rfl fun k hk => ?_
+  rw [S.traj_congr x₀ fun j hj =>
+      h j (lt_of_lt_of_le hj (Finset.mem_range.mp hk).le),
+    h k (Finset.mem_range.mp hk)]
+
 /-- Peel the first stage off the cost. -/
 lemma cost_succ_first (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (T : ℕ) :
     S.cost x₀ u (T + 1)
