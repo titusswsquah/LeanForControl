@@ -368,8 +368,8 @@ lemma traj_rollE₁ (Kt : Matrix (Fin m) (Fin n₁) ℝ)
       rw [Matrix.mulVec_mulVec, ← pow_succ']
       simp [Matrix.zero_mulVec]
 
--- the rollout norm chains at every stage make this proof elaboration-heavy
 set_option maxHeartbeats 1000000 in
+-- the rollout norm chains at every stage make this proof elaboration-heavy
 /-- **The polynomial upper bracket** (`eq:bracket`, upper half): the
 antistable energy of the horizon-`T` value is at most polynomially
 larger than the squared final antistable state. Needs neither C1 nor
@@ -1239,6 +1239,323 @@ theorem C3w_of_isGES (hC1 : Sys.C1) (hC2 : Sys.C2) (hges : Sys.IsGES) :
     exact h3
   obtain ⟨T, hT⟩ := (htend.eventually_lt_const hc').exists
   exact absurd (hkey T) (not_le.mpr hT)
+
+/-! ### The exponential slide and floor (`lem:coercive`(3), variational
+form) -/
+
+/-- Under C3w the inverse antistable dynamics are Schur. -/
+lemma A₂_inv_schur (hC3 : Sys.C3w) : IsSchurStable Sys.A₂⁻¹ := by
+  intro μ hμ
+  rcases eq_or_ne μ 0 with h0 | hne
+  · rw [h0, norm_zero]
+    norm_num
+  have hspec : μ ∈ spectrum ℂ (Matrix.toLin' (complexify Sys.A₂⁻¹)) := by
+    rw [Matrix.spectrum_toLin']
+    exact hμ
+  obtain ⟨v, hv⟩ := (Module.End.hasEigenvalue_iff_mem_spectrum.mpr
+    hspec).exists_hasEigenvector
+  have hAv : complexify Sys.A₂⁻¹ *ᵥ v = μ • v := by
+    have := hv.apply_eq_smul
+    rwa [Matrix.toLin'_apply] at this
+  have hunit : IsUnit Sys.A₂.det :=
+    isUnit_iff_ne_zero.mpr Sys.A₂_det_ne_zero
+  have hAAinv : complexify Sys.A₂ * complexify Sys.A₂⁻¹ = 1 := by
+    rw [← complexify_mul, Matrix.mul_nonsing_inv _ hunit, complexify_one]
+  have h1 : complexify Sys.A₂ *ᵥ (complexify Sys.A₂⁻¹ *ᵥ v) = v := by
+    rw [Matrix.mulVec_mulVec, hAAinv, Matrix.one_mulVec]
+  rw [hAv, Matrix.mulVec_smul] at h1
+  have h2 : complexify Sys.A₂ *ᵥ v = μ⁻¹ • v := by
+    have h3 := congrArg (fun w => μ⁻¹ • w) h1
+    simp only [smul_smul, inv_mul_cancel₀ hne, one_smul] at h3
+    exact h3
+  have h4 := hC3 μ⁻¹ (mem_spectrum_of_mulVec_eq_smul hv.2 h2)
+  rw [norm_inv] at h4
+  have h5 : 0 < ‖μ‖ := norm_pos_iff.mpr hne
+  have h6 : ‖μ‖ * ‖μ‖⁻¹ = 1 := mul_inv_cancel₀ (ne_of_gt h5)
+  nlinarith
+
+private lemma pow_mulVec_norm_le {k : ℕ} (M : Matrix (Fin k) (Fin k) ℝ) :
+    ∀ (l : ℕ) (x : Fin k → ℝ), ‖M ^ l *ᵥ x‖ ≤ (1 + ‖M‖) ^ l * ‖x‖
+  | 0, x => by simp
+  | l + 1, x => by
+    rw [pow_succ', ← Matrix.mulVec_mulVec]
+    refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+    have h1 := pow_mulVec_norm_le M l x
+    have h2 : ‖M‖ ≤ 1 + ‖M‖ := by linarith [norm_nonneg M]
+    have h3 : (0:ℝ) ≤ (1 + ‖M‖) ^ l := by positivity
+    calc ‖M‖ * ‖M ^ l *ᵥ x‖ ≤ ‖M‖ * ((1 + ‖M‖) ^ l * ‖x‖) :=
+          mul_le_mul_of_nonneg_left h1 (norm_nonneg M)
+    _ ≤ (1 + ‖M‖) * ((1 + ‖M‖) ^ l * ‖x‖) := by
+        refine mul_le_mul_of_nonneg_right h2 ?_
+        exact mul_nonneg h3 (norm_nonneg x)
+    _ = (1 + ‖M‖) ^ (l + 1) * ‖x‖ := by
+        rw [pow_succ']
+        ring
+
+/-- The pseudoinverse of the positive definite antistable prior is
+itself positive definite. -/
+lemma symmPinv_Sig₂_posDef (hC2 : Sys.C2) :
+    (symmPinv Sys.hSig₂.1).PosDef := by
+  refine Matrix.PosDef.of_dotProduct_mulVec_pos
+    (symmPinv_isHermitian _) fun w hw => ?_
+  have h3 : w = Sys.Sig₂ *ᵥ (Sys.Sig₂⁻¹ *ᵥ w) := by
+    rw [Matrix.mulVec_mulVec, Matrix.mul_nonsing_inv _
+      (isUnit_iff_ne_zero.mpr hC2.det_pos.ne'), Matrix.one_mulVec]
+  have h4 : w ⬝ᵥ (symmPinv Sys.hSig₂.1 *ᵥ w)
+      = quadForm Sys.Sig₂ (Sys.Sig₂⁻¹ *ᵥ w) := by
+    show quadForm (symmPinv Sys.hSig₂.1) w = _
+    conv_lhs => rw [h3]
+    exact quadForm_symmPinv_image Sys.hSig₂ _
+  simp only [star_trivial]
+  rw [h4]
+  refine hC2.quadForm_pos ?_
+  intro h5
+  apply hw
+  rw [h3, h5, Matrix.mulVec_zero]
+
+/-- **The variational slide-rate** (`eq:slide-rate` + `eq:floor`): under
+C1 ∧ C2 ∧ C3w, every antistable state of the `(0,w)` problem is seen by
+the total antistable energy, exponentially weighted from the far end. -/
+theorem exists_slide_rate (hC1 : Sys.C1) (hC2 : Sys.C2)
+    (hC3 : Sys.C3w) :
+    ∃ chat ρ₂ : ℝ, 0 < chat ∧ 0 < ρ₂ ∧ ρ₂ < 1 ∧
+      ∀ (w : Fin n₂ → ℝ) (T s : ℕ), s ≤ T →
+        ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2 ≤ chat * ρ₂ ^ (2 * (T - s))
+          * (quadForm (symmPinv Sys.hSig₂.1) w
+            + quadForm (Sys.lq.ric T) (Sum.elim 0 w)) := by
+  classical
+  obtain ⟨α, hα, hcoer⟩ := Sys.exists_window_coercivity hC1
+  obtain ⟨c₂, ρ₂, hc₂, hρ₂0, hρ₂1, hinv⟩ :=
+    (Sys.A₂_inv_schur hC3).exists_pow_norm_le
+  obtain ⟨cSg, hcSg, hSglow⟩ := (Sys.symmPinv_Sig₂_posDef hC2).exists_le_quadForm
+  set m := n₁ + n₂ with hm
+  set cm : ℝ := (1 + ‖Sys.A₂‖) ^ m with hcm
+  have hcm0 : 0 < cm := by positivity
+  -- the sliding no-rate bound: a valid restart sees the state
+  have hslide : ∀ (w : Fin n₂ → ℝ) (T s : ℕ), s + m ≤ T →
+      α * ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2
+        ≤ quadForm (Sys.lq.ric T) (Sum.elim 0 w) := by
+    intro w T s hsm
+    set x₀ : Fin n₁ ⊕ Fin n₂ → ℝ := Sum.elim 0 w with hx₀
+    set ω := Sys.lq.optCtrl x₀ T with hω
+    have h1 : quadForm (Sys.lq.ric T) x₀ = Sys.lq.cost x₀ ω T := by
+      rw [hω, Sys.lq.cost_optCtrl]
+    have h2 := Sys.lq.quadForm_ric_traj_le_cost x₀ ω hsm
+    have h3 := hcoer (blk₁ (Sys.lq.traj x₀ ω s)) (blk₂ (Sys.lq.traj x₀ ω s))
+    rw [sumElim_blk] at h3
+    have h4 : blk₂ (Sys.lq.traj x₀ ω s) = Sys.A₂ ^ s *ᵥ w := by
+      rw [Sys.blk₂_traj]
+      congr 1
+    rw [h4] at h3
+    rw [h1]
+    exact le_trans h3 (le_trans h2 (le_of_eq rfl))
+  -- assemble the three regimes into one constant
+  set chat : ℝ := c₂ ^ 2 * (ρ₂ ^ m)⁻¹ ^ 2 / α
+    + cm ^ 2 / (α * (ρ₂ ^ m) ^ 2) + cm ^ 2 / (cSg * (ρ₂ ^ m) ^ 2)
+    with hchat
+  have hρ₂m : 0 < ρ₂ ^ m := pow_pos hρ₂0 m
+  have hchat0 : 0 < chat := by
+    rw [hchat]
+    positivity
+  refine ⟨chat, ρ₂, hchat0, hρ₂0, hρ₂1, ?_⟩
+  intro w T s hsT
+  have hqSg : 0 ≤ quadForm (symmPinv Sys.hSig₂.1) w :=
+    Sys.hSig₂.symmPinv.quadForm_nonneg w
+  have hqric : 0 ≤ quadForm (Sys.lq.ric T) (Sum.elim 0 w) :=
+    (Sys.lq.ric_posSemidef T).quadForm_nonneg _
+  have hρpow : 0 < ρ₂ ^ (2 * (T - s)) := pow_pos hρ₂0 _
+  rcases le_or_gt (s + m) T with hcase1 | hcase2
+  · -- a full window fits after `s`: restart at `t := T - m ≥ s`
+    set t := T - m with ht
+    have hst : s ≤ t := by omega
+    have h1 := hslide w T t (by omega)
+    -- reconstruct the `s`-state from the `t`-state
+    have h2 : Sys.A₂ ^ s *ᵥ w
+        = Sys.A₂⁻¹ ^ (t - s) *ᵥ (Sys.A₂ ^ t *ᵥ w) := by
+      rw [Matrix.mulVec_mulVec]
+      congr 1
+      have key : ∀ l j' : ℕ, Sys.A₂⁻¹ ^ l * Sys.A₂ ^ (l + j')
+          = Sys.A₂ ^ j' := by
+        intro l
+        induction l with
+        | zero => intro j'; simp
+        | succ l ih =>
+          intro j'
+          have hu : IsUnit Sys.A₂.det :=
+            isUnit_iff_ne_zero.mpr Sys.A₂_det_ne_zero
+          have h1' : l + 1 + j' = (l + j') + 1 := by omega
+          rw [h1', pow_succ, pow_succ']
+          calc Sys.A₂⁻¹ ^ l * Sys.A₂⁻¹ * (Sys.A₂ * Sys.A₂ ^ (l + j'))
+              = Sys.A₂⁻¹ ^ l * (Sys.A₂⁻¹ * Sys.A₂) * Sys.A₂ ^ (l + j') := by
+                simp only [Matrix.mul_assoc]
+          _ = Sys.A₂⁻¹ ^ l * Sys.A₂ ^ (l + j') := by
+                rw [Matrix.nonsing_inv_mul _ hu, Matrix.mul_one]
+          _ = Sys.A₂ ^ j' := ih j'
+      have h2' : (t - s) + s = t := by omega
+      have h3' := key (t - s) s
+      rw [h2'] at h3'
+      exact h3'.symm
+    have h3 : ‖Sys.A₂ ^ s *ᵥ w‖
+        ≤ c₂ * ρ₂ ^ (t - s) * ‖Sys.A₂ ^ t *ᵥ w‖ := by
+      rw [h2]
+      refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+      exact mul_le_mul_of_nonneg_right (hinv (t - s)) (norm_nonneg _)
+    have h4 : ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2
+        ≤ c₂ ^ 2 * (ρ₂ ^ (t - s)) ^ 2 * ‖Sys.A₂ ^ t *ᵥ w‖ ^ 2 := by
+      have h5 := pow_le_pow_left₀ (norm_nonneg _) h3 2
+      calc ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2
+          ≤ (c₂ * ρ₂ ^ (t - s) * ‖Sys.A₂ ^ t *ᵥ w‖) ^ 2 := h5
+      _ = c₂ ^ 2 * (ρ₂ ^ (t - s)) ^ 2 * ‖Sys.A₂ ^ t *ᵥ w‖ ^ 2 := by ring
+    have h6 : ‖Sys.A₂ ^ t *ᵥ w‖ ^ 2
+        ≤ quadForm (Sys.lq.ric T) (Sum.elim 0 w) / α := by
+      rw [le_div_iff₀ hα]
+      linarith
+    -- the exponent bookkeeping: `t - s = (T - s) - m`
+    have h7 : (ρ₂ ^ (t - s)) ^ 2
+        = ρ₂ ^ (2 * (T - s)) * ((ρ₂ ^ m)⁻¹) ^ 2 := by
+      have h8 : t - s + m = T - s := by omega
+      have h9 : ρ₂ ^ (t - s) * ρ₂ ^ m = ρ₂ ^ (T - s) := by
+        rw [← pow_add, h8]
+      have h10 : ρ₂ ^ (t - s) = ρ₂ ^ (T - s) * (ρ₂ ^ m)⁻¹ := by
+        field_simp
+        linarith [h9]
+      rw [h10, mul_pow, ← pow_mul, mul_comm (T - s) 2]
+    calc ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2
+        ≤ c₂ ^ 2 * (ρ₂ ^ (t - s)) ^ 2 * ‖Sys.A₂ ^ t *ᵥ w‖ ^ 2 := h4
+    _ ≤ c₂ ^ 2 * (ρ₂ ^ (t - s)) ^ 2
+          * (quadForm (Sys.lq.ric T) (Sum.elim 0 w) / α) := by
+        refine mul_le_mul_of_nonneg_left h6 ?_
+        positivity
+    _ = c₂ ^ 2 * ((ρ₂ ^ m)⁻¹) ^ 2 / α * ρ₂ ^ (2 * (T - s))
+          * quadForm (Sys.lq.ric T) (Sum.elim 0 w) := by
+        rw [h7]
+        ring
+    _ ≤ chat * ρ₂ ^ (2 * (T - s))
+          * (quadForm (symmPinv Sys.hSig₂.1) w
+            + quadForm (Sys.lq.ric T) (Sum.elim 0 w)) := by
+        have hle : c₂ ^ 2 * ((ρ₂ ^ m)⁻¹) ^ 2 / α ≤ chat := by
+          rw [hchat]
+          have hp1 : (0:ℝ) ≤ cm ^ 2 / (α * (ρ₂ ^ m) ^ 2) := by positivity
+          have hp2 : (0:ℝ) ≤ cm ^ 2 / (cSg * (ρ₂ ^ m) ^ 2) := by positivity
+          linarith
+        have hnn : (0:ℝ) ≤ quadForm (Sys.lq.ric T) (Sum.elim 0 w) := hqric
+        nlinarith [mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_right hle hρpow.le)
+          hnn, mul_nonneg (mul_nonneg hchat0.le hρpow.le) hqSg]
+  · -- fewer than `m` steps remain
+    have hTs : T - s < m := by omega
+    have hbase : ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2 ≤ cm ^ 2
+        * (quadForm (symmPinv Sys.hSig₂.1) w
+          + quadForm (Sys.lq.ric T) (Sum.elim 0 w))
+        / min α cSg := by
+      rcases le_or_gt m T with hmT | hmT
+      · -- restart at `t := T - m`, then at most `m` extra steps
+        set t := T - m with ht
+        have h1 := hslide w T t (by omega)
+        have h2 : Sys.A₂ ^ s *ᵥ w
+            = Sys.A₂ ^ (s - t) *ᵥ (Sys.A₂ ^ t *ᵥ w) := by
+          rw [Matrix.mulVec_mulVec, ← pow_add]
+          congr 2
+          omega
+        have h4 : ‖Sys.A₂ ^ s *ᵥ w‖ ≤ cm * ‖Sys.A₂ ^ t *ᵥ w‖ := by
+          rw [h2]
+          refine (pow_mulVec_norm_le Sys.A₂ (s - t) _).trans ?_
+          refine mul_le_mul_of_nonneg_right ?_ (norm_nonneg _)
+          rw [hcm]
+          refine pow_le_pow_right₀ ?_ (by omega)
+          linarith [norm_nonneg Sys.A₂]
+        have h5 : ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2
+            ≤ cm ^ 2 * ‖Sys.A₂ ^ t *ᵥ w‖ ^ 2 := by
+          have h6 := pow_le_pow_left₀ (norm_nonneg _) h4 2
+          calc ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2
+              ≤ (cm * ‖Sys.A₂ ^ t *ᵥ w‖) ^ 2 := h6
+          _ = cm ^ 2 * ‖Sys.A₂ ^ t *ᵥ w‖ ^ 2 := by ring
+        have h7 : ‖Sys.A₂ ^ t *ᵥ w‖ ^ 2
+            ≤ quadForm (Sys.lq.ric T) (Sum.elim 0 w) / min α cSg := by
+          rw [le_div_iff₀ (lt_min hα hcSg)]
+          have h8 : ‖Sys.A₂ ^ t *ᵥ w‖ ^ 2 * min α cSg
+              ≤ ‖Sys.A₂ ^ t *ᵥ w‖ ^ 2 * α :=
+            mul_le_mul_of_nonneg_left (min_le_left _ _) (sq_nonneg _)
+          nlinarith
+        have h9 : (0:ℝ) < min α cSg := lt_min hα hcSg
+        calc ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2
+            ≤ cm ^ 2 * ‖Sys.A₂ ^ t *ᵥ w‖ ^ 2 := h5
+        _ ≤ cm ^ 2 * (quadForm (Sys.lq.ric T) (Sum.elim 0 w)
+              / min α cSg) := mul_le_mul_of_nonneg_left h7 (sq_nonneg cm)
+        _ ≤ cm ^ 2 * (quadForm (symmPinv Sys.hSig₂.1) w
+              + quadForm (Sys.lq.ric T) (Sum.elim 0 w)) / min α cSg := by
+            rw [mul_div_assoc]
+            refine mul_le_mul_of_nonneg_left ?_ (sq_nonneg cm)
+            have h9 : (0:ℝ) < min α cSg := lt_min hα hcSg
+            gcongr
+            linarith
+      · -- the horizon itself is short: the prior term sees `w`
+        have h1 := hSglow w
+        have h2 : Sys.A₂ ^ s *ᵥ w = Sys.A₂ ^ s *ᵥ w := rfl
+        have h4 : ‖Sys.A₂ ^ s *ᵥ w‖ ≤ cm * ‖w‖ := by
+          refine (pow_mulVec_norm_le Sys.A₂ s w).trans ?_
+          refine mul_le_mul_of_nonneg_right ?_ (norm_nonneg _)
+          rw [hcm]
+          refine pow_le_pow_right₀ ?_ (by omega)
+          linarith [norm_nonneg Sys.A₂]
+        have h5 : ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2 ≤ cm ^ 2 * ‖w‖ ^ 2 := by
+          have h6 := pow_le_pow_left₀ (norm_nonneg _) h4 2
+          calc ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2 ≤ (cm * ‖w‖) ^ 2 := h6
+          _ = cm ^ 2 * ‖w‖ ^ 2 := by ring
+        have h7 : ‖w‖ ^ 2
+            ≤ quadForm (symmPinv Sys.hSig₂.1) w / min α cSg := by
+          rw [le_div_iff₀ (lt_min hα hcSg)]
+          have h8 : ‖w‖ ^ 2 * min α cSg ≤ ‖w‖ ^ 2 * cSg :=
+            mul_le_mul_of_nonneg_left (min_le_right _ _) (sq_nonneg _)
+          nlinarith
+        calc ‖Sys.A₂ ^ s *ᵥ w‖ ^ 2 ≤ cm ^ 2 * ‖w‖ ^ 2 := h5
+        _ ≤ cm ^ 2 * (quadForm (symmPinv Sys.hSig₂.1) w / min α cSg) :=
+            mul_le_mul_of_nonneg_left h7 (sq_nonneg cm)
+        _ ≤ cm ^ 2 * (quadForm (symmPinv Sys.hSig₂.1) w
+              + quadForm (Sys.lq.ric T) (Sum.elim 0 w)) / min α cSg := by
+            rw [mul_div_assoc]
+            refine mul_le_mul_of_nonneg_left ?_ (sq_nonneg cm)
+            have h9 : (0:ℝ) < min α cSg := lt_min hα hcSg
+            gcongr
+            linarith
+    -- absorb the short remaining horizon into the constant
+    have hpow2 : ρ₂ ^ (2 * m) ≤ ρ₂ ^ (2 * (T - s)) :=
+      pow_le_pow_of_le_one hρ₂0.le hρ₂1.le (by omega)
+    have hq : 0 ≤ quadForm (symmPinv Sys.hSig₂.1) w
+        + quadForm (Sys.lq.ric T) (Sum.elim 0 w) := add_nonneg hqSg hqric
+    have hkey : cm ^ 2 / min α cSg ≤ chat * ρ₂ ^ (2 * (T - s)) := by
+      have h1 : cm ^ 2 / min α cSg ≤ cm ^ 2 / α + cm ^ 2 / cSg := by
+        rcases min_choice α cSg with hm1 | hm1 <;> rw [hm1]
+        · have h1' : (0:ℝ) ≤ cm ^ 2 / cSg := by positivity
+          linarith
+        · have h1' : (0:ℝ) ≤ cm ^ 2 / α := by positivity
+          linarith
+      have hm2 : (ρ₂ ^ m) ^ 2 = ρ₂ ^ (2 * m) := by
+        rw [← pow_mul, mul_comm]
+      have h4 : cm ^ 2 / (α * (ρ₂ ^ m) ^ 2) * ρ₂ ^ (2 * m)
+          = cm ^ 2 / α := by
+        rw [← hm2]
+        field_simp
+      have h5 : cm ^ 2 / (cSg * (ρ₂ ^ m) ^ 2) * ρ₂ ^ (2 * m)
+          = cm ^ 2 / cSg := by
+        rw [← hm2]
+        field_simp
+      have h2 : cm ^ 2 / α + cm ^ 2 / cSg ≤ chat * ρ₂ ^ (2 * m) := by
+        rw [hchat, add_mul, add_mul, h4, h5]
+        have h3 : (0:ℝ) ≤ c₂ ^ 2 * ((ρ₂ ^ m)⁻¹) ^ 2 / α
+            * ρ₂ ^ (2 * m) := by positivity
+        linarith
+      calc cm ^ 2 / min α cSg ≤ cm ^ 2 / α + cm ^ 2 / cSg := h1
+      _ ≤ chat * ρ₂ ^ (2 * m) := h2
+      _ ≤ chat * ρ₂ ^ (2 * (T - s)) :=
+          mul_le_mul_of_nonneg_left hpow2 hchat0.le
+    have hrearr : cm ^ 2 * (quadForm (symmPinv Sys.hSig₂.1) w
+        + quadForm (Sys.lq.ric T) (Sum.elim 0 w)) / min α cSg
+        = cm ^ 2 / min α cSg * (quadForm (symmPinv Sys.hSig₂.1) w
+          + quadForm (Sys.lq.ric T) (Sum.elim 0 w)) := by
+      ring
+    rw [hrearr] at hbase
+    exact hbase.trans (mul_le_mul_of_nonneg_right hkey hq)
 
 end FIESystem
 
