@@ -240,10 +240,43 @@ sorry-free**. The remaining pieces landed as:
   - **`thm:ges-fi` sufficiency** (`isGES_of_C1_C2_C3w`) and the
     headline **`gas_ges_dichotomy`**.
 
-**Remaining after M1**: only the M2 discharges (`fact:lqr`,
-`fact:detect-inj` — the two `sorry`s), then optional M3/M4. Blueprint
-attributes for the new `Estimation` theorems are sparse and can be
-enriched when the docs pass happens.
+**Status (2026-08-29, session 3, final): M2 COMPLETE — the repository's
+costogo track has ZERO sorries.** `#print axioms` on
+`gas_ges_dichotomy`, `isGES_iff_C1_C2_C3w`, `lqr_convergence`, and
+`detect_inj` shows only `[propext, Classical.choice, Quot.sound]`.
+The M2 discharge layer:
+
+* `LinearSystems/LQStability` — the `Stabilizable`/`QsDetectable` defs,
+  moved out of the staging file to break the import cycle.
+* `LinearSystems/RiccatiConvergence` — monotone-bounded convergence of
+  the value iterates (entrywise, by polarization), continuity of the
+  Riccati step at PSD points (`continuousAt_matrix_inv` through the
+  curvature), fixed point and gain limits, and the **Joseph-form
+  eigenvector argument**: the closed loop at a detectable fixed point is
+  Schur (complexified Hermitian forms; an unstable mode would have zero
+  decrement, hence invisible and uncontrolled).
+* `LinearSystems/StabilizableBound` — the quantitative heart:
+  - **Bezout spectral split**: `χ = χs·χa` by root modulus over ℂ,
+    coprime; the projections `Ps, Pa` are polynomials in `M` (idempotent,
+    commuting), `M·Ps` is Schur by an eigenvector argument, giving
+    geometric decay of `M^k Ps` (via the new complex-matrix Gelfand
+    decay in `Schur.lean`);
+  - **Hautus reachability**: `range Pa ⊆` the `d`-step reachable space,
+    by duality — a functional killing the reachable space lies in the
+    Cayley–Hamilton-closed annihilator, on which `χa(Mᵀ)` acts
+    bijectively (stabilizability kills its unstable eigenvectors);
+  - minimum-energy steering with a bounded linear right inverse, and the
+    **uniform value bound** `qf(ric T) x ≤ c‖x‖²`: steer the antistable
+    projection out in `d` steps (complex plan, real parts as controls),
+    then coast on the stable decay.
+* `LinearSystems/StagedFacts` — both facts now proven; `detect_inj`
+  stays generic over finite index types (the `Fin`-core is transported
+  along `reindexAlgEquiv`).
+
+**Remaining (optional)**: M3 (deterministic Kalman-filter bridge,
+`lem:semiPT`), M4 (canonical-form decomposition), blueprint enrichment
+for the newer `Estimation`/M2 theorems, and lint cleanup (a handful of
+style warnings).
 
 Original plan (kept for reference). Prereq: M0, plus the two staged facts
 of M2 as `sorry`'d statements.
