@@ -12,6 +12,7 @@ import LeanForControl.LinearSystems.Detectability
 import LeanForControl.LinearSystems.Hautus
 import LeanForControl.LinearSystems.MatrixLemmas
 import LeanForControl.LinearSystems.Observability
+import LeanForControl.LinearSystems.OutputInjection
 import LeanForControl.LinearSystems.LQ
 import LeanForControl.LinearSystems.PolynomialSampling
 import LeanForControl.LinearSystems.QuadForm

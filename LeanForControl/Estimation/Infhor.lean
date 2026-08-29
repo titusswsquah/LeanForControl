@@ -590,17 +590,20 @@ theorem valueLim_le_valueInf (hC1 : Sys.C1) (hC2 : Sys.C2)
     Sys.valueLim a ≤ Sys.valueInf hC1 a :=
   Sys.valueLim_le a (Sys.value_le_valueInf hC1 hC2 a)
 
-/-- `V_∞(a) ≤ V̄(a)`: the limit pair witnesses the infinite-horizon
-minimum. -/
-theorem valueInf_le_valueLim (hC1 : Sys.C1) (hC2 : Sys.C2)
-    (a : Fin n₁ ⊕ Fin n₂ → ℝ) :
-    Sys.valueInf hC1 a ≤ Sys.valueLim a := by
+/-- The optimal decomposition of the limit pair: the endpoint of every
+truncation bounds `V̄` from below, so the telescoped block-1 value of
+`ē₀` fits under `V̄` — the "candidate budget" that `prop:gas` spends. -/
+theorem priorPenalty_add_quadForm_Pinf_le_valueLim (hC1 : Sys.C1)
+    (hC2 : Sys.C2) (a : Fin n₁ ⊕ Fin n₂ → ℝ) :
+    Sys.priorPenalty a (Sys.optInitLim a)
+      + quadForm (Sys.Pinf hC1) (blk₁ (Sys.optInitLim a))
+        ≤ Sys.valueLim a := by
   set ē := Sys.optInitLim a with hē
   set ξb := blk₁ ē with hξb
   have hblk2 : blk₂ ē = 0 := Sys.blk₂_optInitLim_eq_zero hC1 hC2 a
   have hsum : ē = Sum.elim ξb 0 := by
     rw [hξb, ← hblk2, sumElim_blk]
-  -- every truncation of the limit pair is below `V̄`; lower-bound it
+  -- every truncation of the limit pair is below `V̄`
   have hstep : ∀ N, Sys.priorPenalty a ē
       + quadForm (Sys.lqRed.ric N) ξb ≤ Sys.valueLim a := by
     intro N
@@ -614,18 +617,30 @@ theorem valueInf_le_valueLim (hC1 : Sys.C1) (hC2 : Sys.C2)
       Sys.lqRed.quadForm_ric_le_cost _ _ N
     linarith [h2 ▸ h3]
   -- pass `N → ∞` through the Riccati limit
+  have htd : Tendsto (fun N => Sys.priorPenalty a ē
+      + quadForm (Sys.lqRed.ric N) ξb) atTop
+      (nhds (Sys.priorPenalty a ē + quadForm (Sys.Pinf hC1) ξb)) := by
+    refine Tendsto.const_add _ ?_
+    have hcont : Continuous fun Mq : Matrix (Fin n₁) (Fin n₁) ℝ =>
+        quadForm Mq ξb :=
+      Continuous.dotProduct continuous_const
+        (continuous_id.matrix_mulVec continuous_const)
+    exact (hcont.tendsto _).comp (Sys.tendsto_ricRed hC1)
+  exact le_of_tendsto htd (Filter.Eventually.of_forall hstep)
+
+/-- `V_∞(a) ≤ V̄(a)`: the limit pair witnesses the infinite-horizon
+minimum. -/
+theorem valueInf_le_valueLim (hC1 : Sys.C1) (hC2 : Sys.C2)
+    (a : Fin n₁ ⊕ Fin n₂ → ℝ) :
+    Sys.valueInf hC1 a ≤ Sys.valueLim a := by
+  set ē := Sys.optInitLim a with hē
+  set ξb := blk₁ ē with hξb
+  have hblk2 : blk₂ ē = 0 := Sys.blk₂_optInitLim_eq_zero hC1 hC2 a
   have hlim : Sys.priorPenalty a ē + quadForm (Sys.Pinf hC1) ξb
       ≤ Sys.valueLim a := by
-    have htd : Tendsto (fun N => Sys.priorPenalty a ē
-        + quadForm (Sys.lqRed.ric N) ξb) atTop
-        (nhds (Sys.priorPenalty a ē + quadForm (Sys.Pinf hC1) ξb)) := by
-      refine Tendsto.const_add _ ?_
-      have hcont : Continuous fun Mq : Matrix (Fin n₁) (Fin n₁) ℝ =>
-          quadForm Mq ξb :=
-        Continuous.dotProduct continuous_const
-          (continuous_id.matrix_mulVec continuous_const)
-      exact (hcont.tendsto _).comp (Sys.tendsto_ricRed hC1)
-    exact le_of_tendsto htd (Filter.Eventually.of_forall hstep)
+    have h := Sys.priorPenalty_add_quadForm_Pinf_le_valueLim hC1 hC2 a
+    rw [← hē, ← hξb] at h
+    exact h
   -- identify the prior of the limit pair and use block-1 optimality
   have hprior : Sys.priorPenalty a ē
       = quadForm (symmPinv Sys.hSig₁.1) (ξb - blk₁ a)
