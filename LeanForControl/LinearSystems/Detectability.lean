@@ -33,9 +33,13 @@ open Matrix
 
 variable {n m p : ℕ}
 
+section GeneralIndex
+
+variable {ι κ : Type*} [Fintype ι] [DecidableEq ι] [Fintype κ]
+
 /-- An eigenpair of a complex matrix puts the eigenvalue in `spectrum ℂ`. -/
-lemma mem_spectrum_of_mulVec_eq_smul {A : Matrix (Fin n) (Fin n) ℂ} {μ : ℂ}
-    {v : Fin n → ℂ} (hv : v ≠ 0) (h : A *ᵥ v = μ • v) :
+lemma mem_spectrum_of_mulVec_eq_smul {A : Matrix ι ι ℂ} {μ : ℂ}
+    {v : ι → ℂ} (hv : v ≠ 0) (h : A *ᵥ v = μ • v) :
     μ ∈ spectrum ℂ A := by
   rw [← Matrix.spectrum_toLin']
   refine Module.End.hasEigenvalue_iff_mem_spectrum.mp ?_
@@ -51,8 +55,8 @@ Equivalently, all unobservable modes are strictly stable. -/
     $\mu \in \mathbb{C}$ with $|\mu| \ge 1$, the only vector $v$ with
     $A v = \mu v$ and $C v = 0$ is $v = 0$: unstable modes are observable. -/)]
 def IsDetectable
-    (A : Matrix (Fin n) (Fin n) ℂ) (C : Matrix (Fin p) (Fin n) ℂ) : Prop :=
-  ∀ (μ : ℂ) (v : Fin n → ℂ), 1 ≤ ‖μ‖ → A *ᵥ v = μ • v → C *ᵥ v = 0 → v = 0
+    (A : Matrix ι ι ℂ) (C : Matrix κ ι ℂ) : Prop :=
+  ∀ (μ : ℂ) (v : ι → ℂ), 1 ≤ ‖μ‖ → A *ᵥ v = μ • v → C *ᵥ v = 0 → v = 0
 
 /-- **Stabilizability**: the dual of detectability. `(A, B)` is stabilizable
 when `(Aᵀ, Bᵀ)` is detectable, i.e. every left eigenvector of `A` attached to
@@ -62,8 +66,10 @@ an eigenvalue with `1 ≤ ‖μ‖` is excited by the input map `B`. -/
     $(A^{\mathsf T}, B^{\mathsf T})$ is detectable: every left eigenvector of
     $A$ at an eigenvalue with $|\mu| \ge 1$ satisfies $w' B \neq 0$. -/)]
 def IsStabilizable
-    (A : Matrix (Fin n) (Fin n) ℂ) (B : Matrix (Fin n) (Fin m) ℂ) : Prop :=
+    (A : Matrix ι ι ℂ) (B : Matrix ι κ ℂ) : Prop :=
   IsDetectable Aᵀ Bᵀ
+
+end GeneralIndex
 
 /-- Observability implies detectability. -/
 @[blueprint "lem:isObservable-isDetectable"
