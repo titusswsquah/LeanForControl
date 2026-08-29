@@ -163,15 +163,47 @@ Landed:
   pseudoinverse injection, free-block completion of squares, positive
   definiteness through zero-cost-trajectory + CH + the vanishing theorem.
 
-**Remaining for M1** (next session): `lem:coercive`(2)–(3) (two-sided
-bracket, slide, C3w rates — needs the trajectory-restart/window-shift
-argument + `fact:poly-growth`/gramian instantiations on `A₂`),
-`prop:infhor` (monotone value limit + Cauchy minimizers via the gap),
-`prop:gas` (sufficiency via output injection with staged `detect-inj`;
-C2-necessity per the patched `paper.tex` argument), `lem:val-rate`,
-`thm:ges-fi`, `thm:gas-ges-fi`. The full-candidate (trajectory-deviation)
-gap formula still needs the `traj`-linearity + cross-vanishing argument
-sketched in the session notes.
+**Status (2026-08-29, session 3): `prop:infhor` and `prop:gas`
+(sufficiency) complete.** Landed since session 2:
+
+* `LinearSystems/LQ` (additions) — trajectory/cost linearity, the
+  quadratic expansion `cost_add_smul`, restart/window machinery
+  (`traj_restart`, `cost_add`, `quadForm_ric_traj_le_cost`,
+  `cost_eq_sum_windows`).
+* `Estimation/FIE` (additions) — **the full trajectory-deviation gap
+  formula** (`fieCost_gap`, `eq:quad-gap` complete form): any feasible
+  pair costs the value plus the zero-prior cost of its deviation.
+* `Estimation/Coercive` (additions) — `blk₂` autonomy, antistability of
+  matrix powers (spectral mapping), and **forced decay of the antistable
+  optimal block** (`exists_optInit_blk₂_decay`):
+  `J‖e₂*(0|T)‖² ≤ c‖a‖²` for `(n₁+n₂)J ≤ T`, via window sums +
+  `lem:coercive`(1) + Gramian growth of `A₂^{n₁+n₂}`.
+* `LinearSystems/ConstrainedQuadratic` — generic constrained PSD
+  quadratic minimization over `a + ran Σ` (existence + exact
+  completion-of-squares gap); the engine behind every outer problem.
+* `Estimation/Infhor` — **`prop:infhor` in full**: monotone value limit
+  `V̄ = ⨆ V_T⁰`, truncation-gap deviation bounds, Cauchy optimizers with
+  limits `ē₀ = optInitLim` / `ω̄ = optCtrlLim`, vanishing antistable
+  block of `ē₀`, feasibility of the limit (closed ranges), truncations
+  of the limit pair under `V̄`, `P_∞`/`ξ_∞` and the explicit value
+  identification **`V̄(a) = ‖ξ_∞−a₁‖²_{Σ₁†} + ‖a₂‖²_{Σ₂†} + ‖ξ_∞‖²_{P_∞}`**
+  (`valueLim_eq_valueInf`).
+* `Estimation/GAS` — **`prop:gas`, sufficiency** (`isGAS_of_C1_C2`):
+  `optInit` is linear in `a` (stationarity is a linear system), so
+  `V_T⁰ = a'Π_T a`; entrywise polarization gives `Π_T → Π_∞` and the
+  **uniform** gap `V̄ − V_T⁰ ≤ η_T‖a‖²`, `η_T → 0`; the frozen-gain
+  candidate + `fieCost_gap` bounds the deviation energy, and the staged
+  `detect-inj` output injection (`LinearSystems/OutputInjection`,
+  variation of constants + Cauchy–Schwarz) controls its terminal state.
+* `LinearSystems/Schur`, `StagedFacts`, `OutputInjection` — generalized
+  from `Fin n` to arbitrary finite index types (the full system is
+  `Fin n₁ ⊕ Fin n₂`-indexed).
+
+**Remaining for M1**: `prop:gas` necessity (C1 direct linear argument;
+C2 per the **patched** `paper.tex` argument — see the C2-necessity
+section below), `lem:coercive`(2)–(3) (two-sided `M_T` bracket, slide,
+C3w rates — GES only), `lem:val-rate`, `thm:ges-fi`, `thm:gas-ges-fi`;
+specialized `fact:eig-orbit` for `lem:val-rate`(2).
 
 Original plan (kept for reference). Prereq: M0, plus the two staged facts
 of M2 as `sorry`'d statements.
