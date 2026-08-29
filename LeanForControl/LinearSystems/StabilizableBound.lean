@@ -622,4 +622,416 @@ theorem antistable_mem_reach {M : Matrix (Fin d) (Fin d) ℂ}
   rw [hfeq] at hfx
   exact hfx hpair
 
+/-! ### Minimum-energy steering: a bounded right inverse -/
+
+/-- A linear right inverse for the reachability map, with a uniform
+norm bound. -/
+theorem exists_reach_rightInverse (M : Matrix (Fin d) (Fin d) ℂ)
+    (Bc : Matrix (Fin d) (Fin m') ℂ) :
+    ∃ c : ℝ, 0 < c ∧ ∀ y : Fin d → ℂ,
+      y ∈ LinearMap.range (reachMap M Bc) →
+      ∃ us : Fin d → Fin m' → ℂ,
+        reachMap M Bc us = y ∧ ‖us‖ ≤ c * ‖y‖ := by
+  classical
+  have hsurj : LinearMap.range ((reachMap M Bc).rangeRestrict) = ⊤ := by
+    rw [LinearMap.range_eq_top]
+    exact LinearMap.surjective_rangeRestrict _
+  obtain ⟨σ, hσ⟩ := LinearMap.exists_rightInverse_of_surjective
+    ((reachMap M Bc).rangeRestrict) hsurj
+  -- the right inverse is bounded (finite dimensions)
+  have hcont : Continuous σ := LinearMap.continuous_of_finiteDimensional σ
+  obtain ⟨c, hc, hbound⟩ := (LinearMap.toContinuousLinearMap σ).isBoundedLinearMap.bound
+  refine ⟨c + 1, by positivity, fun y hy => ?_⟩
+  refine ⟨σ ⟨y, hy⟩, ?_, ?_⟩
+  · have h1 := congrArg (fun g => g ⟨y, hy⟩) hσ
+    have h2 : (reachMap M Bc).rangeRestrict (σ ⟨y, hy⟩) = ⟨y, hy⟩ := h1
+    have h3 := congrArg Subtype.val h2
+    simpa using h3
+  · have h1 := hbound ⟨y, hy⟩
+    have h2 : ‖(⟨y, hy⟩ : LinearMap.range (reachMap M Bc))‖ = ‖y‖ := rfl
+    calc ‖σ ⟨y, hy⟩‖ ≤ c * ‖y‖ := by
+          simpa [h2] using h1
+    _ ≤ (c + 1) * ‖y‖ := by
+        have := norm_nonneg y
+        nlinarith
+
+/-! ### The uniform value bound under stabilizability -/
+
+/-- The complexified controlled trajectory. -/
+noncomputable def ctraj (M : Matrix (Fin d) (Fin d) ℂ)
+    (Bc : Matrix (Fin d) (Fin m') ℂ) (x0 : Fin d → ℂ)
+    (u : ℕ → Fin m' → ℂ) : ℕ → Fin d → ℂ
+  | 0 => x0
+  | k + 1 => M *ᵥ ctraj M Bc x0 u k + Bc *ᵥ u k
+
+/-- Variation of constants for the complexified trajectory. -/
+lemma ctraj_eq (M : Matrix (Fin d) (Fin d) ℂ)
+    (Bc : Matrix (Fin d) (Fin m') ℂ) (x0 : Fin d → ℂ)
+    (u : ℕ → Fin m' → ℂ) : ∀ T,
+    ctraj M Bc x0 u T = M ^ T *ᵥ x0
+      + ∑ k ∈ Finset.range T, M ^ (T - 1 - k) *ᵥ (Bc *ᵥ u k)
+  | 0 => by simp [ctraj]
+  | T + 1 => by
+    show M *ᵥ ctraj M Bc x0 u T + Bc *ᵥ u T = _
+    rw [ctraj_eq M Bc x0 u T, Matrix.mulVec_add, Matrix.mulVec_sum,
+      Finset.sum_range_succ]
+    have h1 : ∀ k ∈ Finset.range T,
+        M *ᵥ (M ^ (T - 1 - k) *ᵥ (Bc *ᵥ u k))
+          = M ^ (T + 1 - 1 - k) *ᵥ (Bc *ᵥ u k) := by
+      intro k hk
+      rw [Matrix.mulVec_mulVec,
+        show T + 1 - 1 - k = (T - 1 - k) + 1 from by
+          have := Finset.mem_range.mp hk; omega,
+        pow_succ']
+    rw [Finset.sum_congr rfl h1, Matrix.mulVec_mulVec, ← pow_succ']
+    have h2 : M ^ (T + 1 - 1 - T) *ᵥ (Bc *ᵥ u T) = Bc *ᵥ u T := by
+      rw [show T + 1 - 1 - T = 0 from by omega, pow_zero,
+        Matrix.one_mulVec]
+    rw [h2]
+    abel
+
+/-- The real part of the complexified trajectory is the real trajectory
+of the real parts. -/
+lemma traj_eq_ctraj_re (S : LQSystem (Fin d) (Fin m')) (x : Fin d → ℝ)
+    (u : ℕ → Fin m' → ℂ) : ∀ k,
+    S.traj x (fun j i => (u j i).re) k
+      = fun i => (ctraj (complexify S.A) (complexify S.B)
+          (complexifyVec x) u k i).re
+  | 0 => by
+    funext i
+    show x i = (complexifyVec x i).re
+    simp [complexifyVec]
+  | k + 1 => by
+    rw [LQSystem.traj_succ, traj_eq_ctraj_re S x u k]
+    funext i
+    show (S.A *ᵥ (fun i => (ctraj (complexify S.A) (complexify S.B)
+          (complexifyVec x) u k i).re)) i
+        + (S.B *ᵥ (fun i => (u k i).re)) i
+      = ((complexify S.A *ᵥ ctraj (complexify S.A) (complexify S.B)
+          (complexifyVec x) u k + complexify S.B *ᵥ u k) i).re
+    rw [Pi.add_apply, Complex.add_re, complexify_mulVec_re,
+      complexify_mulVec_re]
+
+set_option maxHeartbeats 1000000 in
+-- a long assembly of steering, decay, and per-stage bounds
+/-- **The uniform value bound** (`fact:lqr`, quantitative half): under
+stabilizability the Riccati value iterates are uniformly quadratically
+bounded — steer the antistable projection out in `d` steps, then coast
+on the geometrically decaying stable part. -/
+theorem exists_ric_bound_of_stabilizable
+    (S : LQSystem (Fin d) (Fin m')) (hstab : S.Stabilizable) :
+    ∃ c : ℝ, 0 < c ∧ ∀ (T : ℕ) (x : Fin d → ℝ),
+      quadForm (S.ric T) x ≤ c * ‖x‖ ^ 2 := by
+  classical
+  set M : Matrix (Fin d) (Fin d) ℂ := complexify S.A with hM
+  set Bc : Matrix (Fin d) (Fin m') ℂ := complexify S.B with hBc
+  obtain ⟨Ps, Pa, cs, ρ, hcs, hρ0, hρ1, hsum, hPaM, hPa2, hPaAnti,
+    hdec⟩ := exists_stable_split M
+  obtain ⟨cr, hcr, hreach⟩ := exists_reach_rightInverse M Bc
+  obtain ⟨cQ, hcQ, hQb⟩ := exists_quadForm_le S.Qs
+  obtain ⟨cR, hcR, hRb⟩ := exists_quadForm_le S.Ru
+  have hdet : IsDetectable Mᵀ Bcᵀ := hstab
+  -- master constants
+  set cu : ℝ := cr * ‖M ^ d‖ * ‖Pa‖ + 1 with hcu
+  have hcu0 : 0 < cu := by
+    have := norm_nonneg (M ^ d)
+    have := norm_nonneg Pa
+    positivity
+  set q : ℝ := 1 + ‖M‖ + ‖Bc‖ * cu with hq
+  have hq1 : 1 ≤ q := by
+    rw [hq]
+    have := norm_nonneg M
+    have h1 : (0:ℝ) ≤ ‖Bc‖ * cu := mul_nonneg (norm_nonneg _) hcu0.le
+    linarith
+  have hρ2 : ρ ^ 2 < 1 := by nlinarith
+  have hρinv : 0 < (1 - ρ ^ 2)⁻¹ := by
+    rw [inv_pos]
+    linarith
+  refine ⟨(d : ℝ) * (cQ * q ^ (2 * d) + cR * cu ^ 2)
+      + cQ * cs ^ 2 * (1 - ρ ^ 2)⁻¹ + 1, by positivity, ?_⟩
+  intro T x
+  set xc : Fin d → ℂ := complexifyVec x with hxc
+  have hxcn : ‖xc‖ = ‖x‖ := norm_complexifyVec x
+  -- the steering target
+  set y : Fin d → ℂ := -(M ^ d *ᵥ (Pa *ᵥ xc)) with hy
+  have hymem : y ∈ LinearMap.range (reachMap M Bc) := by
+    have hcommPow : ∀ k : ℕ, M ^ k * Pa = Pa * M ^ k := by
+      intro k
+      induction k with
+      | zero => simp
+      | succ k ih =>
+        calc M ^ (k + 1) * Pa = M * (M ^ k * Pa) := by
+              rw [pow_succ']
+              simp only [Matrix.mul_assoc]
+        _ = M * (Pa * M ^ k) := by rw [ih]
+        _ = (M * Pa) * M ^ k := by simp only [Matrix.mul_assoc]
+        _ = (Pa * M) * M ^ k := by rw [hPaM]
+        _ = Pa * M ^ (k + 1) := by
+            rw [pow_succ']
+            simp only [Matrix.mul_assoc]
+    have h1 : M ^ d *ᵥ (Pa *ᵥ xc) = Pa *ᵥ (M ^ d *ᵥ xc) := by
+      rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, hcommPow d]
+    rw [hy, h1]
+    exact Submodule.neg_mem _ (antistable_mem_reach hdet hPaAnti _)
+  obtain ⟨us, husy, husb⟩ := hreach y hymem
+  have hyn : ‖y‖ ≤ ‖M ^ d‖ * ‖Pa‖ * ‖x‖ := by
+    rw [hy, norm_neg]
+    refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+    calc ‖M ^ d‖ * ‖Pa *ᵥ xc‖ ≤ ‖M ^ d‖ * (‖Pa‖ * ‖xc‖) :=
+          mul_le_mul_of_nonneg_left (Matrix.linfty_opNorm_mulVec _ _)
+            (norm_nonneg _)
+    _ = ‖M ^ d‖ * ‖Pa‖ * ‖x‖ := by rw [hxcn]; ring
+  -- the control plan and its bound
+  set uc : ℕ → Fin m' → ℂ := fun k =>
+    if h : k < d then us ⟨d - 1 - k, by omega⟩ else 0 with huc
+  have hucb : ∀ k, ‖uc k‖ ≤ cu * ‖x‖ := by
+    intro k
+    by_cases h : k < d
+    · have huck : uc k = us ⟨d - 1 - k, by omega⟩ := by
+        simp only [huc]
+        rw [dif_pos h]
+      rw [huck]
+      have h1 : ‖us ⟨d - 1 - k, by omega⟩‖ ≤ ‖us‖ :=
+        norm_le_pi_norm us _
+      have h2 : ‖us‖ ≤ cr * ‖y‖ := husb
+      have h3 : cr * ‖y‖ ≤ cr * (‖M ^ d‖ * ‖Pa‖ * ‖x‖) :=
+        mul_le_mul_of_nonneg_left hyn hcr.le
+      have h4 : cr * (‖M ^ d‖ * ‖Pa‖ * ‖x‖) ≤ cu * ‖x‖ := by
+        rw [hcu]
+        have := norm_nonneg x
+        nlinarith
+      linarith
+    · have huck : uc k = 0 := by
+        simp only [huc]
+        rw [dif_neg h]
+      rw [huck]
+      have := norm_nonneg x
+      have h5 : ‖(0 : Fin m' → ℂ)‖ = 0 := norm_zero
+      rw [h5]
+      positivity
+  set zc : ℕ → Fin d → ℂ := ctraj M Bc xc uc with hzc
+  -- after `d` steps only the stable part remains
+  have hzd : zc d = M ^ d *ᵥ (Ps *ᵥ xc) := by
+    rw [hzc, ctraj_eq]
+    set f : ℕ → (Fin d → ℂ) := fun j =>
+      if h : j < d then (M ^ j * Bc) *ᵥ us ⟨j, h⟩ else 0 with hf
+    have h2 : ∀ k ∈ Finset.range d,
+        M ^ (d - 1 - k) *ᵥ (Bc *ᵥ uc k) = f (d - 1 - k) := by
+      intro k hk
+      have hkd := Finset.mem_range.mp hk
+      have hjd : d - 1 - k < d := by omega
+      simp only [hf, dif_pos hjd, huc, dif_pos hkd]
+      rw [Matrix.mulVec_mulVec]
+    have h3 : reachMap M Bc us = ∑ j ∈ Finset.range d, f j := by
+      show (∑ i : Fin d, (M ^ (i : ℕ) * Bc) *ᵥ us i) = _
+      rw [show (∑ i : Fin d, (M ^ (i : ℕ) * Bc) *ᵥ us i)
+          = ∑ i : Fin d, f (i : ℕ) from
+        Finset.sum_congr rfl fun i _ => by
+          rw [hf]
+          simp only [dif_pos i.2, Fin.eta]]
+      exact Fin.sum_univ_eq_sum_range f d
+    rw [Finset.sum_congr rfl h2, Finset.sum_range_reflect f d, ← h3,
+      husy, hy]
+    have h4 : Ps = 1 - Pa := eq_sub_of_add_eq hsum
+    rw [h4, Matrix.sub_mulVec, Matrix.one_mulVec, Matrix.mulVec_sub]
+    abel
+  -- the tail is autonomous and stable
+  have hzt : ∀ j : ℕ, zc (d + j) = M ^ (d + j) *ᵥ (Ps *ᵥ xc) := by
+    intro j
+    induction j with
+    | zero =>
+      rw [Nat.add_zero]
+      exact hzd
+    | succ j ih =>
+      have h1 : zc (d + (j + 1)) = M *ᵥ zc (d + j) + Bc *ᵥ uc (d + j) := by
+        rw [hzc]
+        show ctraj M Bc xc uc ((d + j) + 1) = _
+        rfl
+      rw [h1, ih]
+      have h2 : uc (d + j) = 0 := by
+        simp only [huc]
+        rw [dif_neg (by omega : ¬ d + j < d)]
+      rw [h2, Matrix.mulVec_zero, add_zero, Matrix.mulVec_mulVec,
+        Matrix.mulVec_mulVec, ← pow_succ']
+      have h3 : d + (j + 1) = (d + j) + 1 := rfl
+      rw [h3, ← Matrix.mulVec_mulVec]
+  have hztb : ∀ k : ℕ, d ≤ k → ‖zc k‖ ≤ cs * ρ ^ k * ‖x‖ := by
+    intro k hk
+    obtain ⟨j, rfl⟩ : ∃ j, k = d + j := ⟨k - d, by omega⟩
+    rw [hzt j]
+    have h1 := hdec (d + j) xc
+    rwa [hxcn] at h1
+  -- head states are boundedly amplified
+  have hzh : ∀ k : ℕ, ‖zc k‖ ≤ q ^ k * ‖x‖ := by
+    intro k
+    induction k with
+    | zero =>
+      have h1 : zc 0 = xc := rfl
+      rw [h1, hxcn, pow_zero, one_mul]
+    | succ k ih =>
+      have h1 : zc (k + 1) = M *ᵥ zc k + Bc *ᵥ uc k := rfl
+      rw [h1]
+      have h2 : ‖M *ᵥ zc k‖ ≤ ‖M‖ * (q ^ k * ‖x‖) :=
+        (Matrix.linfty_opNorm_mulVec _ _).trans
+          (mul_le_mul_of_nonneg_left ih (norm_nonneg _))
+      have h3 : ‖Bc *ᵥ uc k‖ ≤ ‖Bc‖ * (cu * ‖x‖) :=
+        (Matrix.linfty_opNorm_mulVec _ _).trans
+          (mul_le_mul_of_nonneg_left (hucb k) (norm_nonneg _))
+      have h4 : (1:ℝ) ≤ q ^ k := one_le_pow₀ hq1
+      have h5 := norm_nonneg x
+      have h6 := norm_nonneg M
+      have h7 : (0:ℝ) ≤ ‖Bc‖ * cu :=
+        mul_nonneg (norm_nonneg _) hcu0.le
+      calc ‖M *ᵥ zc k + Bc *ᵥ uc k‖
+          ≤ ‖M *ᵥ zc k‖ + ‖Bc *ᵥ uc k‖ := norm_add_le _ _
+      _ ≤ ‖M‖ * (q ^ k * ‖x‖) + ‖Bc‖ * (cu * ‖x‖) := add_le_add h2 h3
+      _ ≤ q ^ (k + 1) * ‖x‖ := by
+          have h8 : (1:ℝ) ≤ q ^ k := one_le_pow₀ hq1
+          have hqe : q = 1 + ‖M‖ + ‖Bc‖ * cu := hq
+          have h11 : q ^ (k + 1) = q ^ k * q := pow_succ q k
+          rw [h11]
+          nlinarith [mul_nonneg (mul_nonneg (sub_nonneg.mpr h8)
+            (by linarith : (0:ℝ) ≤ 1 + ‖Bc‖ * cu)) h5, h5, h7]
+  -- the real control and the trajectory bridge
+  set ur : ℕ → Fin m' → ℝ := fun k i => (uc k i).re with hur
+  have hbridge : ∀ k, S.traj x ur k
+      = fun i => (zc k i).re := by
+    intro k
+    exact traj_eq_ctraj_re S x uc k
+  have hre_le : ∀ (l : ℕ) (w : Fin l → ℂ),
+      ‖(fun i => (w i).re)‖ ≤ ‖w‖ := by
+    intro l w
+    refine (pi_norm_le_iff_of_nonneg (norm_nonneg w)).mpr fun i => ?_
+    calc ‖(w i).re‖ ≤ ‖w i‖ := by
+          rw [Real.norm_eq_abs]
+          exact Complex.abs_re_le_norm _
+    _ ≤ ‖w‖ := norm_le_pi_norm w i
+  -- per-stage bound and summation
+  have h0 := S.quadForm_ric_le_cost x ur T
+  refine h0.trans ?_
+  have hstage : ∀ k ∈ Finset.range T,
+      quadForm S.Qs (S.traj x ur k) + quadForm S.Ru (ur k)
+        ≤ (if k < d then (cQ * q ^ (2 * d) + cR * cu ^ 2) * ‖x‖ ^ 2
+            else 0)
+          + cQ * cs ^ 2 * (ρ ^ 2) ^ k * ‖x‖ ^ 2 := by
+    intro k _
+    have htr : ‖S.traj x ur k‖ ≤ ‖zc k‖ := by
+      rw [hbridge k]
+      exact hre_le d (zc k)
+    have hqQ : quadForm S.Qs (S.traj x ur k) ≤ cQ * ‖zc k‖ ^ 2 := by
+      refine (hQb _).trans ?_
+      refine mul_le_mul_of_nonneg_left ?_ hcQ.le
+      exact pow_le_pow_left₀ (norm_nonneg _) htr 2
+    have hqR : quadForm S.Ru (ur k) ≤ cR * ‖uc k‖ ^ 2 := by
+      refine (hRb _).trans ?_
+      refine mul_le_mul_of_nonneg_left ?_ hcR.le
+      refine pow_le_pow_left₀ (norm_nonneg _) ?_ 2
+      exact hre_le m' (uc k)
+    by_cases hkd : k < d
+    · rw [if_pos hkd]
+      -- head: amplification and control bounds
+      have h1 : ‖zc k‖ ≤ q ^ d * ‖x‖ := by
+        refine (hzh k).trans ?_
+        have h2 : q ^ k ≤ q ^ d :=
+          pow_le_pow_right₀ hq1 (by omega)
+        exact mul_le_mul_of_nonneg_right h2 (norm_nonneg x)
+      have h2 : ‖zc k‖ ^ 2 ≤ q ^ (2 * d) * ‖x‖ ^ 2 := by
+        have h3 := pow_le_pow_left₀ (norm_nonneg _) h1 2
+        calc ‖zc k‖ ^ 2 ≤ (q ^ d * ‖x‖) ^ 2 := h3
+        _ = q ^ (2 * d) * ‖x‖ ^ 2 := by
+            rw [mul_pow, ← pow_mul, mul_comm d 2]
+      have h4 : ‖uc k‖ ^ 2 ≤ cu ^ 2 * ‖x‖ ^ 2 := by
+        have h5 := pow_le_pow_left₀ (norm_nonneg _) (hucb k) 2
+        calc ‖uc k‖ ^ 2 ≤ (cu * ‖x‖) ^ 2 := h5
+        _ = cu ^ 2 * ‖x‖ ^ 2 := by ring
+      have h6 : (0:ℝ) ≤ cQ * cs ^ 2 * (ρ ^ 2) ^ k * ‖x‖ ^ 2 := by
+        positivity
+      nlinarith [mul_le_mul_of_nonneg_left h2 hcQ.le,
+        mul_le_mul_of_nonneg_left h4 hcR.le]
+    · rw [if_neg hkd]
+      -- tail: geometric decay, zero control
+      have h1 : uc k = 0 := by
+        simp only [huc]
+        rw [dif_neg hkd]
+      have h2 : ‖zc k‖ ^ 2 ≤ cs ^ 2 * (ρ ^ 2) ^ k * ‖x‖ ^ 2 := by
+        have h3 := pow_le_pow_left₀ (norm_nonneg _)
+          (hztb k (not_lt.mp hkd)) 2
+        calc ‖zc k‖ ^ 2 ≤ (cs * ρ ^ k * ‖x‖) ^ 2 := h3
+        _ = cs ^ 2 * (ρ ^ 2) ^ k * ‖x‖ ^ 2 := by
+            rw [← pow_mul, mul_comm 2 k, pow_mul]
+            ring
+      have h4 : quadForm S.Ru (ur k) = 0 := by
+        have h5 : ur k = 0 := by
+          funext i
+          show (uc k i).re = 0
+          rw [h1]
+          simp
+        rw [h5]
+        simp [quadForm]
+      rw [h4]
+      calc quadForm S.Qs (S.traj x ur k) + 0
+          = quadForm S.Qs (S.traj x ur k) := add_zero _
+      _ ≤ cQ * ‖zc k‖ ^ 2 := hqQ
+      _ ≤ cQ * (cs ^ 2 * (ρ ^ 2) ^ k * ‖x‖ ^ 2) :=
+          mul_le_mul_of_nonneg_left h2 hcQ.le
+      _ = 0 + cQ * cs ^ 2 * (ρ ^ 2) ^ k * ‖x‖ ^ 2 := by ring
+  -- sum the stage bounds
+  calc S.cost x ur T
+      = ∑ k ∈ Finset.range T,
+        (quadForm S.Qs (S.traj x ur k) + quadForm S.Ru (ur k)) := rfl
+  _ ≤ ∑ k ∈ Finset.range T,
+      ((if k < d then (cQ * q ^ (2 * d) + cR * cu ^ 2) * ‖x‖ ^ 2
+          else 0)
+        + cQ * cs ^ 2 * (ρ ^ 2) ^ k * ‖x‖ ^ 2) :=
+      Finset.sum_le_sum hstage
+  _ = (∑ k ∈ Finset.range T,
+        if k < d then (cQ * q ^ (2 * d) + cR * cu ^ 2) * ‖x‖ ^ 2
+          else 0)
+      + ∑ k ∈ Finset.range T,
+        cQ * cs ^ 2 * (ρ ^ 2) ^ k * ‖x‖ ^ 2 :=
+      Finset.sum_add_distrib
+  _ ≤ (d : ℝ) * ((cQ * q ^ (2 * d) + cR * cu ^ 2) * ‖x‖ ^ 2)
+      + cQ * cs ^ 2 * (1 - ρ ^ 2)⁻¹ * ‖x‖ ^ 2 := by
+      refine add_le_add ?_ ?_
+      · rw [← Finset.sum_filter]
+        rw [Finset.sum_const, nsmul_eq_mul]
+        have hsub : (Finset.range T).filter (· < d)
+            ⊆ Finset.range d := fun k hk =>
+          Finset.mem_range.mpr (Finset.mem_filter.mp hk).2
+        have h2 : ((((Finset.range T).filter (· < d)).card : ℕ) : ℝ)
+            ≤ (d : ℝ) := by
+          have h3 := Finset.card_le_card hsub
+          rw [Finset.card_range] at h3
+          exact_mod_cast h3
+        refine mul_le_mul_of_nonneg_right h2 ?_
+        positivity
+      · have h1 : ∑ k ∈ Finset.range T,
+            cQ * cs ^ 2 * (ρ ^ 2) ^ k * ‖x‖ ^ 2
+            = cQ * cs ^ 2 * ‖x‖ ^ 2
+              * ∑ k ∈ Finset.range T, (ρ ^ 2) ^ k := by
+          rw [Finset.mul_sum]
+          exact Finset.sum_congr rfl fun k _ => by ring
+        rw [h1]
+        have h2 : ∑ k ∈ Finset.range T, (ρ ^ 2) ^ k
+            ≤ (1 - ρ ^ 2)⁻¹ := by
+          have hpos : 0 < 1 - ρ ^ 2 := by linarith
+          have hgs := geom_sum_eq (ne_of_lt hρ2) T
+          have heq : ((ρ ^ 2) ^ T - 1) / (ρ ^ 2 - 1)
+              = (1 - (ρ ^ 2) ^ T) / (1 - ρ ^ 2) := by
+            rw [show (1 - (ρ ^ 2) ^ T) = -((ρ ^ 2) ^ T - 1) from by
+              ring, show (1 - ρ ^ 2) = -(ρ ^ 2 - 1) from by ring,
+              neg_div_neg_eq]
+          rw [hgs, heq, div_le_iff₀ hpos,
+            inv_mul_cancel₀ (ne_of_gt hpos)]
+          nlinarith [pow_pos (pow_pos hρ0 2) T]
+        calc cQ * cs ^ 2 * ‖x‖ ^ 2 * ∑ k ∈ Finset.range T, (ρ ^ 2) ^ k
+            ≤ cQ * cs ^ 2 * ‖x‖ ^ 2 * (1 - ρ ^ 2)⁻¹ := by
+              refine mul_le_mul_of_nonneg_left h2 ?_
+              positivity
+        _ = cQ * cs ^ 2 * (1 - ρ ^ 2)⁻¹ * ‖x‖ ^ 2 := by ring
+  _ ≤ ((d : ℝ) * (cQ * q ^ (2 * d) + cR * cu ^ 2)
+        + cQ * cs ^ 2 * (1 - ρ ^ 2)⁻¹ + 1) * ‖x‖ ^ 2 := by
+      have h1 : (0:ℝ) ≤ ‖x‖ ^ 2 := sq_nonneg _
+      nlinarith
+
 end LinearSystems
