@@ -123,3 +123,31 @@ kernel of the observability matrix.
 \inputleannode{thm:lyapunov-asymptotic-stable}
 
 \inputleannode{thm:lyapunov-global-asymptotic-stable}
+
+\chapter{State estimation of unstabilizable linear systems}
+
+This chapter tracks the formalization of \emph{State estimation of
+unstabilizable linear systems: the optimization perspective, Part~II --- the
+value-function route}. The target is the stability dichotomy: the
+full-information estimator is globally asymptotically stable iff C1 and C2
+hold, and globally exponentially stable iff C1, C2, and C3w hold.
+
+Nothing is formalized yet. The Lean-side scaffold is
+\texttt{LeanForControl/Estimation/Basic.lean} (conventions only); the
+dependency audit and suggested order of attack live in
+\texttt{notes/costogo-formalization-plan.md}.
+
+\section{Standing conditions}
+
+The three conditions on the pair $(A, C)$ and the noise-input matrix $G$:
+\begin{itemize}
+  \item \textbf{C1} --- $(A, C)$ is detectable.
+  \item \textbf{C2} --- $\ker \Sigma_0$ meets the unstable uncontrollable
+        subspace of $(A, G)$ only at zero.
+  \item \textbf{C3w} --- $(A, G)$ has no uncontrollable eigenvalues on the
+        unit circle.
+\end{itemize}
+
+As nodes are added, tag the Lean declarations with \texttt{@[blueprint "..."]}
+and pull them in here with \texttt{\textbackslash inputleannode}, following the
+pattern of the preceding chapters.

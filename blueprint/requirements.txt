@@ -1,0 +1,20 @@
+# Python tooling for the blueprint build (`leanblueprint web`, `leanblueprint pdf`).
+#
+# NOTE on graphviz: leanblueprint -> plastexdepgraph -> pygraphviz, and
+# pygraphviz links against a specific libcgraph soname. Installing a newer
+# system/conda graphviz than the pygraphviz build expects yields
+#   ImportError: libcgraph.so.6: cannot open shared object file
+# and the blueprint then renders WITHOUT the dependency graph and WITHOUT
+# blueprint/lean_decls (so `checkdecls` has nothing to check) -- while still
+# exiting 0. Keep the two in step.
+#
+# Verified working combination (2026-08-29):
+#   graphviz 9.0.0 + pygraphviz 1.11   (both from conda-forge)
+#
+#   conda install -c conda-forge --override-channels graphviz=9 "pygraphviz>=1.11"
+#   pip install -r blueprint/requirements.txt
+#
+# On Debian/Ubuntu without conda:
+#   sudo apt-get install graphviz libgraphviz-dev
+#   pip install pygraphviz
+leanblueprint>=0.0.20
