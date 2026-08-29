@@ -19,10 +19,11 @@ open Matrix
 
 open scoped Matrix.Norms.Operator
 
-variable {d p' m' : ℕ}
+variable {ι κ σ : Type*} [Fintype ι] [DecidableEq ι] [Fintype κ]
+  [Fintype σ]
 
 /-- Variation of constants for `x⁺ = Fx + w`. -/
-lemma varConst (F : Matrix (Fin d) (Fin d) ℝ) (x w : ℕ → Fin d → ℝ)
+lemma varConst (F : Matrix ι ι ℝ) (x w : ℕ → ι → ℝ)
     (hrec : ∀ k, x (k + 1) = F *ᵥ x k + w k) (T : ℕ) :
     x T = F ^ T *ᵥ x 0
       + ∑ k ∈ Finset.range T, F ^ (T - 1 - k) *ᵥ w k := by
@@ -49,10 +50,10 @@ lemma varConst (F : Matrix (Fin d) (Fin d) ℝ) (x w : ℕ → Fin d → ℝ)
 Schur, `‖x(T)‖²` is dominated by the initial state plus the output/input
 energies, uniformly in the horizon. -/
 theorem exists_terminal_sq_bound_of_injection
-    (A : Matrix (Fin d) (Fin d) ℝ) (C : Matrix (Fin p') (Fin d) ℝ)
-    (B : Matrix (Fin d) (Fin m') ℝ) {L : Matrix (Fin d) (Fin p') ℝ}
+    (A : Matrix ι ι ℝ) (C : Matrix κ ι ℝ)
+    (B : Matrix ι σ ℝ) {L : Matrix ι κ ℝ}
     (hL : IsSchurStable (A - L * C)) :
-    ∃ c : ℝ, 0 < c ∧ ∀ (x : ℕ → Fin d → ℝ) (u : ℕ → Fin m' → ℝ),
+    ∃ c : ℝ, 0 < c ∧ ∀ (x : ℕ → ι → ℝ) (u : ℕ → σ → ℝ),
       (∀ k, x (k + 1) = A *ᵥ x k + B *ᵥ u k) → ∀ T : ℕ,
       ‖x T‖ ^ 2 ≤ c * (‖x 0‖ ^ 2
         + ∑ k ∈ Finset.range T, (‖C *ᵥ x k‖ ^ 2 + ‖u k‖ ^ 2)) := by
@@ -73,7 +74,7 @@ theorem exists_terminal_sq_bound_of_injection
   refine ⟨2 * cF ^ 2 + 4 * cF ^ 2 * κ ^ 2 * (1 - ρ)⁻¹, hc0, ?_⟩
   intro x u hrec T
   set F := A - L * C with hF
-  set w : ℕ → Fin d → ℝ := fun k => L *ᵥ (C *ᵥ x k) + B *ᵥ u k with hw
+  set w : ℕ → ι → ℝ := fun k => L *ᵥ (C *ᵥ x k) + B *ᵥ u k with hw
   have hrecF : ∀ k, x (k + 1) = F *ᵥ x k + w k := by
     intro k
     rw [hrec k, hF, hw, Matrix.sub_mulVec, ← Matrix.mulVec_mulVec]

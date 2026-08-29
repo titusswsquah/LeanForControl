@@ -37,7 +37,7 @@ open Matrix Filter
 
 open scoped Matrix.Norms.Operator
 
-variable {n : ℕ}
+variable {ι : Type*} [Fintype ι] [DecidableEq ι]
 
 /-- A real square matrix is **Schur stable** if every eigenvalue of its
 complexification lies strictly inside the unit disc of `ℂ`. -/
@@ -45,14 +45,14 @@ complexification lies strictly inside the unit disc of `ℂ`. -/
   (statement := /-- A matrix $A \in \mathbb{R}^{n \times n}$ is \emph{Schur
     stable} if every eigenvalue $\mu \in \mathbb{C}$ of $A$ satisfies
     $|\mu| < 1$. -/)]
-def IsSchurStable (A : Matrix (Fin n) (Fin n) ℝ) : Prop :=
+def IsSchurStable (A : Matrix ι ι ℝ) : Prop :=
   ∀ μ ∈ spectrum ℂ (complexify A), ‖μ‖ < 1
 
 /-- With an empty index type the matrix algebra is trivial and the spectrum
 is empty. -/
-private lemma spectrum_complexify_eq_empty (A : Matrix (Fin n) (Fin n) ℝ)
-    (hn : IsEmpty (Fin n)) : spectrum ℂ (complexify A) = ∅ := by
-  haveI : Subsingleton (Matrix (Fin n) (Fin n) ℂ) :=
+private lemma spectrum_complexify_eq_empty (A : Matrix ι ι ℝ)
+    (hn : IsEmpty ι) : spectrum ℂ (complexify A) = ∅ := by
+  haveI : Subsingleton (Matrix ι ι ℂ) :=
     ⟨fun M N => by ext i j; exact (hn.false i).elim⟩
   exact spectrum.of_subsingleton _
 
@@ -63,9 +63,9 @@ private lemma spectrum_complexify_eq_empty (A : Matrix (Fin n) (Fin n) ℝ)
   (proof := /-- The spectral radius is the supremum of $|\mu|$ over the
     spectrum, which over $\mathbb{C}$ is nonempty and compact, so the
     supremum is attained; the two conditions coincide. -/)]
-theorem isSchurStable_iff_spectralRadius_lt_one (A : Matrix (Fin n) (Fin n) ℝ) :
+theorem isSchurStable_iff_spectralRadius_lt_one (A : Matrix ι ι ℝ) :
     IsSchurStable A ↔ spectralRadius ℂ (complexify A) < 1 := by
-  rcases isEmpty_or_nonempty (Fin n) with hn | hn
+  rcases isEmpty_or_nonempty ι with hn | hn
   · constructor
     · intro _
       rw [spectralRadius, spectrum_complexify_eq_empty A hn]
@@ -75,7 +75,7 @@ theorem isSchurStable_iff_spectralRadius_lt_one (A : Matrix (Fin n) (Fin n) ℝ)
       exact absurd hμ (Set.notMem_empty μ)
   · constructor
     · intro hA
-      haveI : Nontrivial (Matrix (Fin n) (Fin n) ℂ) := by
+      haveI : Nontrivial (Matrix ι ι ℂ) := by
         refine ⟨0, 1, fun h => ?_⟩
         obtain ⟨i⟩ := hn
         have := congrFun (congrFun h i) i
@@ -101,7 +101,7 @@ the Gelfand formula for the spectral radius. -/
   (proof := /-- Pick $\rho$ with $\rho(A) < \rho < 1$. By the Gelfand
     formula $\|A^{k}\|^{1/k} \to \rho(A)$, so $\|A^{k}\| \le \rho^{k}$ for
     all large $k$; enlarging the constant covers the finite prefix. -/)]
-theorem IsSchurStable.exists_pow_norm_le {A : Matrix (Fin n) (Fin n) ℝ}
+theorem IsSchurStable.exists_pow_norm_le {A : Matrix ι ι ℝ}
     (hA : IsSchurStable A) :
     ∃ c ρ : ℝ, 0 < c ∧ 0 < ρ ∧ ρ < 1 ∧ ∀ k : ℕ, ‖A ^ k‖ ≤ c * ρ ^ k := by
   have hrad : spectralRadius ℂ (complexify A) < 1 :=
@@ -177,7 +177,7 @@ circle would make `‖A ^ k *ᵥ v‖` non-decaying. -/
     $|\mu|^{k}\,\|v\| = \|A^{k} v\| \le c\,\rho^{k}\,\|v\|$; if $|\mu| \ge 1$
     the left side stays at least $\|v\|$ while the right side vanishes as
     $k \to \infty$, a contradiction. -/)]
-theorem isSchurStable_of_pow_norm_le {A : Matrix (Fin n) (Fin n) ℝ} {c ρ : ℝ}
+theorem isSchurStable_of_pow_norm_le {A : Matrix ι ι ℝ} {c ρ : ℝ}
     (hρ0 : 0 ≤ ρ) (hρ1 : ρ < 1) (h : ∀ k : ℕ, ‖A ^ k‖ ≤ c * ρ ^ k) :
     IsSchurStable A := by
   intro μ hμ
@@ -233,7 +233,7 @@ theorem isSchurStable_of_pow_norm_le {A : Matrix (Fin n) (Fin n) ℝ} {c ρ : �
     $k \ge 0$. -/)
   (proof := /-- Combine \cref{thm:schur-pow-decay} and
     \cref{thm:schur-of-pow-decay}. -/)]
-theorem isSchurStable_iff_exists_pow_norm_le (A : Matrix (Fin n) (Fin n) ℝ) :
+theorem isSchurStable_iff_exists_pow_norm_le (A : Matrix ι ι ℝ) :
     IsSchurStable A
       ↔ ∃ c ρ : ℝ, 0 < c ∧ 0 < ρ ∧ ρ < 1 ∧ ∀ k : ℕ, ‖A ^ k‖ ≤ c * ρ ^ k := by
   constructor
@@ -243,30 +243,29 @@ theorem isSchurStable_iff_exists_pow_norm_le (A : Matrix (Fin n) (Fin n) ℝ) :
 
 /-- Powers of a Schur-stable matrix send any vector to zero geometrically:
 `‖A ^ k *ᵥ x‖ ≤ c * ρ ^ k * ‖x‖`. -/
-theorem IsSchurStable.exists_pow_mulVec_le {A : Matrix (Fin n) (Fin n) ℝ}
+theorem IsSchurStable.exists_pow_mulVec_le {A : Matrix ι ι ℝ}
     (hA : IsSchurStable A) :
     ∃ c ρ : ℝ, 0 < c ∧ 0 < ρ ∧ ρ < 1 ∧
-      ∀ (k : ℕ) (x : Fin n → ℝ), ‖A ^ k *ᵥ x‖ ≤ c * ρ ^ k * ‖x‖ := by
+      ∀ (k : ℕ) (x : ι → ℝ), ‖A ^ k *ᵥ x‖ ≤ c * ρ ^ k * ‖x‖ := by
   obtain ⟨c, ρ, hc, hρ0, hρ1, h⟩ := hA.exists_pow_norm_le
   refine ⟨c, ρ, hc, hρ0, hρ1, fun k x => ?_⟩
   calc ‖A ^ k *ᵥ x‖ ≤ ‖A ^ k‖ * ‖x‖ := Matrix.linfty_opNorm_mulVec _ _
   _ ≤ c * ρ ^ k * ‖x‖ := mul_le_mul_of_nonneg_right (h k) (norm_nonneg x)
 
 /-- Schur stability is invariant under transposition (the spectrum is). -/
-lemma IsSchurStable.transpose {A : Matrix (Fin n) (Fin n) ℝ}
+lemma IsSchurStable.transpose {A : Matrix ι ι ℝ}
     (hA : IsSchurStable A) : IsSchurStable Aᵀ := by
   intro μ hμ
   refine hA μ ?_
-  rcases Nat.eq_zero_or_pos n with hn | hn
+  rcases isEmpty_or_nonempty ι with hn | hn
   · exfalso
-    subst hn
-    rw [spectrum_complexify_eq_empty Aᵀ inferInstance] at hμ
+    rw [spectrum_complexify_eq_empty Aᵀ hn] at hμ
     exact absurd hμ (Set.notMem_empty μ)
   · rw [Matrix.mem_spectrum_iff_isRoot_charpoly] at hμ ⊢
     rwa [show complexify Aᵀ = (complexify A)ᵀ from rfl,
       Matrix.charpoly_transpose] at hμ
 
-lemma isSchurStable_transpose_iff {A : Matrix (Fin n) (Fin n) ℝ} :
+lemma isSchurStable_transpose_iff {A : Matrix ι ι ℝ} :
     IsSchurStable Aᵀ ↔ IsSchurStable A :=
   ⟨fun h => by simpa using h.transpose, IsSchurStable.transpose⟩
 

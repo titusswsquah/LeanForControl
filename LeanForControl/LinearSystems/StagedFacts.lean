@@ -79,10 +79,11 @@ detectability. -/
     $A - LC$ is Schur. -/)
   (proof := /-- Deferred to milestone M2 (see the scope note); follows from
     \cref{fact:lqr} by duality. -/)]
-theorem detect_inj {d p' : ℕ} (A : Matrix (Fin d) (Fin d) ℝ)
-    (C : Matrix (Fin p') (Fin d) ℝ)
+theorem detect_inj {ι κ : Type*} [Fintype ι] [DecidableEq ι]
+    [Fintype κ] (A : Matrix ι ι ℝ)
+    (C : Matrix κ ι ℝ)
     (hdet : IsDetectable (complexify A) (complexify C)) :
-    ∃ L : Matrix (Fin d) (Fin p') ℝ, IsSchurStable (A - L * C) := by
+    ∃ L : Matrix ι κ ℝ, IsSchurStable (A - L * C) := by
   sorry -- STAGED (M2): fact:detect-inj
 
 end LinearSystems
