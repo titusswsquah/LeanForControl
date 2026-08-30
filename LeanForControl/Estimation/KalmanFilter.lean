@@ -312,6 +312,83 @@ lemma quadForm_measM_resolvent (hSg : Sg.PosSemidef) (u : Fin n → ℝ) :
   rw [hsplit, mulVec_dotProduct_eq, Matrix.transpose_transpose,
     dotProduct_comm]
 
+/-- `CΣCᵀ = S − R`. -/
+lemma C_mul_Sig_mul_Ct :
+    S.C * Sg * S.Cᵀ = S.innovS Sg - S.Rcov := by
+  unfold innovS
+  abel
+
+/-- **The support-aware measurement square** (`eq:meas-square`,
+image-parameterized): with `ξ = e + Σz` and
+`u = z + CᵀS⁻¹Ce`, prior-plus-output energy at `ξ` splits into the
+innovation cost at the center and the post-measurement energy of `u`. -/
+theorem meas_square (hSg : Sg.PosSemidef) (z e : Fin n → ℝ) :
+    quadForm Sg z + quadForm S.Ri (S.C *ᵥ e + S.C *ᵥ (Sg *ᵥ z))
+      = quadForm (S.innovS Sg)⁻¹ (S.C *ᵥ e)
+        + (quadForm Sg
+            (z + S.Cᵀ *ᵥ ((S.innovS Sg)⁻¹ *ᵥ (S.C *ᵥ e)))
+          + quadForm S.Ri (S.C *ᵥ (Sg *ᵥ
+              (z + S.Cᵀ *ᵥ ((S.innovS Sg)⁻¹ *ᵥ (S.C *ᵥ e)))))) := by
+  have hSgt : Sgᵀ = Sg := hSg.1.transpose_eq_self
+  set c : Fin p → ℝ := S.C *ᵥ e with hc
+  set sv : Fin p → ℝ := (S.innovS Sg)⁻¹ *ᵥ c with hsv
+  set g : Fin n → ℝ := S.Cᵀ *ᵥ sv with hg
+  set P : Fin p → ℝ := S.C *ᵥ (Sg *ᵥ z) with hP
+  -- (F1) `CΣg = c − R·s`
+  have hF1 : S.C *ᵥ (Sg *ᵥ g) = c - S.Rcov *ᵥ sv := by
+    rw [hg, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec,
+      S.C_mul_Sig_mul_Ct, Matrix.sub_mulVec, hsv,
+      Matrix.mulVec_mulVec, S.innovS_mul_inv hSg, Matrix.one_mulVec]
+  -- (F2) `g'Σg = s⬝c − s'Rs`
+  have hF2 : quadForm Sg g = sv ⬝ᵥ c - quadForm S.Rcov sv := by
+    unfold quadForm
+    have h1 : g ⬝ᵥ (Sg *ᵥ g) = sv ⬝ᵥ (S.C *ᵥ (Sg *ᵥ g)) := by
+      rw [hg]
+      rw [mulVec_dotProduct_eq, Matrix.transpose_transpose]
+    rw [h1, hF1, dotProduct_sub]
+  -- (F3) innovation cost
+  have hF3 : quadForm (S.innovS Sg)⁻¹ c = c ⬝ᵥ sv := rfl
+  -- (F4) cross term
+  have hF4 : z ⬝ᵥ (Sg *ᵥ g) = P ⬝ᵥ sv := by
+    rw [hg, dotProduct_mulVec_eq, hSgt, dotProduct_mulVec_eq,
+      Matrix.transpose_transpose, hP]
+  -- expand the updated energy
+  have hu : Sg *ᵥ (z + g) = Sg *ᵥ z + Sg *ᵥ g := Matrix.mulVec_add _ _ _
+  have hexp1 : quadForm Sg (z + g)
+      = quadForm Sg z + 2 * (P ⬝ᵥ sv) + (sv ⬝ᵥ c - quadForm S.Rcov sv) := by
+    rw [quadForm_add_of_isHermitian hSg.1, hF4, hF2]
+  have hCu : S.C *ᵥ (Sg *ᵥ (z + g)) = P + (c - S.Rcov *ᵥ sv) := by
+    rw [hu, Matrix.mulVec_add, hF1, hP]
+  have hexp2 : quadForm S.Ri (S.C *ᵥ (Sg *ᵥ (z + g)))
+      = quadForm S.Ri (P + c) - 2 * ((P + c) ⬝ᵥ sv)
+        + quadForm S.Rcov sv := by
+    rw [hCu]
+    have h2 : P + (c - S.Rcov *ᵥ sv)
+        = (P + c) + (-1 : ℝ) • (S.Rcov *ᵥ sv) := by module
+    rw [h2, quadForm_add_of_isHermitian S.hRi.1, quadForm_smul]
+    have h3 : (P + c) ⬝ᵥ (S.Ri *ᵥ ((-1 : ℝ) • (S.Rcov *ᵥ sv)))
+        = -((P + c) ⬝ᵥ sv) := by
+      rw [Matrix.mulVec_smul, dotProduct_smul]
+      have h4 : S.Ri *ᵥ (S.Rcov *ᵥ sv) = sv := by
+        rw [Matrix.mulVec_mulVec, S.Ri_mul_Rcov, Matrix.one_mulVec]
+      rw [h4]
+      simp
+    have h5 : quadForm S.Ri (S.Rcov *ᵥ sv) = quadForm S.Rcov sv := by
+      rw [quadForm_mulVec]
+      congr 1
+      rw [show S.Rcovᵀ = S.Rcov from S.Rcov_posDef.1.transpose_eq_self,
+        Matrix.mul_assoc, S.Ri_mul_Rcov, Matrix.mul_one]
+    rw [h3, h5]
+    ring
+  -- assemble
+  have hLHS2 : quadForm S.Ri (c + P) = quadForm S.Ri (P + c) := by
+    rw [add_comm]
+  rw [hF3, hexp1, hexp2, hLHS2]
+  have hfinal : (P + c) ⬝ᵥ sv = P ⬝ᵥ sv + c ⬝ᵥ sv := add_dotProduct _ _ _
+  have hcs : c ⬝ᵥ sv = sv ⬝ᵥ c := dotProduct_comm _ _
+  rw [hP] at *
+  linarith [hfinal, hcs]
+
 end PSD
 
 /-! ### The covariance iterates and the filter-error transition -/
