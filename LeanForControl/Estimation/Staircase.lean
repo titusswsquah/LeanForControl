@@ -670,6 +670,100 @@ lemma pair_reach_term {μ : ℂ} {φ : Fin S.rk1 → ℂ}
   rw [Matrix.transpose_pow, he, smul_dotProduct,
     dot_mulVec_transpose, hGφ, zero_dotProduct, smul_zero]
 
+/-- Left eigenvectors at antistable eigenvalues kill the stable
+subspace coordinates. -/
+lemma pair_stable {μ : ℂ} {φ : Fin S.rk1 → ℂ} (hμ : 1 ≤ ‖μ‖)
+    (hAφ : (complexify S.stairA.toBlocks₁₁)ᵀ *ᵥ φ = μ • φ)
+    {s : Fin n → ℝ} (hs : s ∈ stableSub S.A) :
+    S.pairLM φ s = 0 := by
+  show φ ⬝ᵥ (fun i =>
+    (S.staircaseBasis.repr s (Sum.inl i) : ℂ)) = 0
+  rw [coordsC_eq]
+  set ξ : (Fin S.rk1 ⊕ Fin S.rk2) → ℂ :=
+    complexify S.stairW *ᵥ complexifyVec s with hξ
+  -- the stable factor annihilates `s`
+  obtain ⟨w, hw⟩ := hs
+  have hs0 : Polynomial.aeval (complexify S.A)
+      (stabPoly (complexify S.A)) *ᵥ complexifyVec s = 0 := by
+    have h1 : complexifyVec s
+        = complexify (stabProj S.A) *ᵥ complexifyVec w := by
+      rw [← hw, show (stabProj S.A).mulVecLin w = stabProj S.A *ᵥ w
+        from rfl, ← complexify_mulVec]
+    rw [h1, Matrix.mulVec_mulVec, stabPoly_mul_stabProj,
+      Matrix.zero_mulVec]
+  -- transfer through the intertwiner
+  have h2 : Polynomial.aeval (complexify S.stairA)
+      (stabPoly (complexify S.A)) *ᵥ ξ = 0 := by
+    rw [hξ, Matrix.mulVec_mulVec, aeval_intertwine S.stairA_c_comm,
+      ← Matrix.mulVec_mulVec, hs0, Matrix.mulVec_zero]
+  -- the second-block coordinates of `s` vanish
+  have hξinr : (ξ ∘ Sum.inr) = 0 := by
+    funext i
+    show ξ (Sum.inr i) = 0
+    have h3 : (S.stairW *ᵥ s) (Sum.inr i) = 0 := by
+      rw [stairW_mulVec]
+      exact S.staircaseBasis_repr_inr_eq_zero
+        (Submodule.mem_sup_right ⟨w, hw⟩) i
+    rw [hξ, complexify_mulVec]
+    show ((S.stairW *ᵥ s) (Sum.inr i) : ℂ) = 0
+    rw [h3, Complex.ofReal_zero]
+  -- restrict the annihilation to the first block
+  obtain ⟨X, hX⟩ := aeval_fromBlocks_triangular
+    (complexify S.stairA.toBlocks₁₁) (complexify S.stairA.toBlocks₁₂)
+    (complexify S.stairA.toBlocks₂₂) (stabPoly (complexify S.A))
+  rw [S.stairA_c_blocks, hX] at h2
+  have h4 : Polynomial.aeval (complexify S.stairA.toBlocks₁₁)
+      (stabPoly (complexify S.A)) *ᵥ (ξ ∘ Sum.inl) = 0 := by
+    funext i
+    have h5 := congrFun h2 (Sum.inl i)
+    rw [Matrix.fromBlocks_mulVec] at h5
+    simp only [Sum.elim_inl, Pi.add_apply] at h5
+    rw [hξinr, Matrix.mulVec_zero] at h5
+    simpa using h5
+  -- pair with the left eigenvector
+  have h6 : φ ⬝ᵥ (Polynomial.aeval (complexify S.stairA.toBlocks₁₁)
+      (stabPoly (complexify S.A)) *ᵥ (ξ ∘ Sum.inl)) = 0 := by
+    rw [h4]
+    simp [dotProduct]
+  rw [dot_mulVec_transpose, aeval_transpose,
+    aeval_mulVec_eigenvector hAφ, smul_dotProduct] at h6
+  have h7 : Polynomial.eval μ (stabPoly (complexify S.A)) ≠ 0 := by
+    intro h8
+    have h9 := stabPoly_root_lt (Polynomial.IsRoot.def.mpr h8)
+    linarith
+  have h10 : φ ⬝ᵥ (ξ ∘ Sum.inl) = 0 := by
+    rcases smul_eq_zero.mp h6 with h | h
+    · exact absurd h h7
+    · exact h
+  exact h10
+
+/-- D1a(ii): the first staircase block is stabilizable. -/
+theorem stair_stabilizable :
+    IsStabilizable (complexify S.stairA.toBlocks₁₁)
+      (complexify S.stairG₁) := by
+  intro μ φ hμ hAφ hGφ
+  have key : ∀ x ∈ S.stabilizableSub, S.pairLM φ x = 0 := by
+    intro x hx
+    obtain ⟨r, hr, s, hs, hrs⟩ := Submodule.mem_sup.mp hx
+    rw [← hrs, map_add]
+    have hr0 : S.pairLM φ r = 0 := by
+      obtain ⟨us, hus⟩ := hr
+      rw [← hus, show S.realReachMap us
+        = ∑ j : Fin n, (S.A ^ (j : ℕ) * S.G) *ᵥ us j from rfl, map_sum]
+      exact Finset.sum_eq_zero fun j _ => S.pair_reach_term hAφ hGφ _ _
+    rw [hr0, S.pair_stable hμ hAφ hs, add_zero]
+  funext j
+  have hkey := key (S.staircaseBasis (Sum.inl j))
+    (S.staircaseBasis_inl_mem j)
+  have hval : S.pairLM φ (S.staircaseBasis (Sum.inl j)) = φ j := by
+    show φ ⬝ᵥ (fun i => (S.staircaseBasis.repr
+      (S.staircaseBasis (Sum.inl j)) (Sum.inl i) : ℂ)) = φ j
+    simp [dotProduct, Basis.repr_self, Finsupp.single_apply,
+      Sum.inl.injEq, apply_ite (Complex.ofReal)]
+  rw [hval] at hkey
+  show φ j = 0
+  exact hkey
+
 end GeneralSystem
 
 end Estimation
