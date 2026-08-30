@@ -160,6 +160,188 @@ theorem isGAS_of_pointwise
           rw [Finset.sum_mul]
           exact Finset.sum_congr rfl fun i _ => mul_comm _ _
 
+/-! ### Partial costs and the flipped cost `Z` (`prop:tvkfQuns` data) -/
+
+/-- The optimal error trajectory of the horizon-`k` problem,
+`x(j) − x̂(j|k)` in the paper's variables. -/
+noncomputable def eTraj (a : Fin n → ℝ) (k j : ℕ) : Fin n → ℝ :=
+  S.glq.traj (S.optInit a k) (S.glq.optCtrl (S.optInit a k) k) j
+
+/-- The partial optimal cost `V⁰(j|k)`. -/
+noncomputable def partialCost (a : Fin n → ℝ) (j k : ℕ) : ℝ :=
+  S.priorPen a (S.optInit a k)
+    + ∑ i ∈ Finset.range j,
+        S.gStage (S.optInit a k) (S.glq.optCtrl (S.optInit a k) k) i
+
+lemma partialCost_succ (a : Fin n → ℝ) (j k : ℕ) :
+    S.partialCost a (j + 1) k
+      = S.partialCost a j k
+        + S.gStage (S.optInit a k) (S.glq.optCtrl (S.optInit a k) k) j := by
+  unfold partialCost
+  rw [Finset.sum_range_succ]
+  ring
+
+lemma partialCost_le_valueLim (hC2 : S.C2) (a : Fin n → ℝ) {j k : ℕ}
+    (hjk : j ≤ k) : S.partialCost a j k ≤ S.valueLim a := by
+  have h1 : S.partialCost a j k ≤ S.value a k := by
+    have h2 := S.gCost_optCtrl a k
+    unfold gCost at h2
+    rw [cost_eq_sum_gStage] at h2
+    unfold partialCost
+    have h3 : ∑ i ∈ Finset.range j,
+        S.gStage (S.optInit a k) (S.glq.optCtrl (S.optInit a k) k) i
+        ≤ ∑ i ∈ Finset.range k,
+          S.gStage (S.optInit a k) (S.glq.optCtrl (S.optInit a k) k) i :=
+      Finset.sum_le_sum_of_subset_of_nonneg
+        (Finset.range_subset_range.mpr hjk)
+        fun i _ _ => S.gStage_nonneg _ _ _
+    linarith
+  exact h1.trans (S.value_le_valueLim hC2 a k)
+
+/-- The limiting value inherits the C2 quadratic bound. -/
+lemma valueLim_le_bound (hC2 : S.C2) :
+    ∃ c : ℝ, 0 < c ∧ ∀ a : Fin n → ℝ, S.valueLim a ≤ c * ‖a‖ ^ 2 := by
+  obtain ⟨c, hc, hb⟩ := S.exists_value_bound_C2 hC2
+  exact ⟨c, hc, fun a => ciSup_le fun T => hb a T⟩
+
+/-- **`prop:tvkfQuns`** (general coordinates): under C1 ∧ C2 the
+optimal estimator admits a modified Q-function with quadratic
+`K∞`-bounds. -/
+theorem exists_modQ (hC1 : S.C1) (hC2 : S.C2) :
+    ∃ (Q : (Fin n → ℝ) → ℕ → ℕ → ℝ) (c₀ cl cd : ℝ),
+      0 < c₀ ∧ 0 < cl ∧ 0 < cd ∧
+      (∀ a k, Q a 0 k ≤ c₀ * ‖a‖ ^ 2) ∧
+      (∀ a k j, j ≤ k → cl * ‖S.eTraj a k j‖ ^ 2 ≤ Q a j k) ∧
+      (∀ a k j, Q a (j + 1) k ≤ Q a j k - cd * ‖S.eTraj a k j‖ ^ 2) := by
+  classical
+  obtain ⟨P, a₁, a₂, a₃, c₁, c₂, hPD, ha₁, ha₂, ha₃, hc₁, hc₂,
+    hbounds, hdiss⟩ := exists_ioss_lyapunov S.A S.C (-S.G) hC1
+  obtain ⟨αQ, hαQ, hbQ⟩ := S.hQi.exists_le_quadForm
+  obtain ⟨αR, hαR, hbR⟩ := S.hRi.exists_le_quadForm
+  obtain ⟨cr, hcr, hbr⟩ := S.hSig0.exists_sq_norm_mulVec_le
+  obtain ⟨cv, hcv, hbv⟩ := S.valueLim_le_bound hC2
+  set ρ : ℝ := min (min (αQ / (2 * c₁)) (αR / (2 * c₂)))
+    (1 / (2 * a₂ * cr + 1)) with hρ
+  have hρ0 : 0 < ρ := by
+    rw [hρ]
+    have h1 : (0:ℝ) < αQ / (2 * c₁) := by positivity
+    have h2 : (0:ℝ) < αR / (2 * c₂) := by positivity
+    have h3 : (0:ℝ) < 1 / (2 * a₂ * cr + 1) := by positivity
+    exact lt_min (lt_min h1 h2) h3
+  have hρQ : ρ * c₁ ≤ αQ / 2 := by
+    have h1 : ρ ≤ αQ / (2 * c₁) :=
+      le_trans (min_le_left _ _) (min_le_left _ _)
+    calc ρ * c₁ ≤ αQ / (2 * c₁) * c₁ :=
+          mul_le_mul_of_nonneg_right h1 hc₁.le
+      _ = αQ / 2 := by field_simp
+  have hρR : ρ * c₂ ≤ αR / 2 := by
+    have h1 : ρ ≤ αR / (2 * c₂) :=
+      le_trans (min_le_left _ _) (min_le_right _ _)
+    calc ρ * c₂ ≤ αR / (2 * c₂) * c₂ :=
+          mul_le_mul_of_nonneg_right h1 hc₂.le
+      _ = αR / 2 := by field_simp
+  have hρP : ρ * (2 * a₂ * cr) ≤ 1 := by
+    have h1 : ρ ≤ 1 / (2 * a₂ * cr + 1) := min_le_right _ _
+    have h2 : (0:ℝ) < 2 * a₂ * cr + 1 := by positivity
+    calc ρ * (2 * a₂ * cr) ≤ 1 / (2 * a₂ * cr + 1) * (2 * a₂ * cr) :=
+          mul_le_mul_of_nonneg_right h1 (by positivity)
+      _ ≤ 1 := by
+          rw [div_mul_eq_mul_div, div_le_one h2]
+          linarith
+  refine ⟨fun a j k => S.valueLim a - S.partialCost a j k
+      + ρ * quadForm P (S.eTraj a k j),
+    cv + 2 * ρ * a₂, ρ * a₁, ρ * a₃,
+    by positivity, by positivity, by positivity, ?_, ?_, ?_⟩
+  · -- `eq:QunsInitUB`
+    intro a k
+    dsimp only
+    have h1 : S.eTraj a k 0 = S.optInit a k := rfl
+    rw [h1]
+    have h2 : quadForm P (S.optInit a k)
+        ≤ a₂ * ‖S.optInit a k‖ ^ 2 := (hbounds _).2
+    have h3 : ‖S.optInit a k‖ ^ 2
+        ≤ 2 * ‖S.optInit a k - a‖ ^ 2 + 2 * ‖a‖ ^ 2 := by
+      have h4 := norm_add_le (S.optInit a k - a) a
+      have h5 : S.optInit a k - a + a = S.optInit a k := by module
+      rw [h5] at h4
+      nlinarith [norm_nonneg (S.optInit a k - a), norm_nonneg a,
+        sq_nonneg (‖S.optInit a k - a‖ - ‖a‖),
+        mul_le_mul h4 h4 (norm_nonneg _) (by positivity :
+          (0:ℝ) ≤ ‖S.optInit a k - a‖ + ‖a‖)]
+    have h6 : ‖S.optInit a k - a‖ ^ 2
+        ≤ cr * S.priorPen a (S.optInit a k) := by
+      obtain ⟨z, hz⟩ := S.optInit_feasible a k
+      unfold priorPen
+      rw [hz, quadForm_symmPinv_image S.hSig0]
+      exact hbr z
+    have h7 : S.partialCost a 0 k = S.priorPen a (S.optInit a k) := by
+      unfold partialCost
+      simp
+    have h8 := hbv a
+    have hpen := S.priorPen_nonneg a (S.optInit a k)
+    -- assemble: the prior term absorbs the mismatch part of `V_io`
+    have h9 : ρ * quadForm P (S.optInit a k)
+        ≤ ρ * (2 * a₂) * (cr * S.priorPen a (S.optInit a k))
+          + 2 * ρ * a₂ * ‖a‖ ^ 2 := by
+      have h10 : quadForm P (S.optInit a k)
+          ≤ 2 * a₂ * (cr * S.priorPen a (S.optInit a k))
+            + 2 * a₂ * ‖a‖ ^ 2 := by
+        nlinarith
+      nlinarith
+    have h11 : ρ * (2 * a₂) * (cr * S.priorPen a (S.optInit a k))
+        ≤ S.priorPen a (S.optInit a k) := by
+      have h12 : ρ * (2 * a₂) * cr = ρ * (2 * a₂ * cr) := by ring
+      calc ρ * (2 * a₂) * (cr * S.priorPen a (S.optInit a k))
+          = (ρ * (2 * a₂ * cr)) * S.priorPen a (S.optInit a k) := by
+            ring
+        _ ≤ 1 * S.priorPen a (S.optInit a k) :=
+            mul_le_mul_of_nonneg_right hρP hpen
+        _ = S.priorPen a (S.optInit a k) := one_mul _
+    rw [h7]
+    nlinarith
+  · -- lower bound in `eq:QunsLBUB`
+    intro a k j hjk
+    dsimp only
+    have h1 := S.partialCost_le_valueLim hC2 a hjk
+    have h2 := (hbounds (S.eTraj a k j)).1
+    nlinarith
+  · -- `eq:QunsDecrease`
+    intro a k j
+    dsimp only
+    have hstep : S.eTraj a k (j + 1)
+        = S.A *ᵥ S.eTraj a k j
+          + (-S.G) *ᵥ S.glq.optCtrl (S.optInit a k) k j := by
+      unfold eTraj
+      rw [LQSystem.traj_succ]
+      rfl
+    have hd := hdiss (S.eTraj a k j) (S.glq.optCtrl (S.optInit a k) k j)
+    rw [← hstep] at hd
+    have hZ := S.partialCost_succ a j k
+    have hstage : S.gStage (S.optInit a k)
+        (S.glq.optCtrl (S.optInit a k) k) j
+        = quadForm S.Ri (S.C *ᵥ S.eTraj a k j)
+          + quadForm S.Qi (S.glq.optCtrl (S.optInit a k) k j) := by
+      unfold gStage eTraj
+      rw [S.quadForm_glq_Qs]
+      have h2 : quadForm S.glq.Ru (S.glq.optCtrl (S.optInit a k) k j)
+          = quadForm S.Qi (S.glq.optCtrl (S.optInit a k) k j) := rfl
+      rw [h2]
+    have hQlb := hbQ (S.glq.optCtrl (S.optInit a k) k j)
+    have hRlb := hbR (S.C *ᵥ S.eTraj a k j)
+    -- Young-balanced dissipation
+    have hω := sq_nonneg ‖S.glq.optCtrl (S.optInit a k) k j‖
+    have hν := sq_nonneg ‖S.C *ᵥ S.eTraj a k j‖
+    have hx := sq_nonneg ‖S.eTraj a k j‖
+    have hc₁ω : ρ * (c₁ * ‖S.glq.optCtrl (S.optInit a k) k j‖ ^ 2)
+        ≤ αQ / 2 * ‖S.glq.optCtrl (S.optInit a k) k j‖ ^ 2 := by
+      have := mul_le_mul_of_nonneg_right hρQ hω
+      nlinarith
+    have hc₂ν : ρ * (c₂ * ‖S.C *ᵥ S.eTraj a k j‖ ^ 2)
+        ≤ αR / 2 * ‖S.C *ᵥ S.eTraj a k j‖ ^ 2 := by
+      have := mul_le_mul_of_nonneg_right hρR hν
+      nlinarith
+    nlinarith [mul_le_mul_of_nonneg_left hd hρ0.le]
+
 end GeneralSystem
 
 end Estimation
