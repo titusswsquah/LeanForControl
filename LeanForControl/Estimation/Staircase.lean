@@ -245,6 +245,80 @@ lemma stairG_inr_eq_zero (i : Fin S.rk2) (j : Fin m) :
   refine S.staircaseBasis_repr_inr_eq_zero ?_ i
   exact Submodule.mem_sup_left (S.G_mulVec_mem_reachSub _)
 
+/-! ### The matrix-level intertwiner -/
+
+/-- The coordinate map as a matrix: `W x = repr x`. -/
+noncomputable def stairW : Matrix (Fin S.rk1 ⊕ Fin S.rk2) (Fin n) ℝ :=
+  LinearMap.toMatrix (Pi.basisFun ℝ (Fin n)) S.staircaseBasis
+    LinearMap.id
+
+/-- Its inverse: back to standard coordinates. -/
+noncomputable def stairWinv : Matrix (Fin n) (Fin S.rk1 ⊕ Fin S.rk2) ℝ :=
+  LinearMap.toMatrix S.staircaseBasis (Pi.basisFun ℝ (Fin n))
+    LinearMap.id
+
+lemma stairW_mul_stairWinv : S.stairW * S.stairWinv = 1 := by
+  unfold stairW stairWinv
+  rw [← LinearMap.toMatrix_comp (v₂ := Pi.basisFun ℝ (Fin n)),
+    LinearMap.id_comp, LinearMap.toMatrix_id]
+
+lemma stairWinv_mul_stairW : S.stairWinv * S.stairW = 1 := by
+  unfold stairW stairWinv
+  rw [← LinearMap.toMatrix_comp (v₂ := S.staircaseBasis),
+    LinearMap.id_comp, LinearMap.toMatrix_id]
+
+private lemma toMatrix_basisFun_mulVecLin {k l : ℕ}
+    (M : Matrix (Fin k) (Fin l) ℝ) :
+    LinearMap.toMatrix (Pi.basisFun ℝ (Fin l)) (Pi.basisFun ℝ (Fin k))
+      M.mulVecLin = M := by
+  rw [show LinearMap.toMatrix (Pi.basisFun ℝ (Fin l))
+      (Pi.basisFun ℝ (Fin k)) = LinearMap.toMatrix' from rfl,
+    ← Matrix.toLin'_apply', LinearMap.toMatrix'_toLin']
+
+lemma stairA_conj : S.stairA * S.stairW = S.stairW * S.A := by
+  have h1 : S.stairA * S.stairW
+      = LinearMap.toMatrix (Pi.basisFun ℝ (Fin n)) S.staircaseBasis
+        S.A.mulVecLin := by
+    unfold stairA stairW
+    rw [← LinearMap.toMatrix_comp (v₂ := S.staircaseBasis),
+      LinearMap.comp_id]
+  have h2 : S.stairW * S.A
+      = LinearMap.toMatrix (Pi.basisFun ℝ (Fin n)) S.staircaseBasis
+        S.A.mulVecLin := by
+    unfold stairW
+    conv_lhs => rw [show S.A = LinearMap.toMatrix (Pi.basisFun ℝ (Fin n))
+      (Pi.basisFun ℝ (Fin n)) S.A.mulVecLin from
+      (toMatrix_basisFun_mulVecLin S.A).symm]
+    rw [← LinearMap.toMatrix_comp (v₂ := Pi.basisFun ℝ (Fin n)),
+      LinearMap.id_comp]
+  rw [h1, h2]
+
+lemma stairG_eq : S.stairG = S.stairW * S.G := by
+  have h2 : S.stairW * S.G
+      = LinearMap.toMatrix (Pi.basisFun ℝ (Fin m)) S.staircaseBasis
+        S.G.mulVecLin := by
+    unfold stairW
+    conv_lhs => rw [show S.G = LinearMap.toMatrix (Pi.basisFun ℝ (Fin m))
+      (Pi.basisFun ℝ (Fin n)) S.G.mulVecLin from
+      (toMatrix_basisFun_mulVecLin S.G).symm]
+    rw [← LinearMap.toMatrix_comp (v₂ := Pi.basisFun ℝ (Fin n)),
+      LinearMap.id_comp]
+  rw [h2]
+  rfl
+
+lemma stairC_eq : S.stairC = S.C * S.stairWinv := by
+  have h2 : S.C * S.stairWinv
+      = LinearMap.toMatrix S.staircaseBasis (Pi.basisFun ℝ (Fin p))
+        S.C.mulVecLin := by
+    unfold stairWinv
+    conv_lhs => rw [show S.C = LinearMap.toMatrix (Pi.basisFun ℝ (Fin n))
+      (Pi.basisFun ℝ (Fin p)) S.C.mulVecLin from
+      (toMatrix_basisFun_mulVecLin S.C).symm]
+    rw [← LinearMap.toMatrix_comp (v₂ := Pi.basisFun ℝ (Fin n)),
+      LinearMap.comp_id]
+  rw [h2]
+  rfl
+
 end GeneralSystem
 
 end Estimation
