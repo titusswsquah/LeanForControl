@@ -268,6 +268,168 @@ lemma traj_succ_glq (e₀ : Fin n → ℝ) (ω : ℕ → Fin m → ℝ) (T : ℕ
 
 end StepHelpers
 
+/-- Action form of the covariance step. -/
+lemma dreStep_mulVec {Sg : Matrix (Fin n) (Fin n) ℝ} (w : Fin n → ℝ) :
+    S.dreStep Sg *ᵥ w
+      = S.A *ᵥ ((S.measM Sg * Sg) *ᵥ (S.Aᵀ *ᵥ w))
+        + S.G *ᵥ (S.Qcov *ᵥ (S.Gᵀ *ᵥ w)) := by
+  unfold dreStep
+  rw [Matrix.add_mulVec]
+  simp only [← Matrix.mulVec_mulVec]
+
+/-! ### The arrival recursion (`lem:arrival`) -/
+
+/-- **`lem:arrival`**: at every horizon, the terminally constrained
+full-information problem is feasible exactly on the affine set
+`arrC + im(dre T)`, and on it the least cost is the accumulated
+innovation cost plus the covariance-weighted displacement — the
+support-constrained arrival recursion whose center update is the
+Kalman filter. -/
+theorem arrival (a : Fin n → ℝ) : ∀ T : ℕ,
+    (∀ z, IsLeast (S.arrSet a T (S.arrC a T + S.dre T *ᵥ z))
+      (S.arrV a T + quadForm (S.dre T) z))
+    ∧ (∀ ξ, (S.arrSet a T ξ).Nonempty
+        → ∃ z, ξ = S.arrC a T + S.dre T *ᵥ z) := by
+  intro T
+  induction T with
+  | zero =>
+    constructor
+    · intro z
+      constructor
+      · refine ⟨a + S.Sig0 *ᵥ z, fun _ => 0, ⟨z, by module⟩, rfl, ?_⟩
+        unfold gCost priorPen
+        rw [show a + S.Sig0 *ᵥ z - a = S.Sig0 *ᵥ z from by module,
+          quadForm_symmPinv_image S.hSig0]
+        have h1 : S.glq.cost (a + S.Sig0 *ᵥ z) (fun _ => 0) 0 = 0 :=
+          S.glq.cost_zero _ _
+        rw [h1]
+        show S.arrV a 0 + quadForm (S.dre 0) z = _
+        rw [arrV_zero]
+        show 0 + quadForm S.Sig0 z = quadForm S.Sig0 z + 0
+        ring
+      · rintro c ⟨e₀, ω, hfeas, htraj, rfl⟩
+        have he₀ : e₀ = S.arrC a 0 + S.dre 0 *ᵥ z := htraj
+        unfold gCost priorPen
+        have h1 : S.glq.cost e₀ ω 0 = 0 := S.glq.cost_zero _ _
+        rw [h1]
+        have h2 : e₀ - a = S.Sig0 *ᵥ z := by
+          rw [he₀]
+          show a + S.Sig0 *ᵥ z - a = S.Sig0 *ᵥ z
+          module
+        rw [h2, quadForm_symmPinv_image S.hSig0]
+        show S.arrV a 0 + quadForm (S.dre 0) z ≤ _
+        rw [arrV_zero]
+        show 0 + quadForm S.Sig0 z ≤ quadForm S.Sig0 z + 0
+        ring_nf
+        exact le_refl _
+    · rintro ξ ⟨c, e₀, ω, hfeas, htraj, hc⟩
+      obtain ⟨z, hz⟩ := hfeas
+      refine ⟨z, ?_⟩
+      rw [← htraj]
+      show e₀ = a + S.Sig0 *ᵥ z
+      rw [← hz]
+      module
+  | succ T ih =>
+    obtain ⟨ihLeast, ihSupp⟩ := ih
+    have hps := S.dre_posSemidef T
+    constructor
+    · intro w
+      constructor
+      · -- membership: extend the horizon-`T` witness
+        set zstar : Fin n → ℝ :=
+          (S.measM (S.dre T))ᵀ *ᵥ (S.Aᵀ *ᵥ w)
+            - S.Cᵀ *ᵥ ((S.innovS (S.dre T))⁻¹
+              *ᵥ (S.C *ᵥ S.arrC a T)) with hzstar
+        obtain ⟨e₀s, ωs, hfs, htrajs, hcosts⟩ := (ihLeast zstar).1
+        set ωT : Fin m → ℝ := -(S.Qcov *ᵥ (S.Gᵀ *ᵥ w)) with hωT
+        set ωext : ℕ → Fin m → ℝ :=
+          fun j => if j < T then ωs j else ωT with hωext
+        have hagree : ∀ j < T, ωext j = ωs j := by
+          intro j hj
+          rw [hωext]
+          simp [hj]
+        have htrajT : S.glq.traj e₀s ωext T
+            = S.arrC a T + S.dre T *ᵥ zstar := by
+          rw [S.glq.traj_congr e₀s hagree, htrajs]
+        have hωextT : ωext T = ωT := by
+          rw [hωext]
+          simp
+        refine ⟨e₀s, ωext, hfs, ?_, ?_⟩
+        · rw [S.traj_succ_glq, htrajT, hωextT, hωT]
+          have h1 := S.displacement hps zstar (S.arrC a T)
+          rw [S.updCoord_witness hps] at h1
+          have h2 : S.A *ᵥ (S.arrC a T + S.dre T *ᵥ zstar)
+              = S.errF (S.dre T) *ᵥ S.arrC a T
+                + S.A *ᵥ ((S.measM (S.dre T) * S.dre T)
+                  *ᵥ (S.Aᵀ *ᵥ w)) := by
+            rw [← h1]
+            module
+          rw [h2, ← arrC_succ,
+            show S.dre (T + 1) = S.dreStep (S.dre T) from rfl,
+            S.dreStep_mulVec, Matrix.mulVec_neg]
+          module
+        · -- the extended cost equals the arrival value
+          rw [S.gCost_succ_split]
+          have hcc : S.gCost a e₀s ωext T = S.gCost a e₀s ωs T := by
+            unfold gCost
+            rw [S.glq.cost_congr e₀s hagree]
+          rw [hcc, ← hcosts, hωextT, htrajT]
+          have hen := S.one_step_energy hps zstar (S.arrC a T)
+          rw [S.updCoord_witness hps] at hen
+          have hneg : quadForm S.Qi ωT
+              = quadForm S.Qcov (S.Gᵀ *ᵥ w) := by
+            rw [hωT, show -(S.Qcov *ᵥ (S.Gᵀ *ᵥ w))
+                = (-1 : ℝ) • (S.Qcov *ᵥ (S.Gᵀ *ᵥ w)) from by module,
+              quadForm_smul, S.quadForm_Qi_Qcov]
+            norm_num
+          rw [hneg, S.arrV_succ,
+            show S.dre (T + 1) = S.dreStep (S.dre T) from rfl,
+            S.quadForm_dreStep]
+          linarith [hen]
+      · -- lower bound through the pushforward
+        rintro cval ⟨e₀, ω, hfeas, htraj, rfl⟩
+        have hmemT : S.gCost a e₀ ω T
+            ∈ S.arrSet a T (S.glq.traj e₀ ω T) :=
+          ⟨e₀, ω, hfeas, rfl, rfl⟩
+        obtain ⟨zT, hzT⟩ := ihSupp _ ⟨_, hmemT⟩
+        have hlow := (ihLeast zT).2 (by rw [← hzT]; exact hmemT)
+        have hdisp := S.displacement hps zT (S.arrC a T)
+        have hstep := S.traj_succ_glq e₀ ω T
+        rw [htraj, hzT] at hstep
+        -- hstep : arrC(T+1) + Σ⁺w = A(ct + ΣzT) − Gω(T)
+        rw [S.arrC_succ,
+          show S.dre (T + 1) = S.dreStep (S.dre T) from rfl] at hstep
+        have hcon : S.A *ᵥ ((S.measM (S.dre T) * S.dre T)
+              *ᵥ S.updCoord (S.dre T) zT (S.arrC a T))
+            - S.G *ᵥ ω T = S.dreStep (S.dre T) *ᵥ w := by
+          rw [← hdisp]
+          have h9 := sub_eq_iff_eq_add.mp hstep.symm
+          rw [h9]
+          module
+        have hpush := S.pushforward_lower hps _ (ω T) w hcon
+        have hen := S.one_step_energy hps zT (S.arrC a T)
+        rw [S.gCost_succ_split, hzT]
+        have hlow' : S.arrV a T + quadForm (S.dre T) zT
+            ≤ S.gCost a e₀ ω T := hlow
+        rw [S.arrV_succ,
+          show S.dre (T + 1) = S.dreStep (S.dre T) from rfl]
+        linarith [hen, hpush, hlow']
+    · -- support at `T+1`
+      rintro ξp ⟨cval, e₀, ω, hfeas, htraj, -⟩
+      have hmemT : S.gCost a e₀ ω T
+          ∈ S.arrSet a T (S.glq.traj e₀ ω T) :=
+        ⟨e₀, ω, hfeas, rfl, rfl⟩
+      obtain ⟨zT, hzT⟩ := ihSupp _ ⟨_, hmemT⟩
+      have hps' := hps
+      obtain ⟨w, hw⟩ := S.pushforward_mem_range hps
+        (S.updCoord (S.dre T) zT (S.arrC a T)) (ω T)
+      refine ⟨w, ?_⟩
+      have hdisp := S.displacement hps zT (S.arrC a T)
+      rw [← htraj, S.traj_succ_glq, hzT, S.arrC_succ,
+        show S.dre (T + 1) = S.dreStep (S.dre T) from rfl, ← hw,
+        ← hdisp]
+      module
+
 end GeneralSystem
 
 end Estimation
