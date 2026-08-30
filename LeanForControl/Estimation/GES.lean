@@ -135,7 +135,7 @@ theorem gap_le_antistable_energy (hC1 : Sys.C1) (hC2 : Sys.C2)
         linarith [h6, h4]
       unfold fieCost at h1
       linarith
-    refine le_of_tendsto (Sys.tendsto_value hC1 hC2 a) ?_
+    refine le_of_tendsto (Sys.tendsto_value hC2 a) ?_
     filter_upwards [eventually_ge_atTop T] with τ hτ
     exact hbnd τ hτ
   -- Step 2: expand the horizon-`T` value at the optimizer

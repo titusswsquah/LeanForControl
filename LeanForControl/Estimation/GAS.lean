@@ -188,9 +188,9 @@ theorem tendsto_Pimat (hC1 : Sys.C1) (hC2 : Sys.C2) :
         ← Sys.value_eq_quadForm_Pimat, ← Sys.value_eq_quadForm_Pimat,
         ← Sys.value_eq_quadForm_Pimat]
     simp only [hentry]
-    exact (((Sys.tendsto_value hC1 hC2 _).sub
-      (Sys.tendsto_value hC1 hC2 _)).sub
-      (Sys.tendsto_value hC1 hC2 _)).div_const 2
+    exact (((Sys.tendsto_value hC2 _).sub
+      (Sys.tendsto_value hC2 _)).sub
+      (Sys.tendsto_value hC2 _)).div_const 2
   exact tendsto_pi_nhds.mpr fun i => tendsto_pi_nhds.mpr fun j => key i j
 
 /-- `V̄` is the quadratic form of `Π_∞`. -/
@@ -206,7 +206,7 @@ theorem valueLim_eq_quadForm_PimatInf (hC1 : Sys.C1) (hC2 : Sys.C2)
     exact (hcont.tendsto _).comp (Sys.tendsto_Pimat hC1 hC2)
   have h2 : Tendsto (fun T => quadForm (Sys.Pimat T) a) atTop
       (nhds (Sys.valueLim a)) := by
-    have h3 := Sys.tendsto_value hC1 hC2 a
+    have h3 := Sys.tendsto_value hC2 a
     simpa only [Sys.value_eq_quadForm_Pimat] using h3
   exact tendsto_nhds_unique h2 h1
 
@@ -332,7 +332,7 @@ theorem exists_optInitLim_blk₁_bound (hC1 : Sys.C1) (hC2 : Sys.C2) :
   have htd : Tendsto (fun T => ‖blk₁ (Sys.optInit a T)‖) atTop
       (nhds ‖blk₁ (Sys.optInitLim a)‖) :=
     ((continuous_norm.comp continuous_blk₁).tendsto _).comp
-      (Sys.tendsto_optInit hC1 hC2 a)
+      (Sys.tendsto_optInit hC2 a)
   refine le_of_tendsto htd (Filter.Eventually.of_forall fun T => ?_)
   have h1 := hb a T
   have h2 : ‖blk₁ (Sys.optInit a T)‖

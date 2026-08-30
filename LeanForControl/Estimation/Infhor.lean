@@ -52,18 +52,18 @@ noncomputable def valueLim (a : Fin n₁ ⊕ Fin n₂ → ℝ) : ℝ :=
   ⨆ T, Sys.value a T
 
 /-- Under C1 ∧ C2 the values converge to `valueLim` from below. -/
-theorem tendsto_value (hC1 : Sys.C1) (hC2 : Sys.C2)
+theorem tendsto_value (hC2 : Sys.C2)
     (a : Fin n₁ ⊕ Fin n₂ → ℝ) :
     Tendsto (fun T => Sys.value a T) atTop (nhds (Sys.valueLim a)) := by
-  obtain ⟨c, hc, hb⟩ := Sys.exists_value_bound hC1 hC2
+  obtain ⟨c, hc, hb⟩ := Sys.exists_value_bound_C2 hC2
   refine tendsto_atTop_ciSup (fun T τ h => Sys.value_mono a h) ⟨c * ‖a‖ ^ 2, ?_⟩
   rintro x ⟨T, rfl⟩
   exact hb a T
 
-theorem value_le_valueLim (hC1 : Sys.C1) (hC2 : Sys.C2)
+theorem value_le_valueLim (hC2 : Sys.C2)
     (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) :
     Sys.value a T ≤ Sys.valueLim a := by
-  obtain ⟨c, hc, hb⟩ := Sys.exists_value_bound hC1 hC2
+  obtain ⟨c, hc, hb⟩ := Sys.exists_value_bound_C2 hC2
   refine le_ciSup ⟨c * ‖a‖ ^ 2, ?_⟩ T
   rintro x ⟨τ, rfl⟩
   exact hb a τ
@@ -75,7 +75,7 @@ theorem valueLim_le (a : Fin n₁ ⊕ Fin n₂ → ℝ) {b : ℝ}
 /-- **The truncation gap bound**: for `T ≤ τ` the `τ`-optimal decisions,
 viewed at horizon `T`, deviate from the `T`-optimum by at most
 `V̄(a) - V_T⁰(a)` in the gap metric. -/
-theorem truncation_gap (hC1 : Sys.C1) (hC2 : Sys.C2)
+theorem truncation_gap (hC2 : Sys.C2)
     (a : Fin n₁ ⊕ Fin n₂ → ℝ) {T τ : ℕ} (h : T ≤ τ) :
     Sys.fieCost 0 (Sys.optInit a τ - Sys.optInit a T)
       (fun j => Sys.lq.optCtrl (Sys.optInit a τ) τ j
@@ -91,7 +91,7 @@ theorem truncation_gap (hC1 : Sys.C1) (hC2 : Sys.C2)
     have h3 := Sys.fieCost_optCtrl a τ
     unfold fieCost at h3
     linarith
-  have h4 := Sys.value_le_valueLim hC1 hC2 a τ
+  have h4 := Sys.value_le_valueLim hC2 a τ
   linarith
 
 
@@ -244,14 +244,14 @@ theorem exists_optCtrl_dev_bound :
 /-! ### Convergence of the optimizers -/
 
 /-- The optimal initial errors form a Cauchy sequence in the horizon. -/
-theorem optInit_cauchySeq (hC1 : Sys.C1) (hC2 : Sys.C2)
+theorem optInit_cauchySeq (hC2 : Sys.C2)
     (a : Fin n₁ ⊕ Fin n₂ → ℝ) :
     CauchySeq (fun T => Sys.optInit a T) := by
   obtain ⟨C, hC, hb⟩ := Sys.exists_optInit_dev_bound
   rw [Metric.cauchySeq_iff']
   intro ε hε
   -- pick `N` with `C·(V̄ - V_N) < ε²`
-  have htend := Sys.tendsto_value hC1 hC2 a
+  have htend := Sys.tendsto_value hC2 a
   have h1 : Tendsto (fun T => C * (Sys.valueLim a - Sys.value a T)) atTop
       (nhds 0) := by
     have h2 : Tendsto (fun T => Sys.valueLim a - Sys.value a T) atTop
@@ -263,7 +263,7 @@ theorem optInit_cauchySeq (hC1 : Sys.C1) (hC2 : Sys.C2)
     h1.eventually_lt_const (by positivity)
   obtain ⟨N, hN⟩ := h3.exists
   refine ⟨N, fun τ hτ => ?_⟩
-  have h4 := hb a hτ (Sys.value_le_valueLim hC1 hC2 a τ)
+  have h4 := hb a hτ (Sys.value_le_valueLim hC2 a τ)
   rw [dist_eq_norm]
   have h5 : ‖Sys.optInit a τ - Sys.optInit a N‖ ^ 2 < ε ^ 2 :=
     lt_of_le_of_lt h4 hN
@@ -274,20 +274,20 @@ noncomputable def optInitLim (a : Fin n₁ ⊕ Fin n₂ → ℝ) :
     Fin n₁ ⊕ Fin n₂ → ℝ :=
   limUnder atTop (fun T => Sys.optInit a T)
 
-theorem tendsto_optInit (hC1 : Sys.C1) (hC2 : Sys.C2)
+theorem tendsto_optInit (hC2 : Sys.C2)
     (a : Fin n₁ ⊕ Fin n₂ → ℝ) :
     Tendsto (fun T => Sys.optInit a T) atTop (nhds (Sys.optInitLim a)) := by
-  have h := (Sys.optInit_cauchySeq hC1 hC2 a).tendsto_limUnder
+  have h := (Sys.optInit_cauchySeq hC2 a).tendsto_limUnder
   exact h
 
 /-- The optimal controls converge stagewise. -/
-theorem optCtrl_cauchySeq (hC1 : Sys.C1) (hC2 : Sys.C2)
+theorem optCtrl_cauchySeq (hC2 : Sys.C2)
     (a : Fin n₁ ⊕ Fin n₂ → ℝ) (k : ℕ) :
     CauchySeq (fun T => Sys.lq.optCtrl (Sys.optInit a T) T k) := by
   obtain ⟨C, hC, hb⟩ := Sys.exists_optCtrl_dev_bound
   rw [Metric.cauchySeq_iff']
   intro ε hε
-  have htend := Sys.tendsto_value hC1 hC2 a
+  have htend := Sys.tendsto_value hC2 a
   have h1 : Tendsto (fun T => C * (Sys.valueLim a - Sys.value a T)) atTop
       (nhds 0) := by
     have h2 : Tendsto (fun T => Sys.valueLim a - Sys.value a T) atTop
@@ -299,7 +299,7 @@ theorem optCtrl_cauchySeq (hC1 : Sys.C1) (hC2 : Sys.C2)
     h1.eventually_lt_const (by positivity)
   obtain ⟨N, hN, hNk⟩ := (h3.and (eventually_gt_atTop k)).exists
   refine ⟨N, fun τ hτ => ?_⟩
-  have h4 := hb a k hNk hτ (Sys.value_le_valueLim hC1 hC2 a τ)
+  have h4 := hb a k hNk hτ (Sys.value_le_valueLim hC2 a τ)
   rw [dist_eq_norm]
   have h5 : ‖Sys.lq.optCtrl (Sys.optInit a τ) τ k
       - Sys.lq.optCtrl (Sys.optInit a N) N k‖ ^ 2 < ε ^ 2 :=
@@ -312,11 +312,11 @@ noncomputable def optCtrlLim (a : Fin n₁ ⊕ Fin n₂ → ℝ) (k : ℕ) :
     Fin m → ℝ :=
   limUnder atTop (fun T => Sys.lq.optCtrl (Sys.optInit a T) T k)
 
-theorem tendsto_optCtrl (hC1 : Sys.C1) (hC2 : Sys.C2)
+theorem tendsto_optCtrl (hC2 : Sys.C2)
     (a : Fin n₁ ⊕ Fin n₂ → ℝ) (k : ℕ) :
     Tendsto (fun T => Sys.lq.optCtrl (Sys.optInit a T) T k) atTop
       (nhds (Sys.optCtrlLim a k)) :=
-  (Sys.optCtrl_cauchySeq hC1 hC2 a k).tendsto_limUnder
+  (Sys.optCtrl_cauchySeq hC2 a k).tendsto_limUnder
 
 /-! ### Identification of the limit
 
@@ -378,7 +378,7 @@ theorem blk₂_optInitLim_eq_zero (hC1 : Sys.C1) (hC2 : Sys.C2)
     (a : Fin n₁ ⊕ Fin n₂ → ℝ) :
     blk₂ (Sys.optInitLim a) = 0 :=
   tendsto_nhds_unique
-    ((continuous_blk₂.tendsto _).comp (Sys.tendsto_optInit hC1 hC2 a))
+    ((continuous_blk₂.tendsto _).comp (Sys.tendsto_optInit hC2 a))
     (Sys.tendsto_optInit_blk₂_zero hC1 hC2 a)
 
 /-- The limiting optimal initial error stays feasible: ranges of the
@@ -388,7 +388,7 @@ theorem optInitLim_feasible (hC1 : Sys.C1) (hC2 : Sys.C2)
     Sys.Feasible a (Sys.optInitLim a) := by
   have htend : Tendsto (fun T => Sys.optInit a T - a) atTop
       (nhds (Sys.optInitLim a - a)) :=
-    (Sys.tendsto_optInit hC1 hC2 a).sub_const a
+    (Sys.tendsto_optInit hC2 a).sub_const a
   constructor
   · have hcl : IsClosed
         (LinearMap.range Sys.Sig₁.mulVecLin : Set (Fin n₁ → ℝ)) :=
@@ -423,13 +423,13 @@ theorem tendsto_traj (hC1 : Sys.C1) (hC2 : Sys.C2)
         (Sys.lq.optCtrl (Sys.optInit a T) T) k) atTop
       (nhds (Sys.lq.traj (Sys.optInitLim a) (Sys.optCtrlLim a) k))
   | 0 => by
-    simpa only [LQSystem.traj_zero] using Sys.tendsto_optInit hC1 hC2 a
+    simpa only [LQSystem.traj_zero] using Sys.tendsto_optInit hC2 a
   | k + 1 => by
     simp only [LQSystem.traj_succ]
     exact (((continuous_const.matrix_mulVec continuous_id).tendsto
         _).comp (tendsto_traj hC1 hC2 a k)).add
       (((continuous_const.matrix_mulVec continuous_id).tendsto _).comp
-        (Sys.tendsto_optCtrl hC1 hC2 a k))
+        (Sys.tendsto_optCtrl hC2 a k))
 
 /-- Every truncation of the limiting objective is dominated by `V̄`:
 the limit pair is "infinite-horizon feasible with value at most `V̄`". -/
@@ -442,7 +442,7 @@ theorem truncated_cost_le_valueLim (hC1 : Sys.C1) (hC2 : Sys.C2)
       atTop (nhds (Sys.priorPenalty a (Sys.optInitLim a))) := by
     have htend : Tendsto (fun T => Sys.optInit a T - a) atTop
         (nhds (Sys.optInitLim a - a)) :=
-      (Sys.tendsto_optInit hC1 hC2 a).sub_const a
+      (Sys.tendsto_optInit hC2 a).sub_const a
     unfold priorPenalty
     exact (((continuous_quadForm _).tendsto _).comp
         ((continuous_blk₁.tendsto _).comp htend)).add
@@ -456,7 +456,7 @@ theorem truncated_cost_le_valueLim (hC1 : Sys.C1) (hC2 : Sys.C2)
     exact (((continuous_quadForm _).tendsto _).comp
         (Sys.tendsto_traj hC1 hC2 a k)).add
       (((continuous_quadForm _).tendsto _).comp
-        (Sys.tendsto_optCtrl hC1 hC2 a k))
+        (Sys.tendsto_optCtrl hC2 a k))
   refine le_of_tendsto (hprior.add hcost) ?_
   filter_upwards [eventually_ge_atTop N] with T hT
   have h1 : Sys.lq.cost (Sys.optInit a T)
@@ -470,7 +470,7 @@ theorem truncated_cost_le_valueLim (hC1 : Sys.C1) (hC2 : Sys.C2)
     have h3 := Sys.fieCost_optCtrl a T
     unfold fieCost at h3
     exact h3
-  have h4 := Sys.value_le_valueLim hC1 hC2 a T
+  have h4 := Sys.value_le_valueLim hC2 a T
   linarith
 
 end LimitIdentification
