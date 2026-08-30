@@ -479,6 +479,80 @@ theorem prop_tvkf_optimizer : S.IsGAS ↔ S.C1 ∧ S.C2 := by
     exact S.isGAS_of_modQ hC1 hC2 Q c₀ cl cd hc₀ hcl hcd hinit hlb
       hdec hconv
 
+/-! ### The `KL`-form of GAS (`def:GAS`) -/
+
+/-- The paper's `def:GAS`, in the product `KL`-form `β(r,k) = α(k)·r`
+that linearity affords: an `L`-function rate. -/
+def IsGASkl : Prop :=
+  ∃ α : ℕ → ℝ, Antitone α ∧ Tendsto α atTop (nhds 0) ∧
+    ∀ (k : ℕ) (a : Fin n → ℝ), ‖S.optTerm a k‖ ≤ α k * ‖a‖
+
+/-- The `σ`-form and the monotone-`KL` form of GAS agree (monotonize
+the rate by tail suprema). -/
+theorem isGAS_iff_kl : S.IsGAS ↔ S.IsGASkl := by
+  constructor
+  · rintro ⟨σ, hσ0, hσb⟩
+    -- monotonize: `α k := ⨆ j, max (σ (k+j)) 0`
+    set σ' : ℕ → ℝ := fun k => max (σ k) 0 with hσ'
+    have hσ'0 : Tendsto σ' atTop (nhds 0) := by
+      have h1 := hσ0.max (tendsto_const_nhds (x := (0:ℝ))
+        (f := atTop (α := ℕ)))
+      simpa using h1
+    have hbdd : BddAbove (Set.range σ') := hσ'0.bddAbove_range
+    obtain ⟨M, hM⟩ := hbdd
+    set α : ℕ → ℝ := fun k => ⨆ j : ℕ, σ' (k + j) with hα
+    have htailbdd : ∀ k, BddAbove (Set.range fun j : ℕ => σ' (k + j)) := by
+      intro k
+      exact ⟨M, by rintro x ⟨j, rfl⟩; exact hM ⟨k + j, rfl⟩⟩
+    refine ⟨α, ?_, ?_, ?_⟩
+    · intro k l hkl
+      rw [hα]
+      refine ciSup_le fun j => ?_
+      have h2 : l + j = k + ((l - k) + j) := by omega
+      rw [h2]
+      exact le_ciSup (htailbdd k) ((l - k) + j)
+    · rw [Metric.tendsto_atTop]
+      intro ε hε
+      have h3 := (Metric.tendsto_atTop.mp hσ'0) (ε / 2)
+        (by linarith)
+      obtain ⟨N, hN⟩ := h3
+      refine ⟨N, fun k hk => ?_⟩
+      have h4 : α k ≤ ε / 2 := by
+        rw [hα]
+        refine ciSup_le fun j => ?_
+        have h5 := hN (k + j) (by omega)
+        rw [Real.dist_eq, sub_zero] at h5
+        have h6 : (0:ℝ) ≤ σ' (k + j) := le_max_right _ _
+        rw [abs_of_nonneg h6] at h5
+        linarith
+      have h7 : (0:ℝ) ≤ α k := by
+        have h8 : σ' k ≤ α k := by
+          have h9 := le_ciSup (htailbdd k) 0
+          simpa using h9
+        have h10 : (0:ℝ) ≤ σ' k := le_max_right _ _
+        linarith
+      rw [Real.dist_eq, sub_zero, abs_of_nonneg h7]
+      linarith
+    · intro k a
+      have h11 := hσb k a
+      have h12 : σ k ≤ α k := by
+        have h13 : σ' k ≤ α k := by
+          have h14 := le_ciSup (htailbdd k) 0
+          simpa using h14
+        have h15 : σ k ≤ σ' k := le_max_left _ _
+        linarith
+      have h16 : σ k * ‖a‖ ≤ α k * ‖a‖ :=
+        mul_le_mul_of_nonneg_right h12 (norm_nonneg a)
+      linarith
+  · rintro ⟨α, _hanti, hα0, hαb⟩
+    exact ⟨α, hα0, fun T a => hαb T a⟩
+
+/-- **`prop:tvkf`, optimizer form, in the paper's `def:GAS`
+formulation**. -/
+theorem prop_tvkf_optimizer_kl : S.IsGASkl ↔ S.C1 ∧ S.C2 := by
+  rw [← S.isGAS_iff_kl]
+  exact S.prop_tvkf_optimizer
+
 end GeneralSystem
 
 end Estimation
