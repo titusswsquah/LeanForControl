@@ -764,6 +764,143 @@ theorem stair_stabilizable :
   show φ j = 0
   exact hkey
 
+/-! ### The prior in staircase coordinates and `lem:Sigma2-pd` -/
+
+/-- The prior covariance in staircase coordinates. -/
+noncomputable def stairSig :
+    Matrix (Fin S.rk1 ⊕ Fin S.rk2) (Fin S.rk1 ⊕ Fin S.rk2) ℝ :=
+  S.stairW * S.Sig0 * S.stairWᵀ
+
+lemma stairSig_posSemidef : S.stairSig.PosSemidef := by
+  have h := S.hSig0.mul_mul_conjTranspose_same S.stairW
+  rwa [show S.stairWᴴ = S.stairWᵀ from
+    Matrix.conjTranspose_eq_transpose_of_trivial _] at h
+
+private lemma quadForm_elim_zero {k l : ℕ}
+    (M : Matrix (Fin k ⊕ Fin l) (Fin k ⊕ Fin l) ℝ) (v : Fin l → ℝ) :
+    quadForm M (Sum.elim 0 v) = quadForm M.toBlocks₂₂ v := by
+  unfold quadForm
+  simp [dotProduct, Matrix.mulVec, Matrix.toBlocks₂₂,
+    Fintype.sum_sum_type]
+
+/-- The second-block quadratic form of the staircase prior, pulled back
+to the original coordinates. -/
+lemma stairSig₂_quadForm (v₂ : Fin S.rk2 → ℝ) :
+    quadForm S.stairSig.toBlocks₂₂ v₂
+      = quadForm S.Sig0 (S.stairWᵀ *ᵥ Sum.elim 0 v₂) := by
+  rw [quadForm_mulVec, Matrix.transpose_transpose,
+    ← quadForm_elim_zero]
+  rfl
+
+/-- The pulled-back test vector annihilates the stabilizable
+subspace. -/
+lemma transposeW_elim_mem_uucSub (v₂ : Fin S.rk2 → ℝ) :
+    S.stairWᵀ *ᵥ Sum.elim 0 v₂ ∈ S.uucSub := by
+  intro u hu
+  rw [dotProduct_mulVec_eq, Matrix.transpose_transpose, stairW_mulVec]
+  simp [dotProduct, Fintype.sum_sum_type,
+    S.staircaseBasis_repr_inr_eq_zero hu]
+
+/-- The columns of `Winv` in the first block are the adapted basis
+vectors. -/
+lemma stairWinv_col_inl (i : Fin S.rk1) :
+    (fun j => S.stairWinv j (Sum.inl i))
+      = S.staircaseBasis (Sum.inl i) := by
+  have h1 := LinearMap.toMatrix_mulVec_repr S.staircaseBasis
+    (Pi.basisFun ℝ (Fin n)) LinearMap.id (S.staircaseBasis (Sum.inl i))
+  rw [LinearMap.id_apply, Basis.repr_self] at h1
+  have h2 : ⇑(Finsupp.single (α := Fin S.rk1 ⊕ Fin S.rk2)
+      (Sum.inl i) (1 : ℝ)) = Pi.single (Sum.inl i) 1 := by
+    funext j
+    rw [Finsupp.single_apply, Pi.single_apply]
+    simp [eq_comm]
+  rw [h2] at h1
+  have h3 : ⇑((Pi.basisFun ℝ (Fin n)).repr
+      (S.staircaseBasis (Sum.inl i))) = S.staircaseBasis (Sum.inl i) := by
+    funext j
+    simp
+  rw [h3] at h1
+  funext j
+  have h5 : (S.stairWinv *ᵥ Pi.single (Sum.inl i) 1) j
+      = S.staircaseBasis (Sum.inl i) j := congrFun h1 j
+  rw [Matrix.mulVec_single_one] at h5
+  exact h5
+
+/-- Second-block coordinates of the transpose intertwiner are injective:
+`Wᵀ (0 ⊕ v₂) = 0` forces `v₂ = 0`. -/
+lemma transposeW_elim_eq_zero {v₂ : Fin S.rk2 → ℝ}
+    (h : S.stairWᵀ *ᵥ Sum.elim 0 v₂ = 0) : v₂ = 0 := by
+  have h1 : S.stairWinvᵀ * S.stairWᵀ = 1 := by
+    rw [← Matrix.transpose_mul, stairW_mul_stairWinv,
+      Matrix.transpose_one]
+  have h2 : (Sum.elim 0 v₂ : (Fin S.rk1 ⊕ Fin S.rk2) → ℝ) = 0 := by
+    have h3 := congrArg (fun w => S.stairWinvᵀ *ᵥ w) h
+    simpa [Matrix.mulVec_mulVec, h1] using h3
+  funext i
+  exact congrFun h2 (Sum.inr i)
+
+/-- `lem:Sigma2-pd`, both directions: the invariant condition C2 holds
+iff the second-block staircase prior is positive definite. -/
+theorem C2_iff_stairSig₂_posDef :
+    S.C2 ↔ S.stairSig.toBlocks₂₂.PosDef := by
+  have hherm : S.stairSig.toBlocks₂₂.IsHermitian := by
+    have h := S.stairSig_posSemidef.1
+    ext i j
+    have h5 := congrFun (congrFun h (Sum.inr i)) (Sum.inr j)
+    simp only [Matrix.conjTranspose_apply, star_trivial] at h5
+    simp only [Matrix.conjTranspose_apply, star_trivial,
+      Matrix.toBlocks₂₂, Matrix.of_apply]
+    exact h5
+  constructor
+  · intro hC2
+    refine Matrix.PosDef.of_dotProduct_mulVec_pos hherm ?_
+    intro v₂ hv₂
+    rw [star_trivial]
+    have hge : 0 ≤ quadForm S.stairSig.toBlocks₂₂ v₂ := by
+      rw [stairSig₂_quadForm]
+      exact S.hSig0.quadForm_nonneg _
+    rcases eq_or_lt_of_le hge with heq | hlt
+    · exfalso
+      have hker := S.hSig0.mulVec_eq_zero_of_quadForm_eq_zero
+        (by rw [← stairSig₂_quadForm]; exact heq.symm)
+      have hmem := S.transposeW_elim_mem_uucSub v₂
+      have h0 := hC2 _ hker hmem
+      exact hv₂ (S.transposeW_elim_eq_zero h0)
+    · exact hlt
+  · intro hPD v hv hmem
+    set η := S.stairWinvᵀ *ᵥ v with hη
+    have hveq : v = S.stairWᵀ *ᵥ η := by
+      rw [hη, Matrix.mulVec_mulVec, show S.stairWᵀ * S.stairWinvᵀ = 1
+        from by rw [← Matrix.transpose_mul, stairWinv_mul_stairW,
+          Matrix.transpose_one], Matrix.one_mulVec]
+    have hηinl : ∀ i, η (Sum.inl i) = 0 := by
+      intro i
+      show (S.stairWinvᵀ *ᵥ v) (Sum.inl i) = 0
+      have h6 : (S.stairWinvᵀ *ᵥ v) (Sum.inl i)
+          = (fun j => S.stairWinv j (Sum.inl i)) ⬝ᵥ v := by
+        simp [Matrix.mulVec, dotProduct, Matrix.transpose_apply]
+      rw [h6, stairWinv_col_inl]
+      exact hmem _ (S.staircaseBasis_inl_mem i)
+    have hη2 : η = Sum.elim (0 : Fin S.rk1 → ℝ)
+        (fun i => η (Sum.inr i)) := by
+      funext j
+      rcases j with j | j
+      · simp [hηinl]
+      · simp
+    have hq : quadForm S.stairSig.toBlocks₂₂
+        (fun i => η (Sum.inr i)) = 0 := by
+      rw [stairSig₂_quadForm, ← hη2, ← hveq]
+      show v ⬝ᵥ (S.Sig0 *ᵥ v) = 0
+      rw [hv, dotProduct_zero]
+    have hz : (fun i => η (Sum.inr i)) = 0 := by
+      by_contra hne
+      have hpos := Matrix.PosDef.quadForm_pos hPD hne
+      linarith
+    rw [hveq, hη2, hz]
+    show S.stairWᵀ *ᵥ (Sum.elim 0 0) = 0
+    rw [show (Sum.elim 0 0 : (Fin S.rk1 ⊕ Fin S.rk2) → ℝ) = 0 from by
+      funext j; rcases j with j | j <;> simp, Matrix.mulVec_zero]
+
 end GeneralSystem
 
 end Estimation
