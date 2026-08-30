@@ -71,6 +71,56 @@ private lemma conj_mul₃ (U A B C : Matrix (Fin n) (Fin n) ℝ)
       = U * (A * B * C) * star U := by
   rw [conj_mul U A B hUU, conj_mul U (A * B) C hUU]
 
+/-- `P` and `P†` commute (both are diagonal in the eigenbasis). -/
+lemma self_mul_symmPinv_comm (hP : P.IsHermitian) :
+    P * symmPinv hP = symmPinv hP * P := by
+  have hUU := star_mul_self_eigenvectorUnitary hP
+  have hdiag : diagonal hP.eigenvalues
+        * diagonal (fun i => (hP.eigenvalues i)⁻¹)
+      = diagonal (fun i => (hP.eigenvalues i)⁻¹)
+        * diagonal hP.eigenvalues := by
+    rw [diagonal_mul_diagonal, diagonal_mul_diagonal]
+    congr 1
+    funext i
+    ring
+  have h1 := conj_mul (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ)
+    (diagonal hP.eigenvalues)
+    (diagonal (fun i => (hP.eigenvalues i)⁻¹)) hUU
+  have h2 := conj_mul (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ)
+    (diagonal (fun i => (hP.eigenvalues i)⁻¹))
+    (diagonal hP.eigenvalues) hUU
+  have h3 : symmPinv hP =
+      (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ) *
+        diagonal (fun i => (hP.eigenvalues i)⁻¹) *
+        star (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ) := rfl
+  have hspec := isHermitian_spectral_eq hP
+  calc P * symmPinv hP
+      = ((hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ) *
+          diagonal hP.eigenvalues *
+          star (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ)) *
+        ((hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ) *
+          diagonal (fun i => (hP.eigenvalues i)⁻¹) *
+          star (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ)) := by
+        rw [← hspec, ← h3]
+    _ = (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ) *
+        (diagonal hP.eigenvalues
+          * diagonal (fun i => (hP.eigenvalues i)⁻¹)) *
+        star (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ) := h1
+    _ = (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ) *
+        (diagonal (fun i => (hP.eigenvalues i)⁻¹)
+          * diagonal hP.eigenvalues) *
+        star (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ) := by
+        rw [hdiag]
+    _ = ((hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ) *
+          diagonal (fun i => (hP.eigenvalues i)⁻¹) *
+          star (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ)) *
+        ((hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ) *
+          diagonal hP.eigenvalues *
+          star (hP.eigenvectorUnitary : Matrix (Fin n) (Fin n) ℝ)) :=
+        h2.symm
+    _ = symmPinv hP * P := by
+        rw [← hspec, ← h3]
+
 /-- `P P† P = P`. -/
 lemma self_mul_symmPinv_mul_self (hP : P.IsHermitian) :
     P * symmPinv hP * P = P := by
@@ -132,5 +182,50 @@ lemma _root_.Matrix.PosSemidef.symmPinv (hP : P.PosSemidef) :
   unfold LinearSystems.symmPinv
   rw [star_eq_conjTranspose]
   exact h
+
+/-- **Range as kernel annihilator** (SVD-free `U₂'v = 0` criterion):
+for symmetric PSD `P`, a vector lies in the range of `P` iff it is
+orthogonal to the kernel of `P`. -/
+lemma mem_range_iff_forall_ker {P : Matrix (Fin n) (Fin n) ℝ}
+    (hP : P.PosSemidef) (v : Fin n → ℝ) :
+    (∃ z, v = P *ᵥ z) ↔ ∀ u, P *ᵥ u = 0 → u ⬝ᵥ v = 0 := by
+  have hPt : Pᵀ = P := by
+    rw [← conjTranspose_eq_transpose_of_trivial]
+    exact hP.1
+  constructor
+  · rintro ⟨z, rfl⟩ u hu
+    rw [dotProduct_mulVec, ← Matrix.mulVec_transpose, hPt, hu,
+      zero_dotProduct]
+  · intro h
+    refine ⟨symmPinv hP.1 *ᵥ v, ?_⟩
+    set w := v - P *ᵥ (symmPinv hP.1 *ᵥ v) with hw
+    have hPP : P * (P * symmPinv hP.1) = P := by
+      rw [self_mul_symmPinv_comm hP.1, ← Matrix.mul_assoc,
+        self_mul_symmPinv_mul_self hP.1]
+    have hker : P *ᵥ w = 0 := by
+      rw [hw, Matrix.mulVec_sub, Matrix.mulVec_mulVec,
+        Matrix.mulVec_mulVec]
+      rw [show P * P * symmPinv hP.1 = P from by
+        rw [Matrix.mul_assoc]; exact hPP]
+      simp
+    have h1 : w ⬝ᵥ v = 0 := h w hker
+    have h2 : w ⬝ᵥ (P *ᵥ (symmPinv hP.1 *ᵥ v)) = 0 := by
+      rw [dotProduct_mulVec, ← Matrix.mulVec_transpose, hPt, hker,
+        zero_dotProduct]
+    have h3 : w ⬝ᵥ w = 0 := by
+      have h4 : w ⬝ᵥ v
+          = w ⬝ᵥ w + w ⬝ᵥ (P *ᵥ (symmPinv hP.1 *ᵥ v)) := by
+        rw [← dotProduct_add]
+        congr 1
+        rw [hw]
+        module
+      rw [h1, h2] at h4
+      linarith
+    have h5 : w = 0 := dotProduct_self_eq_zero.mp h3
+    have h6 : v = P *ᵥ (symmPinv hP.1 *ᵥ v) + w := by
+      rw [hw]
+      module
+    rw [h5, add_zero] at h6
+    exact h6
 
 end LinearSystems
