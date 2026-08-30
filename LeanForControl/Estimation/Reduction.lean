@@ -436,6 +436,193 @@ lemma red_optTraj (x₀ : Fin n → ℝ) (T k : ℕ) :
     rw [Matrix.mul_assoc (S.redT * S.glq.Acl (S.glq.ric (T - 1 - k))),
       redTinv_mul_redT, Matrix.mul_one]
 
+/-! ### Vector-level cancellations -/
+
+lemma redTinv_redT_mulVec (x : Fin n → ℝ) :
+    S.redTinv *ᵥ (S.redT *ᵥ x) = x := by
+  rw [Matrix.mulVec_mulVec, redTinv_mul_redT, Matrix.one_mulVec]
+
+lemma redT_redTinv_mulVec (y : Fin S.rk1 ⊕ Fin S.rk2 → ℝ) :
+    S.redT *ᵥ (S.redTinv *ᵥ y) = y := by
+  rw [Matrix.mulVec_mulVec, redT_mul_redTinv, Matrix.one_mulVec]
+
+/-- Sandwich pairing for the pseudoinverse on the range. -/
+private lemma pinv_pairing {k : ℕ} {W : Matrix (Fin k) (Fin k) ℝ}
+    (hW : W.PosSemidef) (z w : Fin k → ℝ) :
+    (symmPinv hW.1 *ᵥ (W *ᵥ z)) ⬝ᵥ (W *ᵥ w) = (W *ᵥ z) ⬝ᵥ w := by
+  have hWt : Wᵀ = W := by
+    rw [← conjTranspose_eq_transpose_of_trivial]
+    exact hW.1
+  rw [dotProduct_mulVec_eq, hWt, Matrix.mulVec_mulVec,
+    Matrix.mulVec_mulVec, self_mul_symmPinv_mul_self hW.1]
+
+/-! ### Feasibility and penalty transfer (under C2) -/
+
+/-- The transported prior deviation, parameterized on the reduced
+prior's range. -/
+lemma red_sub_param {a e₀ z : Fin n → ℝ}
+    (hz : e₀ - a = S.Sig0 *ᵥ z) :
+    S.redT *ᵥ e₀ - S.redT *ᵥ a
+      = S.redSig *ᵥ (S.redTinvᵀ *ᵥ z) := by
+  rw [← Matrix.mulVec_sub, hz, redSig_eq_congruence]
+  rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec]
+  congr 1
+  rw [Matrix.mul_assoc (S.redT * S.Sig0), ← Matrix.transpose_mul,
+    redTinv_mul_redT, Matrix.transpose_one, Matrix.mul_one]
+
+lemma red_feasible (hC2 : S.C2) {a e₀ : Fin n → ℝ}
+    (h : S.Feasible a e₀) :
+    S.redSys.Feasible (S.redT *ᵥ a) (S.redT *ᵥ e₀) := by
+  obtain ⟨z, hz⟩ := h
+  rw [FIESystem.feasible_iff]
+  exact ⟨S.redTinvᵀ *ᵥ z, by
+    rw [S.redSys_Jmat_eq hC2, S.red_sub_param hz]⟩
+
+lemma red_feasible_rev (hC2 : S.C2)
+    {a' e₀' : Fin S.rk1 ⊕ Fin S.rk2 → ℝ}
+    (h : S.redSys.Feasible a' e₀') :
+    S.Feasible (S.redTinv *ᵥ a') (S.redTinv *ᵥ e₀') := by
+  obtain ⟨v, hv⟩ := (S.redSys.feasible_iff a' e₀').mp h
+  rw [S.redSys_Jmat_eq hC2, redSig_eq_congruence] at hv
+  refine ⟨S.redTᵀ *ᵥ v, ?_⟩
+  rw [← Matrix.mulVec_sub, hv]
+  rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec,
+    ← Matrix.mul_assoc, ← Matrix.mul_assoc, redTinv_mul_redT,
+    Matrix.one_mul]
+
+/-- Quadratic form of the block-diagonal `Jmat` splits blockwise. -/
+private lemma quadForm_Jmat {n₁ n₂ mm pp : ℕ}
+    (Sys : FIESystem n₁ n₂ mm pp) (w : Fin n₁ ⊕ Fin n₂ → ℝ) :
+    quadForm Sys.Jmat w
+      = quadForm Sys.Sig₁ (FIESystem.blk₁ w)
+        + quadForm Sys.Sig₂ (FIESystem.blk₂ w) := by
+  unfold quadForm
+  rw [Sys.Jmat_mulVec]
+  simp [dotProduct, Fintype.sum_sum_type, FIESystem.blk₁,
+    FIESystem.blk₂]
+
+/-- The prior penalty transfers for feasible pairs. -/
+lemma red_priorPenalty (hC2 : S.C2) {a e₀ : Fin n → ℝ}
+    (h : S.Feasible a e₀) :
+    S.redSys.priorPenalty (S.redT *ᵥ a) (S.redT *ᵥ e₀)
+      = S.priorPen a e₀ := by
+  obtain ⟨z, hz⟩ := h
+  set zh := S.redTinvᵀ *ᵥ z with hzh
+  have hd : S.redT *ᵥ e₀ - S.redT *ᵥ a = S.redSys.Jmat *ᵥ zh := by
+    rw [S.redSys_Jmat_eq hC2, S.red_sub_param hz]
+  unfold FIESystem.priorPenalty priorPen
+  rw [hd, S.redSys.Jmat_mulVec]
+  simp only [FIESystem.blk₁_sumElim, FIESystem.blk₂_sumElim]
+  rw [quadForm_symmPinv_image S.redSys.hSig₁,
+    quadForm_symmPinv_image S.redSys.hSig₂]
+  have h2 : quadForm S.redSys.Sig₁ (FIESystem.blk₁ zh)
+      + quadForm S.redSys.Sig₂ (FIESystem.blk₂ zh)
+      = quadForm S.redSys.Jmat zh := (quadForm_Jmat S.redSys zh).symm
+  rw [h2, show quadForm S.redSys.Jmat zh = quadForm S.redSig zh from by
+    rw [S.redSys_Jmat_eq hC2]]
+  rw [redSig_eq_congruence]
+  have h3 : ∀ v : Fin S.rk1 ⊕ Fin S.rk2 → ℝ,
+      quadForm (S.redT * S.Sig0 * S.redTᵀ) v
+        = quadForm S.Sig0 (S.redTᵀ *ᵥ v) := fun v => by
+    rw [quadForm_mulVec, Matrix.transpose_transpose]
+  rw [h3 zh, hzh, Matrix.mulVec_mulVec, ← Matrix.transpose_mul,
+    redTinv_mul_redT, Matrix.transpose_one, Matrix.one_mulVec, hz,
+    quadForm_symmPinv_image S.hSig0]
+
+/-- The full objective transfers. -/
+lemma red_fieCost (hC2 : S.C2) {a e₀ : Fin n → ℝ}
+    (h : S.Feasible a e₀) (ω : ℕ → Fin m → ℝ) (T : ℕ) :
+    S.redSys.fieCost (S.redT *ᵥ a) (S.redT *ᵥ e₀) ω T
+      = S.gCost a e₀ ω T := by
+  unfold FIESystem.fieCost gCost
+  rw [red_priorPenalty S hC2 h, red_cost]
+
+/-! ### Value and optimizer transfer -/
+
+theorem red_value (hC2 : S.C2) (a : Fin n → ℝ) (T : ℕ) :
+    S.redSys.value (S.redT *ᵥ a) T = S.value a T := by
+  apply le_antisymm
+  · have h1 := S.redSys.value_le_fieCost
+      (S.red_feasible hC2 (S.optInit_feasible a T))
+      (S.glq.optCtrl (S.optInit a T) T) T
+    rwa [red_fieCost S hC2 (S.optInit_feasible a T),
+      S.gCost_optCtrl] at h1
+  · set eh := S.redSys.optInit (S.redT *ᵥ a) T with heh
+    have hfe : S.Feasible a (S.redTinv *ᵥ eh) := by
+      have h := S.red_feasible_rev hC2
+        (S.redSys.optInit_feasible (S.redT *ᵥ a) T)
+      rwa [redTinv_redT_mulVec] at h
+    have h2 := S.value_le_gCost hfe
+      (S.redSys.lq.optCtrl eh T) T
+    have h3 := S.red_fieCost hC2 hfe (S.redSys.lq.optCtrl eh T) T
+    rw [redT_redTinv_mulVec] at h3
+    rw [← h3, S.redSys.fieCost_optCtrl] at h2
+    exact h2
+
+/-- The optimal initial errors correspond. -/
+theorem red_optInit (hC2 : S.C2) (a : Fin n → ℝ) (T : ℕ) :
+    S.redSys.optInit (S.redT *ᵥ a) T = S.redT *ᵥ S.optInit a T := by
+  refine S.redSys.isStationary_unique
+    (S.redSys.optInit_isStationary _ T) ?_
+  obtain ⟨z, hz⟩ := S.optInit_feasible a T
+  constructor
+  · exact S.red_feasible hC2 (S.optInit_feasible a T)
+  · intro d hd
+    obtain ⟨w, hw⟩ := hd
+    have hstat := (S.optInit_isStationary a T).2
+      (S.Sig0 *ᵥ (S.redTᵀ *ᵥ w)) ⟨_, rfl⟩
+    -- decompose the transported deviation and direction blockwise
+    have hdev : S.redT *ᵥ S.optInit a T - S.redT *ᵥ a
+        = S.redSys.Jmat *ᵥ (S.redTinvᵀ *ᵥ z) := by
+      rw [S.redSys_Jmat_eq hC2, S.red_sub_param hz]
+    rw [hdev, hw, S.redSys.Jmat_mulVec, S.redSys.Jmat_mulVec]
+    simp only [FIESystem.blk₁_sumElim, FIESystem.blk₂_sumElim]
+    rw [pinv_pairing S.redSys.hSig₁, pinv_pairing S.redSys.hSig₂]
+    -- reassemble the two prior pairings into a Jmat pairing
+    have hsum : (S.redSys.Sig₁ *ᵥ FIESystem.blk₁ (S.redTinvᵀ *ᵥ z))
+          ⬝ᵥ FIESystem.blk₁ w
+        + (S.redSys.Sig₂ *ᵥ FIESystem.blk₂ (S.redTinvᵀ *ᵥ z))
+          ⬝ᵥ FIESystem.blk₂ w
+        = (S.redSys.Jmat *ᵥ (S.redTinvᵀ *ᵥ z)) ⬝ᵥ w := by
+      rw [S.redSys.Jmat_mulVec]
+      simp [dotProduct, Fintype.sum_sum_type, FIESystem.blk₁,
+        FIESystem.blk₂]
+    -- the Jmat pairing equals the original prior pairing
+    have hJ : (S.redSys.Jmat *ᵥ (S.redTinvᵀ *ᵥ z)) ⬝ᵥ w
+        = (S.Sig0 *ᵥ z) ⬝ᵥ (S.redTᵀ *ᵥ w) := by
+      rw [S.redSys_Jmat_eq hC2, redSig_eq_congruence,
+        Matrix.mulVec_mulVec, Matrix.mul_assoc, Matrix.mul_assoc,
+        ← Matrix.transpose_mul, redTinv_mul_redT,
+        Matrix.transpose_one, Matrix.mul_one,
+        ← Matrix.mulVec_mulVec, mulVec_dotProduct_eq]
+    -- the Riccati pairing equals the original one
+    have hric : (S.redSys.lq.ric T *ᵥ (S.redT *ᵥ S.optInit a T))
+          ⬝ᵥ (S.redSys.Jmat *ᵥ w)
+        = (S.glq.ric T *ᵥ S.optInit a T)
+          ⬝ᵥ (S.Sig0 *ᵥ (S.redTᵀ *ᵥ w)) := by
+      rw [red_ric, Matrix.mulVec_mulVec,
+        Matrix.mul_assoc (S.redTinvᵀ * S.glq.ric T),
+        redTinv_mul_redT, Matrix.mul_one, ← Matrix.mulVec_mulVec,
+        mulVec_dotProduct_eq, Matrix.transpose_transpose]
+      congr 1
+      rw [S.redSys_Jmat_eq hC2, redSig_eq_congruence,
+        Matrix.mulVec_mulVec, Matrix.mulVec_mulVec]
+      congr 1
+      rw [← Matrix.mul_assoc, ← Matrix.mul_assoc, redTinv_mul_redT,
+        Matrix.one_mul]
+    rw [hsum, hJ, ← S.redSys.Jmat_mulVec, hric]
+    -- now exactly the general stationarity identity
+    have hz' : S.optInit a T - a = S.Sig0 *ᵥ z := hz
+    calc (S.Sig0 *ᵥ z) ⬝ᵥ (S.redTᵀ *ᵥ w)
+          + (S.glq.ric T *ᵥ S.optInit a T)
+            ⬝ᵥ (S.Sig0 *ᵥ (S.redTᵀ *ᵥ w))
+        = (symmPinv S.hSig0.1 *ᵥ (S.optInit a T - a))
+            ⬝ᵥ (S.Sig0 *ᵥ (S.redTᵀ *ᵥ w))
+          + (S.glq.ric T *ᵥ S.optInit a T)
+            ⬝ᵥ (S.Sig0 *ᵥ (S.redTᵀ *ᵥ w)) := by
+          rw [hz', pinv_pairing S.hSig0]
+      _ = 0 := hstat
+
 end GeneralSystem
 
 end Estimation
