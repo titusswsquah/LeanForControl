@@ -93,87 +93,20 @@ lemma red_valueLim (hC2 : S.C2) (a : Fin n → ℝ) :
   rw [h3] at h2
   exact tendsto_nhds_unique h1 h2
 
-/-! ### `it:zlim`: the optimizer limits, under C2 alone -/
+/-- **The variational front door** (F6): the value is the least cost
+over feasible decision pairs — the Riccati recursion behind
+`optInit`/`optCtrl` is a construction witness, not part of any
+statement. -/
+theorem value_isLeast (a : Fin n → ℝ) (T : ℕ) :
+    IsLeast {c : ℝ | ∃ e₀ ω, S.Feasible a e₀ ∧ c = S.gCost a e₀ ω T}
+      (S.value a T) := by
+  constructor
+  · exact ⟨S.optInit a T, S.glq.optCtrl (S.optInit a T) T,
+      S.optInit_feasible a T, (S.gCost_optCtrl a T).symm⟩
+  · rintro c ⟨e₀, ω, hfeas, rfl⟩
+    exact S.value_le_gCost hfeas ω T
 
-/-- The general optimizers as transformed reduced optimizers. -/
-lemma optInit_eq_redTinv (hC2 : S.C2) (a : Fin n → ℝ) (T : ℕ) :
-    S.optInit a T
-      = S.redTinv *ᵥ (S.redSys.optInit (S.redT *ᵥ a) T) := by
-  rw [S.red_optInit hC2, redTinv_redT_mulVec]
-
-lemma optCtrl_eq_red (hC2 : S.C2) (a : Fin n → ℝ) (T k : ℕ) :
-    S.glq.optCtrl (S.optInit a T) T k
-      = S.redSys.lq.optCtrl (S.redSys.optInit (S.redT *ᵥ a) T) T k := by
-  rw [S.red_optInit hC2, red_optCtrl]
-
-/-- The limiting optimal initial error. -/
-noncomputable def optInitLim (a : Fin n → ℝ) : Fin n → ℝ :=
-  limUnder atTop (fun T => S.optInit a T)
-
-/-- The limiting optimal noise sequence. -/
-noncomputable def optCtrlLim (a : Fin n → ℝ) (k : ℕ) : Fin m → ℝ :=
-  limUnder atTop (fun T => S.glq.optCtrl (S.optInit a T) T k)
-
-private lemma continuous_mulVec {α β : Type*} [Fintype α] [Fintype β]
-    (M : Matrix α β ℝ) :
-    Continuous (fun v : β → ℝ => M *ᵥ v) :=
-  M.mulVecLin.continuous_of_finiteDimensional
-
-/-- **`it:zlim` (initial error)**: the optimal initial errors converge,
-under C2 alone. -/
-theorem tendsto_optInit (hC2 : S.C2) (a : Fin n → ℝ) :
-    Tendsto (fun T => S.optInit a T) atTop (nhds (S.optInitLim a)) := by
-  have h1 := S.redSys.tendsto_optInit (S.red_C2_iff.mpr hC2)
-    (S.redT *ᵥ a)
-  have h2 : Tendsto (fun T => S.optInit a T) atTop
-      (nhds (S.redTinv *ᵥ S.redSys.optInitLim (S.redT *ᵥ a))) := by
-    have h3 := ((continuous_mulVec S.redTinv).tendsto
-      (S.redSys.optInitLim (S.redT *ᵥ a))).comp h1
-    refine h3.congr fun T => ?_
-    exact (S.optInit_eq_redTinv hC2 a T).symm
-  have h4 : CauchySeq (fun T => S.optInit a T) := h2.cauchySeq
-  have h5 := h4.tendsto_limUnder
-  exact h5
-
-lemma optInitLim_eq_redTinv (hC2 : S.C2) (a : Fin n → ℝ) :
-    S.optInitLim a
-      = S.redTinv *ᵥ S.redSys.optInitLim (S.redT *ᵥ a) := by
-  have h1 := S.tendsto_optInit hC2 a
-  have h2 := S.redSys.tendsto_optInit (S.red_C2_iff.mpr hC2)
-    (S.redT *ᵥ a)
-  have h3 : Tendsto (fun T => S.optInit a T) atTop
-      (nhds (S.redTinv *ᵥ S.redSys.optInitLim (S.redT *ᵥ a))) := by
-    have h4 := ((continuous_mulVec S.redTinv).tendsto
-      (S.redSys.optInitLim (S.redT *ᵥ a))).comp h2
-    refine h4.congr fun T => ?_
-    exact (S.optInit_eq_redTinv hC2 a T).symm
-  exact tendsto_nhds_unique h1 h3
-
-/-- **`it:zlim` (noise)**: the optimal noises converge stagewise, under
-C2 alone. -/
-theorem tendsto_optCtrl (hC2 : S.C2) (a : Fin n → ℝ) (k : ℕ) :
-    Tendsto (fun T => S.glq.optCtrl (S.optInit a T) T k) atTop
-      (nhds (S.optCtrlLim a k)) := by
-  have h1 := S.redSys.tendsto_optCtrl (S.red_C2_iff.mpr hC2)
-    (S.redT *ᵥ a) k
-  have h2 : Tendsto (fun T => S.glq.optCtrl (S.optInit a T) T k) atTop
-      (nhds (S.redSys.optCtrlLim (S.redT *ᵥ a) k)) := by
-    refine h1.congr fun T => ?_
-    exact (S.optCtrl_eq_red hC2 a T k).symm
-  exact h2.cauchySeq.tendsto_limUnder
-
-lemma optCtrlLim_eq_red (hC2 : S.C2) (a : Fin n → ℝ) (k : ℕ) :
-    S.optCtrlLim a k = S.redSys.optCtrlLim (S.redT *ᵥ a) k := by
-  have h1 := S.tendsto_optCtrl hC2 a k
-  have h2 := S.redSys.tendsto_optCtrl (S.red_C2_iff.mpr hC2)
-    (S.redT *ᵥ a) k
-  have h3 : Tendsto (fun T => S.glq.optCtrl (S.optInit a T) T k) atTop
-      (nhds (S.redSys.optCtrlLim (S.redT *ᵥ a) k)) := by
-    refine h2.congr fun T => ?_
-    exact (S.optCtrl_eq_red hC2 a T k).symm
-  exact tendsto_nhds_unique h1 h3
-
-/-! ### The exact gap (`eq:gap`) and its energy corollary, under C2 -/
+/-! ### The exact gap (`eq:gap`) and its energy corollary (C2-free) -/
 
 lemma feasible_sub {a e₀ e₀' : Fin n → ℝ} (h : S.Feasible a e₀)
     (h' : S.Feasible a e₀') : S.Feasible 0 (e₀ - e₀') := by
@@ -372,6 +305,173 @@ theorem exists_gap_energy_bound :
       ≤ (cr + cq⁻¹ + cR⁻¹) * S.glq.cost d δ T := by
     nlinarith
   nlinarith [h1, h8, h12]
+
+/-! ### `it:zlim`: the optimizer limits, under C2 alone -/
+
+/-- The general optimizers as transformed reduced optimizers. -/
+lemma optInit_eq_redTinv (hC2 : S.C2) (a : Fin n → ℝ) (T : ℕ) :
+    S.optInit a T
+      = S.redTinv *ᵥ (S.redSys.optInit (S.redT *ᵥ a) T) := by
+  rw [S.red_optInit hC2, redTinv_redT_mulVec]
+
+lemma optCtrl_eq_red (hC2 : S.C2) (a : Fin n → ℝ) (T k : ℕ) :
+    S.glq.optCtrl (S.optInit a T) T k
+      = S.redSys.lq.optCtrl (S.redSys.optInit (S.redT *ᵥ a) T) T k := by
+  rw [S.red_optInit hC2, red_optCtrl]
+
+/-- The limiting optimal initial error. -/
+noncomputable def optInitLim (a : Fin n → ℝ) : Fin n → ℝ :=
+  limUnder atTop (fun T => S.optInit a T)
+
+/-- The limiting optimal noise sequence. -/
+noncomputable def optCtrlLim (a : Fin n → ℝ) (k : ℕ) : Fin m → ℝ :=
+  limUnder atTop (fun T => S.glq.optCtrl (S.optInit a T) T k)
+
+private lemma continuous_mulVec {α β : Type*} [Fintype α] [Fintype β]
+    (M : Matrix α β ℝ) :
+    Continuous (fun v : β → ℝ => M *ᵥ v) :=
+  M.mulVecLin.continuous_of_finiteDimensional
+
+/-- **Truncation gap** (the direct `eq:gapopt` mechanism): for
+`T ≤ τ`, the `τ`-optimal pair at horizon `T` deviates from the
+`T`-optimum by at most the value increment, in the gap metric. -/
+theorem truncation_gap (a : Fin n → ℝ) {T τ : ℕ} (h : T ≤ τ) :
+    S.gCost 0 (S.optInit a τ - S.optInit a T)
+      (fun j => S.glq.optCtrl (S.optInit a τ) τ j
+        - S.glq.optCtrl (S.optInit a T) T j) T
+      ≤ S.value a τ - S.value a T := by
+  have hgap := S.gCost_gap (S.optInit_feasible a τ)
+    (S.glq.optCtrl (S.optInit a τ) τ) T
+  have h1 : S.gCost a (S.optInit a τ)
+      (S.glq.optCtrl (S.optInit a τ) τ) T ≤ S.value a τ := by
+    unfold gCost
+    have h2 := S.glq.cost_mono (S.optInit a τ)
+      (S.glq.optCtrl (S.optInit a τ) τ) h
+    have h3 := S.gCost_optCtrl a τ
+    unfold gCost at h3
+    linarith
+  linarith
+
+/-- **`it:zlim` (initial error)**: the optimal initial errors converge,
+under C2 alone — direct proof by the truncation gap and the energy
+corollary. -/
+theorem tendsto_optInit (hC2 : S.C2) (a : Fin n → ℝ) :
+    Tendsto (fun T => S.optInit a T) atTop (nhds (S.optInitLim a)) := by
+  obtain ⟨cE, hcE, hbE⟩ := S.exists_gap_energy_bound
+  have hcauchy : CauchySeq (fun T => S.optInit a T) := by
+    rw [Metric.cauchySeq_iff']
+    intro ε hε
+    have htend := S.tendsto_value hC2 a
+    have h1 : Tendsto (fun T => cE * (S.valueLim a - S.value a T))
+        atTop (nhds 0) := by
+      have h2 := (htend.const_sub (S.valueLim a)).const_mul cE
+      simpa using h2
+    obtain ⟨N, hN⟩ := (h1.eventually_lt_const
+      (by positivity : (0:ℝ) < ε ^ 2)).exists
+    refine ⟨N, fun τ hτ => ?_⟩
+    have hdfeas : S.Feasible 0 (S.optInit a τ - S.optInit a N) :=
+      S.feasible_sub (S.optInit_feasible a τ) (S.optInit_feasible a N)
+    have h3 := hbE hdfeas
+      (fun j => S.glq.optCtrl (S.optInit a τ) τ j
+        - S.glq.optCtrl (S.optInit a N) N j) N
+    have h4 := S.truncation_gap a hτ
+    have h5 := S.value_le_valueLim hC2 a τ
+    have h6 : ‖S.optInit a τ - S.optInit a N‖ ^ 2
+        ≤ cE * (S.valueLim a - S.value a N) := by
+      have h7 : (0:ℝ) ≤ ∑ k ∈ Finset.range N,
+          ‖S.glq.optCtrl (S.optInit a τ) τ k
+            - S.glq.optCtrl (S.optInit a N) N k‖ ^ 2 :=
+        Finset.sum_nonneg fun k _ => sq_nonneg _
+      have h8 : (0:ℝ) ≤ ∑ k ∈ Finset.range N,
+          ‖S.C *ᵥ S.glq.traj (S.optInit a τ - S.optInit a N)
+            (fun j => S.glq.optCtrl (S.optInit a τ) τ j
+              - S.glq.optCtrl (S.optInit a N) N j) k‖ ^ 2 :=
+        Finset.sum_nonneg fun k _ => sq_nonneg _
+      nlinarith
+    rw [dist_eq_norm]
+    have h9 : ‖S.optInit a τ - S.optInit a N‖ ^ 2 < ε ^ 2 :=
+      lt_of_le_of_lt h6 hN
+    nlinarith [norm_nonneg (S.optInit a τ - S.optInit a N), hε]
+  exact hcauchy.tendsto_limUnder
+
+lemma optInitLim_eq_redTinv (hC2 : S.C2) (a : Fin n → ℝ) :
+    S.optInitLim a
+      = S.redTinv *ᵥ S.redSys.optInitLim (S.redT *ᵥ a) := by
+  have h1 := S.tendsto_optInit hC2 a
+  have h2 := S.redSys.tendsto_optInit (S.red_C2_iff.mpr hC2)
+    (S.redT *ᵥ a)
+  have h3 : Tendsto (fun T => S.optInit a T) atTop
+      (nhds (S.redTinv *ᵥ S.redSys.optInitLim (S.redT *ᵥ a))) := by
+    have h4 := ((continuous_mulVec S.redTinv).tendsto
+      (S.redSys.optInitLim (S.redT *ᵥ a))).comp h2
+    refine h4.congr fun T => ?_
+    exact (S.optInit_eq_redTinv hC2 a T).symm
+  exact tendsto_nhds_unique h1 h3
+
+/-- **`it:zlim` (noise)**: the optimal noises converge stagewise, under
+C2 alone — direct proof. -/
+theorem tendsto_optCtrl (hC2 : S.C2) (a : Fin n → ℝ) (k : ℕ) :
+    Tendsto (fun T => S.glq.optCtrl (S.optInit a T) T k) atTop
+      (nhds (S.optCtrlLim a k)) := by
+  obtain ⟨cE, hcE, hbE⟩ := S.exists_gap_energy_bound
+  have hcauchy : CauchySeq
+      (fun T => S.glq.optCtrl (S.optInit a T) T k) := by
+    rw [Metric.cauchySeq_iff']
+    intro ε hε
+    have htend := S.tendsto_value hC2 a
+    have h1 : Tendsto (fun T => cE * (S.valueLim a - S.value a T))
+        atTop (nhds 0) := by
+      have h2 := (htend.const_sub (S.valueLim a)).const_mul cE
+      simpa using h2
+    obtain ⟨N, hN, hNk⟩ := ((h1.eventually_lt_const
+      (by positivity : (0:ℝ) < ε ^ 2)).and
+      (eventually_gt_atTop k)).exists
+    refine ⟨N, fun τ hτ => ?_⟩
+    have hdfeas : S.Feasible 0 (S.optInit a τ - S.optInit a N) :=
+      S.feasible_sub (S.optInit_feasible a τ) (S.optInit_feasible a N)
+    have h3 := hbE hdfeas
+      (fun j => S.glq.optCtrl (S.optInit a τ) τ j
+        - S.glq.optCtrl (S.optInit a N) N j) N
+    have h4 := S.truncation_gap a hτ
+    have h5 := S.value_le_valueLim hC2 a τ
+    have h6 : ‖S.glq.optCtrl (S.optInit a τ) τ k
+        - S.glq.optCtrl (S.optInit a N) N k‖ ^ 2
+        ≤ cE * (S.valueLim a - S.value a N) := by
+      have hsingle : ‖S.glq.optCtrl (S.optInit a τ) τ k
+          - S.glq.optCtrl (S.optInit a N) N k‖ ^ 2
+          ≤ ∑ j ∈ Finset.range N,
+            ‖S.glq.optCtrl (S.optInit a τ) τ j
+              - S.glq.optCtrl (S.optInit a N) N j‖ ^ 2 :=
+        Finset.single_le_sum (f := fun j =>
+            ‖S.glq.optCtrl (S.optInit a τ) τ j
+              - S.glq.optCtrl (S.optInit a N) N j‖ ^ 2)
+          (fun j _ => sq_nonneg _) (Finset.mem_range.mpr hNk)
+      have h8 : (0:ℝ) ≤ ∑ j ∈ Finset.range N,
+          ‖S.C *ᵥ S.glq.traj (S.optInit a τ - S.optInit a N)
+            (fun i => S.glq.optCtrl (S.optInit a τ) τ i
+              - S.glq.optCtrl (S.optInit a N) N i) j‖ ^ 2 :=
+        Finset.sum_nonneg fun j _ => sq_nonneg _
+      have h9 : (0:ℝ) ≤ ‖S.optInit a τ - S.optInit a N‖ ^ 2 :=
+        sq_nonneg _
+      nlinarith
+    rw [dist_eq_norm]
+    have h9 : ‖S.glq.optCtrl (S.optInit a τ) τ k
+        - S.glq.optCtrl (S.optInit a N) N k‖ ^ 2 < ε ^ 2 :=
+      lt_of_le_of_lt h6 hN
+    nlinarith [norm_nonneg (S.glq.optCtrl (S.optInit a τ) τ k
+      - S.glq.optCtrl (S.optInit a N) N k), hε]
+  exact hcauchy.tendsto_limUnder
+
+lemma optCtrlLim_eq_red (hC2 : S.C2) (a : Fin n → ℝ) (k : ℕ) :
+    S.optCtrlLim a k = S.redSys.optCtrlLim (S.redT *ᵥ a) k := by
+  have h1 := S.tendsto_optCtrl hC2 a k
+  have h2 := S.redSys.tendsto_optCtrl (S.red_C2_iff.mpr hC2)
+    (S.redT *ᵥ a) k
+  have h3 : Tendsto (fun T => S.glq.optCtrl (S.optInit a T) T k) atTop
+      (nhds (S.redSys.optCtrlLim (S.redT *ᵥ a) k)) := by
+    refine h2.congr fun T => ?_
+    exact (S.optCtrl_eq_red hC2 a T k).symm
+  exact tendsto_nhds_unique h1 h3
 
 /-! ### `lem:exist`: joint uniqueness (hypothesis-free) -/
 
