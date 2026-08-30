@@ -218,6 +218,287 @@ theorem C1_of_isGAS (hgas : S.IsGAS) : S.C1 := by
   obtain ⟨T, hT⟩ := hev.exists
   exact absurd (hgrow T) (not_le.mpr hT)
 
+/-! ### The measured-energy cap (`eq:Venergy`) -/
+
+lemma value_zero (a : Fin n → ℝ) : S.value a 0 = 0 := by
+  refine le_antisymm ?_ (S.value_nonneg a 0)
+  refine le_trans (S.value_le_gCost (S.feasible_self a)
+    (fun _ => 0) 0) ?_
+  unfold gCost priorPen
+  rw [sub_self, LQSystem.cost_zero]
+  simp [quadForm]
+
+/-- One more stage costs at most the measured output energy of the
+current terminal error. -/
+theorem value_succ_le (a : Fin n → ℝ) (T : ℕ) :
+    S.value a (T + 1)
+      ≤ S.value a T + quadForm S.glq.Qs (S.optTerm a T) := by
+  classical
+  set e₀ := S.optInit a T with he₀
+  set u : ℕ → Fin m → ℝ := S.glq.optCtrl e₀ T with hu
+  set u' : ℕ → Fin m → ℝ := fun j => if j < T then u j else 0 with hu'
+  have h1 := S.value_le_gCost (S.optInit_feasible a T) u' (T + 1)
+  rw [← he₀] at h1
+  have hc : S.glq.cost e₀ u' (T + 1)
+      = S.glq.cost e₀ u' T
+        + (quadForm S.glq.Qs (S.glq.traj e₀ u' T)
+          + quadForm S.glq.Ru (u' T)) := by
+    unfold LQSystem.cost
+    rw [Finset.sum_range_succ]
+  have hagree : ∀ j < T, u' j = u j := by
+    intro j hj
+    rw [hu']
+    simp [hj]
+  have hcostT : S.glq.cost e₀ u' T = S.glq.cost e₀ u T := by
+    unfold LQSystem.cost
+    refine Finset.sum_congr rfl fun k hk => ?_
+    rw [S.glq.traj_congr e₀ fun j hj =>
+        hagree j (lt_of_lt_of_le hj (Finset.mem_range.mp hk).le),
+      hagree k (Finset.mem_range.mp hk)]
+  have huT : u' T = 0 := by
+    rw [hu']
+    simp
+  have hterm : S.glq.traj e₀ u' T = S.optTerm a T := by
+    rw [S.glq.traj_congr e₀ fun j hj => hagree j hj, hu,
+      S.glq.traj_optCtrl]
+    rfl
+  have h4 : S.priorPen a e₀ + S.glq.cost e₀ u T = S.value a T := by
+    have h5 := S.gCost_optCtrl a T
+    unfold gCost at h5
+    rw [← he₀, ← hu] at h5
+    exact h5
+  have h2 : S.gCost a e₀ u' (T + 1)
+      = S.value a T + quadForm S.glq.Qs (S.optTerm a T) := by
+    unfold gCost
+    rw [hc, hcostT, huT, hterm]
+    have h3 : quadForm S.glq.Ru (0 : Fin m → ℝ) = 0 := by
+      simp [quadForm]
+    rw [h3]
+    linarith
+  linarith [h2 ▸ h1]
+
+/-- The value is capped by the cumulative measured energy of the
+terminal errors. -/
+theorem value_le_sum_optTerm (a : Fin n → ℝ) : ∀ T : ℕ,
+    S.value a T
+      ≤ ∑ k ∈ Finset.range T, quadForm S.glq.Qs (S.optTerm a k)
+  | 0 => by
+    rw [S.value_zero]
+    simp
+  | T + 1 => by
+    rw [Finset.sum_range_succ]
+    have h1 := S.value_succ_le a T
+    have h2 := value_le_sum_optTerm a T
+    linarith
+
+/-! ### Window growth pulled back from the reduction -/
+
+/-- Linear window growth of the general value, weighted by the
+second-block staircase coordinates of the optimizer. -/
+theorem exists_red_window_growth (hC1 : S.C1) :
+    ∃ β : ℝ, 0 < β ∧ ∀ (a : Fin n → ℝ) (J T : ℕ), 1 ≤ J →
+      (S.rk1 + S.rk2) * J ≤ T →
+      β * J * ‖FIESystem.blk₂ (S.redT *ᵥ S.optInit a T)‖ ^ 2
+        ≤ S.value a T := by
+  obtain ⟨β, hβ, hg⟩ :=
+    S.redSys.exists_window_ric_growth (S.red_C1_iff.mpr hC1)
+  refine ⟨β, hβ, fun a J T hJ hJT => ?_⟩
+  have h1 := hg (S.redT *ᵥ S.optInit a T) J T hJ hJT
+  have h2 : quadForm (S.redSys.lq.ric T) (S.redT *ᵥ S.optInit a T)
+      = quadForm (S.glq.ric T) (S.optInit a T) := by
+    rw [quadForm_mulVec, red_ric]
+    congr 1
+    calc S.redTᵀ * (S.redTinvᵀ * S.glq.ric T * S.redTinv) * S.redT
+        = S.redTᵀ * (S.redTinvᵀ * (S.glq.ric T
+          * (S.redTinv * S.redT))) := by
+          simp only [Matrix.mul_assoc]
+      _ = S.glq.ric T := by
+          rw [redTinv_mul_redT, Matrix.mul_one, redTt_redTinvt_cancel]
+  have h3 : quadForm (S.glq.ric T) (S.optInit a T) ≤ S.value a T := by
+    have h4 := S.priorPen_nonneg a (S.optInit a T)
+    unfold value
+    linarith
+  rw [h2] at h1
+  linarith
+
+/-- Second-block coordinates through `redT` agree with the staircase
+coordinates. -/
+lemma redT_mulVec_inr (x : Fin n → ℝ) (i : Fin S.rk2) :
+    (S.redT *ᵥ x) (Sum.inr i) = (S.stairW *ᵥ x) (Sum.inr i) := by
+  unfold redT decT
+  rw [← Matrix.mulVec_mulVec, Matrix.fromBlocks_mulVec]
+  simp
+
+/-! ### C2 is necessary (patched argument, general coordinates) -/
+
+/-- **C2 is necessary for GAS given C1** (general coordinates). -/
+theorem C2_of_isGAS (hC1 : S.C1) (hgas : S.IsGAS) : S.C2 := by
+  classical
+  by_contra hnc2
+  -- a kernel witness of the antistable staircase prior block
+  obtain ⟨w, hwne, hwker⟩ : ∃ w : Fin S.rk2 → ℝ, w ≠ 0 ∧
+      S.stairSig.toBlocks₂₂ *ᵥ w = 0 := by
+    by_contra hno
+    push Not at hno
+    have hPSD : S.stairSig.toBlocks₂₂.PosSemidef :=
+      S.stairSig_posSemidef.submatrix Sum.inr
+    refine hnc2 ((S.C2_iff_stairSig₂_posDef).mpr
+      (Matrix.PosDef.of_dotProduct_mulVec_pos hPSD.1 fun x hx => ?_))
+    have h1 : 0 ≤ quadForm S.stairSig.toBlocks₂₂ x :=
+      hPSD.quadForm_nonneg x
+    rcases lt_or_eq_of_le h1 with h | h
+    · exact h
+    · exact absurd (hPSD.mulVec_eq_zero_of_quadForm_eq_zero h.symm)
+        (hno x hx)
+  -- the pulled-back kernel direction
+  set ξ : Fin n → ℝ :=
+    S.stairWᵀ *ᵥ Sum.elim (0 : Fin S.rk1 → ℝ) w with hξ
+  have hξker : S.Sig0 *ᵥ ξ = 0 := by
+    refine S.hSig0.mulVec_eq_zero_of_quadForm_eq_zero ?_
+    rw [hξ, ← stairSig₂_quadForm]
+    show w ⬝ᵥ (S.stairSig.toBlocks₂₂ *ᵥ w) = 0
+    rw [hwker, dotProduct_zero]
+  have hξne : ξ ≠ 0 := by
+    intro h0
+    exact hwne (S.transposeW_elim_eq_zero (hξ ▸ h0))
+  -- the pinned component of every optimizer
+  have hpair : ∀ x : Fin n → ℝ,
+      w ⬝ᵥ (fun i => (S.stairW *ᵥ x) (Sum.inr i)) = ξ ⬝ᵥ x := by
+    intro x
+    rw [hξ, mulVec_dotProduct_eq, Matrix.transpose_transpose]
+    simp [dotProduct, Fintype.sum_sum_type]
+  have hpin : ∀ T, ξ ⬝ᵥ S.optInit ξ T = ξ ⬝ᵥ ξ := by
+    intro T
+    obtain ⟨z, hz⟩ := S.optInit_feasible ξ T
+    have h1 : ξ ⬝ᵥ (S.optInit ξ T - ξ) = 0 := by
+      rw [hz, dotProduct_mulVec_eq,
+        S.hSig0.1.transpose_eq_self, hξker, zero_dotProduct]
+    rw [dotProduct_sub] at h1
+    linarith
+  have hξξ : 0 < ξ ⬝ᵥ ξ := by
+    obtain ⟨j, hj⟩ : ∃ j, ξ j ≠ 0 := by
+      by_contra hall
+      push Not at hall
+      exact hξne (funext hall)
+    have h1 : (0:ℝ) < ξ j * ξ j := mul_self_pos.mpr hj
+    have h2 : ∀ i ∈ Finset.univ, (0:ℝ) ≤ ξ i * ξ i :=
+      fun i _ => mul_self_nonneg _
+    exact Finset.sum_pos' h2 ⟨j, Finset.mem_univ j, h1⟩
+  have hww : 0 < w ⬝ᵥ w := by
+    obtain ⟨j, hj⟩ : ∃ j, w j ≠ 0 := by
+      by_contra hall
+      push Not at hall
+      exact hwne (funext hall)
+    have h1 : (0:ℝ) < w j * w j := mul_self_pos.mpr hj
+    have h2 : ∀ i ∈ Finset.univ, (0:ℝ) ≤ w i * w i :=
+      fun i _ => mul_self_nonneg _
+    exact Finset.sum_pos' h2 ⟨j, Finset.mem_univ j, h1⟩
+  have hne2 : Nonempty (Fin S.rk2) := by
+    by_contra hemp
+    rw [not_nonempty_iff] at hemp
+    exact hwne (funext fun i => (hemp.false i).elim)
+  have hcard : (0:ℝ) < (Fintype.card (Fin S.rk2) : ℝ) := by
+    exact_mod_cast Fintype.card_pos
+  -- lower bound on the antistable coordinates of the optimizer
+  set c₀ := (ξ ⬝ᵥ ξ) ^ 2
+    / ((w ⬝ᵥ w) * (Fintype.card (Fin S.rk2) : ℝ)) with hc₀
+  have hc₀pos : 0 < c₀ := by
+    rw [hc₀]
+    positivity
+  have hlow : ∀ T, c₀
+      ≤ ‖FIESystem.blk₂ (S.redT *ᵥ S.optInit ξ T)‖ ^ 2 := by
+    intro T
+    set x : Fin S.rk2 → ℝ :=
+      FIESystem.blk₂ (S.redT *ᵥ S.optInit ξ T) with hx
+    have hxW : x = fun i => (S.stairW *ᵥ S.optInit ξ T) (Sum.inr i) := by
+      funext i
+      rw [hx]
+      exact S.redT_mulVec_inr _ i
+    have hwx : w ⬝ᵥ x = ξ ⬝ᵥ ξ := by
+      rw [hxW, hpair, hpin]
+    have hCS : (w ⬝ᵥ x) ^ 2 ≤ (w ⬝ᵥ w) * (x ⬝ᵥ x) := by
+      have h1 := Finset.sum_mul_sq_le_sq_mul_sq Finset.univ w x
+      simpa [dotProduct, sq] using h1
+    rw [hwx] at hCS
+    have h3 : x ⬝ᵥ x ≤ (Fintype.card (Fin S.rk2) : ℝ) * ‖x‖ ^ 2 :=
+      dotProduct_le_card_mul_sq_norm x
+    rw [hc₀, div_le_iff₀ (by positivity)]
+    nlinarith [sq_nonneg (ξ ⬝ᵥ ξ), hww, hcard]
+  -- linear growth of the value along full windows
+  obtain ⟨β, hβ, hgrow⟩ := S.exists_red_window_growth hC1
+  set M := S.rk1 + S.rk2 with hM
+  have hM1 : 1 ≤ M := by
+    have h1 : 0 < S.rk2 := Fin.pos_iff_nonempty.mpr hne2
+    omega
+  have hlin : ∀ J : ℕ, 1 ≤ J → β * c₀ * J ≤ S.value ξ (M * J) := by
+    intro J hJ
+    have h1 := hgrow ξ J (M * J) hJ le_rfl
+    have h2 := hlow (M * J)
+    have h3 : (0:ℝ) ≤ (J:ℝ) := Nat.cast_nonneg J
+    have h4 := mul_le_mul_of_nonneg_left h2 (mul_nonneg hβ.le h3)
+    calc β * c₀ * (J:ℝ) = β * (J:ℝ) * c₀ := by ring
+    _ ≤ β * (J:ℝ)
+        * ‖FIESystem.blk₂ (S.redT *ᵥ S.optInit ξ (M * J))‖ ^ 2 := h4
+    _ ≤ S.value ξ (M * J) := h1
+  -- GAS caps the value sublinearly
+  obtain ⟨σ, hσ0, hσb⟩ := hgas
+  obtain ⟨cy, hcy, hyb⟩ := exists_quadForm_le S.glq.Qs
+  have hane : ‖ξ‖ ≠ 0 := by
+    rw [norm_ne_zero_iff]
+    exact hξne
+  have hup : ∀ T, S.value ξ T
+      ≤ cy * ‖ξ‖ ^ 2 * ∑ k ∈ Finset.range T, σ k ^ 2 := by
+    intro T
+    refine le_trans (S.value_le_sum_optTerm ξ T) ?_
+    rw [Finset.mul_sum]
+    refine Finset.sum_le_sum fun k _ => ?_
+    have h1 := hyb (S.optTerm ξ k)
+    have h2 := hσb k ξ
+    have h3 : ‖S.optTerm ξ k‖ ^ 2 ≤ (σ k * ‖ξ‖) ^ 2 := by
+      have h0 : 0 ≤ ‖S.optTerm ξ k‖ := norm_nonneg _
+      nlinarith
+    calc quadForm S.glq.Qs (S.optTerm ξ k)
+        ≤ cy * ‖S.optTerm ξ k‖ ^ 2 := h1
+    _ ≤ cy * (σ k * ‖ξ‖) ^ 2 := mul_le_mul_of_nonneg_left h3 hcy.le
+    _ = cy * ‖ξ‖ ^ 2 * σ k ^ 2 := by ring
+  have hσ2 : Tendsto (fun k => σ k ^ 2) atTop (nhds 0) := by
+    have h1 := hσ0.pow 2
+    simpa using h1
+  have hces := hσ2.cesaro
+  have hMJ : Tendsto (fun J : ℕ => M * J) atTop atTop := by
+    refine tendsto_atTop_mono (fun J => ?_) tendsto_id
+    calc (J:ℕ) = 1 * J := (one_mul J).symm
+    _ ≤ M * J := Nat.mul_le_mul_right J hM1
+  have hsub := hces.comp hMJ
+  have hcyA : (0:ℝ) < cy * ‖ξ‖ ^ 2 := by
+    have h1 : 0 < ‖ξ‖ := lt_of_le_of_ne (norm_nonneg ξ) (Ne.symm hane)
+    positivity
+  set δ := β * c₀ / (cy * ‖ξ‖ ^ 2 * M) with hδ
+  have hδpos : 0 < δ := by
+    rw [hδ]
+    have h1 : (0:ℝ) < (M:ℝ) := by exact_mod_cast hM1
+    positivity
+  have hδle : ∀ J : ℕ, 1 ≤ J →
+      δ ≤ ((M * J : ℕ) : ℝ)⁻¹ • ∑ k ∈ Finset.range (M * J), σ k ^ 2 := by
+    intro J hJ
+    have h1 := hlin J hJ
+    have h2 := hup (M * J)
+    have hMJpos : (0:ℝ) < ((M * J : ℕ) : ℝ) := by
+      have h3 : 0 < M * J := Nat.mul_pos (by omega) (by omega)
+      exact_mod_cast h3
+    rw [smul_eq_mul, inv_mul_eq_div, le_div_iff₀ hMJpos, hδ]
+    have hcast : ((M * J : ℕ) : ℝ) = (M:ℝ) * (J:ℝ) := by push_cast; ring
+    rw [hcast, div_mul_eq_mul_div, div_le_iff₀ (by positivity :
+      (0:ℝ) < cy * ‖ξ‖ ^ 2 * (M:ℝ))]
+    have h4 : β * c₀ * J ≤ cy * ‖ξ‖ ^ 2
+        * ∑ k ∈ Finset.range (M * J), σ k ^ 2 := le_trans h1 h2
+    have hMpos : (0:ℝ) < (M:ℝ) := by exact_mod_cast hM1
+    nlinarith [Finset.sum_nonneg (fun k (_ : k ∈ Finset.range (M * J)) =>
+      sq_nonneg (σ k))]
+  obtain ⟨J, hJlt, hJ1⟩ :=
+    ((hsub.eventually_lt_const hδpos).and (eventually_ge_atTop 1)).exists
+  exact absurd (hδle J hJ1) (not_le.mpr hJlt)
+
 end GeneralSystem
 
 end Estimation
