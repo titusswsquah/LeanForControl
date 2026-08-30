@@ -6,6 +6,7 @@ import LeanForControl.Estimation.Prelim
 import LeanForControl.Estimation.Necessity
 import LeanForControl.Estimation.Infhor
 import LeanForControl.Estimation.GAS
+import LeanForControl.Estimation.Instances
 import LeanForControl.Estimation.GES
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
