@@ -46,23 +46,126 @@ noncomputable def valueLim (a : Fin n → ℝ) : ℝ :=
   ⨆ T, S.value a T
 
 /-- The C2-only uniform value bound, general coordinates
-(`lem:unibounded`). -/
+(`lem:unibounded`), by the paper's route: the antistable coordinates
+are fully feasible under C2 (the `U₂/E₂` independence argument), the
+candidate kills them, and a stabilizing feedback bounds the remaining
+rollout. -/
 theorem exists_value_bound_C2 (hC2 : S.C2) :
     ∃ c : ℝ, 0 < c ∧ ∀ (a : Fin n → ℝ) (T : ℕ),
       S.value a T ≤ c * ‖a‖ ^ 2 := by
-  obtain ⟨c, hc, hb⟩ := S.redSys.exists_value_bound_C2
-    (S.red_C2_iff.mpr hC2)
-  refine ⟨c * (‖S.redT‖ ^ 2 + 1), by positivity, fun a T => ?_⟩
-  have h1 : S.value a T = S.redSys.value (S.redT *ᵥ a) T :=
-    (S.red_value hC2 a T).symm
-  have h2 := hb (S.redT *ᵥ a) T
-  have h3 : ‖S.redT *ᵥ a‖ ^ 2 ≤ ‖S.redT‖ ^ 2 * ‖a‖ ^ 2 := by
-    have h4 := Matrix.linfty_opNorm_mulVec S.redT a
-    have h5 : (0:ℝ) ≤ ‖S.redT *ᵥ a‖ := norm_nonneg _
-    nlinarith [norm_nonneg (S.redT), norm_nonneg a]
-  rw [h1]
-  refine h2.trans ?_
-  have h6 : (0:ℝ) ≤ ‖a‖ ^ 2 := sq_nonneg _
+  classical
+  obtain ⟨σ, cσ, hcσ, hσinv, hσb⟩ := S.exists_antiFeas_rightInverse hC2
+  obtain ⟨Kt, hKt⟩ := S.redSys.exists_stabilizing_gain
+  obtain ⟨cF, ρ, hcF, hρ0, hρ1, hpow⟩ := hKt.exists_pow_norm_le
+  have hloop : S.redSys.lqRed.A + S.redSys.lqRed.B * Kt
+      = S.redSys.A₁ - S.redSys.G₁ * Kt := by
+    show S.redSys.A₁ + -S.redSys.G₁ * Kt = _
+    rw [Matrix.neg_mul, sub_eq_add_neg]
+  obtain ⟨cb, hcb, hbcost⟩ := S.redSys.lqRed.exists_cost_feedback_bound
+    Kt hcF hρ0 hρ1 (fun k => by rw [hloop]; exact hpow k)
+  obtain ⟨cq, hcq, hbq⟩ := exists_quadForm_le S.Sig0
+  -- constants
+  set cz : ℝ := cσ * ‖S.blkTwoMat‖ + 1 with hcz
+  have hcz0 : 0 < cz := by
+    have := norm_nonneg S.blkTwoMat
+    rw [hcz]
+    nlinarith
+  set ce : ℝ := 1 + ‖S.Sig0‖ * cz with hce
+  have hce0 : 0 < ce := by
+    have := norm_nonneg S.Sig0
+    rw [hce]
+    nlinarith
+  refine ⟨cq * cz ^ 2 + cb * (‖S.redT‖ * ce) ^ 2 + 1,
+    by positivity, fun a T => ?_⟩
+  -- the candidate: kill the antistable coordinates through the prior
+  set z := σ (S.blkTwoMat *ᵥ a) with hz
+  set e₀ : Fin n → ℝ := a - S.Sig0 *ᵥ z with he₀
+  have hzb : ‖z‖ ≤ cz * ‖a‖ := by
+    have h1 := hσb (S.blkTwoMat *ᵥ a)
+    have h2 := Matrix.linfty_opNorm_mulVec S.blkTwoMat a
+    have h3 : (0:ℝ) ≤ ‖a‖ := norm_nonneg a
+    have h4 : (0:ℝ) ≤ cσ := hcσ.le
+    rw [hz, hcz]
+    nlinarith [norm_nonneg (S.blkTwoMat *ᵥ a), norm_nonneg S.blkTwoMat]
+  have hfeas : S.Feasible a e₀ := by
+    refine ⟨-z, ?_⟩
+    rw [he₀, Matrix.mulVec_neg]
+    module
+  have hmem : e₀ ∈ S.stabilizableSub := by
+    rw [he₀]
+    exact S.mem_stabilizableSub_of_antiFeas (hσinv (S.blkTwoMat *ᵥ a))
+  have heb : ‖e₀‖ ≤ ce * ‖a‖ := by
+    rw [he₀]
+    refine (norm_sub_le a (S.Sig0 *ᵥ z)).trans ?_
+    have h1 := Matrix.linfty_opNorm_mulVec S.Sig0 z
+    have h2 : ‖S.Sig0 *ᵥ z‖ ≤ ‖S.Sig0‖ * (cz * ‖a‖) := by
+      refine h1.trans ?_
+      exact mul_le_mul_of_nonneg_left hzb (norm_nonneg _)
+    rw [hce]
+    have := norm_nonneg a
+    nlinarith
+  -- prior cost of the candidate
+  have hprior : S.priorPen a e₀ ≤ cq * cz ^ 2 * ‖a‖ ^ 2 := by
+    unfold priorPen
+    have h1 : e₀ - a = S.Sig0 *ᵥ (-z) := by
+      rw [he₀, Matrix.mulVec_neg]
+      module
+    rw [h1, quadForm_symmPinv_image S.hSig0]
+    have h2 := hbq (-z)
+    have h3 : ‖(-z : Fin n → ℝ)‖ = ‖z‖ := norm_neg z
+    have h4 : ‖z‖ ^ 2 ≤ (cz * ‖a‖) ^ 2 := by
+      have h5 := norm_nonneg z
+      nlinarith
+    rw [h3] at h2
+    calc quadForm S.Sig0 (-z) ≤ cq * ‖z‖ ^ 2 := h2
+      _ ≤ cq * (cz * ‖a‖) ^ 2 := mul_le_mul_of_nonneg_left h4 hcq.le
+      _ = cq * cz ^ 2 * ‖a‖ ^ 2 := by ring
+  -- LQ cost of the pulled-back stabilizing rollout
+  set ω : ℕ → Fin m → ℝ := fun j =>
+    Kt *ᵥ ((S.redSys.lqRed.A + S.redSys.lqRed.B * Kt) ^ j
+      *ᵥ FIESystem.blk₁ (S.redT *ᵥ e₀)) with hω
+  have helim : S.redT *ᵥ e₀
+      = Sum.elim (FIESystem.blk₁ (S.redT *ᵥ e₀)) 0 := by
+    funext i
+    cases i with
+    | inl i => rfl
+    | inr i =>
+      have h1 : (S.redT *ᵥ e₀) (Sum.inr i)
+          = (S.stairW *ᵥ e₀) (Sum.inr i) := S.redT_mulVec_inr e₀ i
+      have h2 := (S.mem_stabilizableSub_iff_inr e₀).mp hmem i
+      simp only [Sum.elim_inr, Pi.zero_apply]
+      rw [h1, h2]
+  have hcost : S.glq.cost e₀ ω T
+      ≤ cb * ‖FIESystem.blk₁ (S.redT *ᵥ e₀)‖ ^ 2 := by
+    rw [← S.red_cost e₀ ω T]
+    calc S.redSys.lq.cost (S.redT *ᵥ e₀) ω T
+        = S.redSys.lqRed.cost (FIESystem.blk₁ (S.redT *ᵥ e₀)) ω T := by
+          rw [helim, S.redSys.lq_cost_sumElim_zero,
+            FIESystem.blk₁_sumElim]
+      _ ≤ cb * ‖FIESystem.blk₁ (S.redT *ᵥ e₀)‖ ^ 2 := by
+          rw [hω]
+          exact hbcost _ T
+  have hblk : ‖FIESystem.blk₁ (S.redT *ᵥ e₀)‖ ≤ ‖S.redT‖ * ce * ‖a‖ := by
+    refine (FIESystem.norm_blk₁_le _).trans ?_
+    have h1 := Matrix.linfty_opNorm_mulVec S.redT e₀
+    have h2 : ‖S.redT‖ * ‖e₀‖ ≤ ‖S.redT‖ * (ce * ‖a‖) :=
+      mul_le_mul_of_nonneg_left heb (norm_nonneg _)
+    calc ‖S.redT *ᵥ e₀‖ ≤ ‖S.redT‖ * ‖e₀‖ := h1
+      _ ≤ ‖S.redT‖ * (ce * ‖a‖) := h2
+      _ = ‖S.redT‖ * ce * ‖a‖ := by ring
+  -- assemble through joint optimality
+  have hval := S.value_le_gCost hfeas ω T
+  unfold gCost at hval
+  have h6 : cb * ‖FIESystem.blk₁ (S.redT *ᵥ e₀)‖ ^ 2
+      ≤ cb * (‖S.redT‖ * ce * ‖a‖) ^ 2 := by
+    have h7 : ‖FIESystem.blk₁ (S.redT *ᵥ e₀)‖ ^ 2
+        ≤ (‖S.redT‖ * ce * ‖a‖) ^ 2 := by
+      have h8 := norm_nonneg (FIESystem.blk₁ (S.redT *ᵥ e₀))
+      nlinarith
+    exact mul_le_mul_of_nonneg_left h7 hcb.le
+  have h9 : (0:ℝ) ≤ ‖a‖ ^ 2 := sq_nonneg _
+  have h10 : cb * (‖S.redT‖ * ce * ‖a‖) ^ 2
+      = cb * (‖S.redT‖ * ce) ^ 2 * ‖a‖ ^ 2 := by ring
   nlinarith
 
 /-- Under C2 the values converge to `valueLim` from below. -/

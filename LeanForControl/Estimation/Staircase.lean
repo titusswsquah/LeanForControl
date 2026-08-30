@@ -996,6 +996,24 @@ theorem exists_antiFeas_rightInverse (hC2 : S.C2) :
       nlinarith
     linarith
 
+/-- Solving the antistable-coordinate equation lands the corrected
+vector in the stabilizable subspace. -/
+lemma mem_stabilizableSub_of_antiFeas {a z : Fin n → ℝ}
+    (hz : S.antiFeasMat *ᵥ z = S.blkTwoMat *ᵥ a) :
+    a - S.Sig0 *ᵥ z ∈ S.stabilizableSub := by
+  rw [S.mem_stabilizableSub_iff_inr]
+  intro i
+  have h3 := congrFun hz i
+  unfold antiFeasMat at h3
+  rw [← Matrix.mulVec_mulVec] at h3
+  rw [Matrix.mulVec_sub]
+  have h4 : (S.stairW *ᵥ (S.Sig0 *ᵥ z)) (Sum.inr i)
+      = (S.blkTwoMat *ᵥ (S.Sig0 *ᵥ z)) i := rfl
+  have h5 : (S.stairW *ᵥ a) (Sum.inr i) = (S.blkTwoMat *ᵥ a) i := rfl
+  simp only [Pi.sub_apply]
+  rw [h4, h5, h3]
+  ring
+
 /-- **The invariant `U₂/E₂` statement**: under C2 the prior range and
 the stabilizable subspace together span everything. -/
 theorem range_sup_stabilizable_eq_top (hC2 : S.C2) :
@@ -1005,19 +1023,8 @@ theorem range_sup_stabilizable_eq_top (hC2 : S.C2) :
   obtain ⟨σ, c, hc, hσinv, hσb⟩ := S.exists_antiFeas_rightInverse hC2
   set z := σ (S.blkTwoMat *ᵥ a) with hz
   have h1 : a = S.Sig0 *ᵥ z + (a - S.Sig0 *ᵥ z) := by module
-  have h2 : a - S.Sig0 *ᵥ z ∈ S.stabilizableSub := by
-    rw [S.mem_stabilizableSub_iff_inr]
-    intro i
-    have h3 := congrFun (hσinv (S.blkTwoMat *ᵥ a)) i
-    unfold antiFeasMat at h3
-    rw [← Matrix.mulVec_mulVec, ← hz] at h3
-    rw [Matrix.mulVec_sub]
-    have h4 : (S.stairW *ᵥ (S.Sig0 *ᵥ z)) (Sum.inr i)
-        = (S.blkTwoMat *ᵥ (S.Sig0 *ᵥ z)) i := rfl
-    have h5 : (S.stairW *ᵥ a) (Sum.inr i) = (S.blkTwoMat *ᵥ a) i := rfl
-    simp only [Pi.sub_apply]
-    rw [h4, h5, h3]
-    ring
+  have h2 : a - S.Sig0 *ᵥ z ∈ S.stabilizableSub :=
+    S.mem_stabilizableSub_of_antiFeas (hσinv (S.blkTwoMat *ᵥ a))
   rw [h1]
   exact Submodule.add_mem _
     (Submodule.mem_sup_left ⟨z, rfl⟩) (Submodule.mem_sup_right h2)
