@@ -117,7 +117,7 @@ deviation device, infinite-horizon `tsum` cost, `detect_inj`, `lqr`,
 - **D7 (examples).** Examples 1–2 are excluded from the verification
   scope (illustrative content).
 
-## Phase 1 (next): the optimization-side paper — `prop:infhor`, the Q-function layer, and `prop:tvkf` for the optimizer
+## Phase 1 (COMPLETE 2026-08-30): the optimization-side paper — `prop:infhor`, the Q-function layer, and `prop:tvkf` for the optimizer
 
 *(~1800–3100 lines, 2–4 sessions; all C2-scoped work rides the existing
 reduction)*
