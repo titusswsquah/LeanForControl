@@ -15,6 +15,7 @@ import LeanForControl.Estimation.GeneralNecessity
 import LeanForControl.Estimation.GeneralHeadline
 import LeanForControl.Estimation.InfhorGeneral
 import LeanForControl.Estimation.ChiProblem
+import LeanForControl.Estimation.QFunction
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
@@ -32,6 +33,7 @@ import LeanForControl.LinearSystems.RealSplit
 import LeanForControl.LinearSystems.QuadForm
 import LeanForControl.LinearSystems.Schur
 import LeanForControl.LinearSystems.StagedFacts
+import LeanForControl.LinearSystems.IOSS
 import LeanForControl.LinearSystems.UnobservableBlock
 import LeanForControl.LinearSystems.SpectralDynamics
 import LeanForControl.LinearSystems.SpectralGrowth

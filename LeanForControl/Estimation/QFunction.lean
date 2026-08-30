@@ -212,7 +212,8 @@ theorem exists_modQ (hC1 : S.C1) (hC2 : S.C2) :
       0 < c₀ ∧ 0 < cl ∧ 0 < cd ∧
       (∀ a k, Q a 0 k ≤ c₀ * ‖a‖ ^ 2) ∧
       (∀ a k j, j ≤ k → cl * ‖S.eTraj a k j‖ ^ 2 ≤ Q a j k) ∧
-      (∀ a k j, Q a (j + 1) k ≤ Q a j k - cd * ‖S.eTraj a k j‖ ^ 2) := by
+      (∀ a k j, Q a (j + 1) k ≤ Q a j k - cd * ‖S.eTraj a k j‖ ^ 2) ∧
+      (∀ a j, ∃ L, Tendsto (fun k => Q a j k) atTop (nhds L)) := by
   classical
   obtain ⟨P, a₁, a₂, a₃, c₁, c₂, hPD, ha₁, ha₂, ha₃, hc₁, hc₂,
     hbounds, hdiss⟩ := exists_ioss_lyapunov S.A S.C (-S.G) hC1
@@ -251,7 +252,7 @@ theorem exists_modQ (hC1 : S.C1) (hC2 : S.C2) :
   refine ⟨fun a j k => S.valueLim a - S.partialCost a j k
       + ρ * quadForm P (S.eTraj a k j),
     cv + 2 * ρ * a₂, ρ * a₁, ρ * a₃,
-    by positivity, by positivity, by positivity, ?_, ?_, ?_⟩
+    by positivity, by positivity, by positivity, ?_, ?_, ?_, ?_⟩
   · -- `eq:QunsInitUB`
     intro a k
     dsimp only
@@ -341,6 +342,142 @@ theorem exists_modQ (hC1 : S.C1) (hC2 : S.C2) :
       have := mul_le_mul_of_nonneg_right hρR hν
       nlinarith
     nlinarith [mul_le_mul_of_nonneg_left hd hρ0.le]
+  · -- convergence along horizons (via `it:zlim`)
+    intro a j
+    dsimp only
+    have hquad : Continuous (fun v : Fin n → ℝ => quadForm P v) := by
+      unfold quadForm
+      exact continuous_id.dotProduct
+        (P.mulVecLin.continuous_of_finiteDimensional.comp continuous_id)
+    have htrajP : Tendsto (fun k => quadForm P (S.eTraj a k j)) atTop
+        (nhds (quadForm P
+          (S.glq.traj (S.optInitLim a) (S.optCtrlLim a) j))) := by
+      exact ((hquad.tendsto _).comp (S.tendsto_traj hC2 a j))
+    have hpartial : Tendsto (fun k => S.partialCost a j k) atTop
+        (nhds (S.priorPen a (S.optInitLim a)
+          + ∑ i ∈ Finset.range j,
+              S.gStage (S.optInitLim a) (S.optCtrlLim a) i)) := by
+      unfold partialCost
+      exact (S.tendsto_priorPen hC2 a).add
+        (tendsto_finset_sum _ fun i _ => S.tendsto_gStage hC2 a i)
+    refine ⟨S.valueLim a - (S.priorPen a (S.optInitLim a)
+      + ∑ i ∈ Finset.range j,
+          S.gStage (S.optInitLim a) (S.optCtrlLim a) i)
+      + ρ * quadForm P
+          (S.glq.traj (S.optInitLim a) (S.optCtrlLim a) j), ?_⟩
+    exact ((tendsto_const_nhds.sub hpartial).add (htrajP.const_mul ρ))
+
+/-! ### `prop:modQgas`: a modified Q-function forces GAS -/
+
+/-- **`prop:modQgas`** (general/optimizer form). One hypothesis is made
+explicit that the paper leaves implicit: the horizon limits
+`Q(j|∞) = lim_k Q(j|k)` must exist (the paper justifies this via
+`prop:infhor` and continuity *for the constructed Q*; an arbitrary
+modified Q-function need not converge along horizons). -/
+theorem isGAS_of_modQ (hC1 : S.C1) (hC2 : S.C2)
+    (Q : (Fin n → ℝ) → ℕ → ℕ → ℝ) (c₀ cl cd : ℝ)
+    (_hc₀ : 0 < c₀) (hcl : 0 < cl) (hcd : 0 < cd)
+    (_hinit : ∀ a k, Q a 0 k ≤ c₀ * ‖a‖ ^ 2)
+    (hlb : ∀ a k j, j ≤ k → cl * ‖S.eTraj a k j‖ ^ 2 ≤ Q a j k)
+    (hdec : ∀ a k j, Q a (j + 1) k ≤ Q a j k - cd * ‖S.eTraj a k j‖ ^ 2)
+    (hconv : ∀ a j, ∃ L, Tendsto (fun k => Q a j k) atTop (nhds L)) :
+    S.IsGAS := by
+  classical
+  refine S.isGAS_of_pointwise fun a => ?_
+  -- the horizon-limit Q-function
+  choose Qlim hQlim using hconv
+  set eL : ℕ → Fin n → ℝ :=
+    fun j => S.glq.traj (S.optInitLim a) (S.optCtrlLim a) j with heL
+  have htraj := S.tendsto_traj hC2 a
+  -- limit lower bound
+  have hlbL : ∀ j, cl * ‖eL j‖ ^ 2 ≤ Qlim a j := by
+    intro j
+    have h1 : Tendsto (fun k => cl * ‖S.eTraj a k j‖ ^ 2) atTop
+        (nhds (cl * ‖eL j‖ ^ 2)) := by
+      have h2 : Tendsto (fun k => S.eTraj a k j) atTop (nhds (eL j)) :=
+        htraj j
+      have h3 : Continuous (fun v : Fin n → ℝ => cl * ‖v‖ ^ 2) := by
+        continuity
+      exact (h3.tendsto _).comp h2
+    refine le_of_tendsto_of_tendsto h1 (hQlim a j) ?_
+    filter_upwards [eventually_ge_atTop j] with k hk
+    exact hlb a k j hk
+  -- limit decrease
+  have hdecL : ∀ j, Qlim a (j + 1) ≤ Qlim a j - cd * ‖eL j‖ ^ 2 := by
+    intro j
+    have h1 : Tendsto (fun k => Q a j k - cd * ‖S.eTraj a k j‖ ^ 2)
+        atTop (nhds (Qlim a j - cd * ‖eL j‖ ^ 2)) := by
+      have h3 : Continuous (fun v : Fin n → ℝ => cd * ‖v‖ ^ 2) := by
+        continuity
+      exact (hQlim a j).sub ((h3.tendsto _).comp (htraj j))
+    exact le_of_tendsto_of_tendsto (hQlim a (j + 1)) h1
+      (Eventually.of_forall fun k => hdec a k j)
+  -- `Qlim` is antitone and bounded below, hence convergent
+  have hanti : Antitone (Qlim a) := by
+    refine antitone_nat_of_succ_le fun j => ?_
+    have h1 := hdecL j
+    have h2 : (0:ℝ) ≤ cd * ‖eL j‖ ^ 2 := by positivity
+    linarith
+  have hbdd : ∀ j, 0 ≤ Qlim a j := by
+    intro j
+    have h1 := hlbL j
+    have h2 : (0:ℝ) ≤ cl * ‖eL j‖ ^ 2 := by positivity
+    linarith
+  have hQconv : Tendsto (Qlim a) atTop (nhds (⨅ j, Qlim a j)) :=
+    tendsto_atTop_ciInf hanti ⟨0, fun x ⟨j, hj⟩ => hj ▸ hbdd j⟩
+  -- the decrements vanish, so the limit trajectory dies
+  have hdiff : Tendsto (fun j => Qlim a j - Qlim a (j + 1)) atTop
+      (nhds 0) := by
+    have h1 := hQconv.sub (hQconv.comp (tendsto_add_atTop_nat 1))
+    simpa using h1
+  have heL0 : Tendsto (fun j => ‖eL j‖) atTop (nhds 0) := by
+    have h1 : Tendsto (fun j => cd * ‖eL j‖ ^ 2) atTop (nhds 0) := by
+      refine squeeze_zero (fun j => by positivity) (fun j => ?_) hdiff
+      have h2 := hdecL j
+      linarith
+    have h2 : Tendsto (fun j => ‖eL j‖ ^ 2) atTop (nhds 0) := by
+      have h3 := h1.const_mul cd⁻¹
+      have h4 : (fun j => cd⁻¹ * (cd * ‖eL j‖ ^ 2))
+          = fun j => ‖eL j‖ ^ 2 := by
+        funext j
+        field_simp
+      rw [h4] at h3
+      simpa using h3
+    have h5 := (Real.continuous_sqrt.tendsto 0).comp h2
+    rw [Real.sqrt_zero] at h5
+    refine h5.congr fun j => ?_
+    rw [Function.comp_apply, Real.sqrt_sq (norm_nonneg _)]
+  -- transfer to the diagonal by `it:xTT`
+  have hxTT := S.tendsto_optTerm_sub_limTraj hC1 hC2 a
+  have h6 : Tendsto (fun T => ‖S.optTerm a T‖) atTop (nhds 0) := by
+    have h7 : ∀ T, ‖S.optTerm a T‖
+        ≤ ‖S.optTerm a T - eL T‖ + ‖eL T‖ := by
+      intro T
+      calc ‖S.optTerm a T‖ = ‖S.optTerm a T - eL T + eL T‖ := by
+            congr 1
+            module
+        _ ≤ ‖S.optTerm a T - eL T‖ + ‖eL T‖ := norm_add_le _ _
+    have h8 : Tendsto (fun T => ‖S.optTerm a T - eL T‖ + ‖eL T‖)
+        atTop (nhds 0) := by
+      have h9 := (tendsto_zero_iff_norm_tendsto_zero.mp hxTT).add heL0
+      simpa using h9
+    exact squeeze_zero (fun T => norm_nonneg _) h7 h8
+  exact h6
+
+/-- **`prop:tvkf`, optimizer form, by the paper's Q-function route**:
+the optimal estimator is GAS iff C1 ∧ C2 — sufficiency through
+`prop:tvkfQuns` + `prop:modQgas`, necessity through the direct
+arguments. -/
+theorem prop_tvkf_optimizer : S.IsGAS ↔ S.C1 ∧ S.C2 := by
+  constructor
+  · intro h
+    have hC1 := S.C1_of_isGAS h
+    exact ⟨hC1, S.C2_of_isGAS hC1 h⟩
+  · rintro ⟨hC1, hC2⟩
+    obtain ⟨Q, c₀, cl, cd, hc₀, hcl, hcd, hinit, hlb, hdec, hconv⟩ :=
+      S.exists_modQ hC1 hC2
+    exact S.isGAS_of_modQ hC1 hC2 Q c₀ cl cd hc₀ hcl hcd hinit hlb
+      hdec hconv
 
 end GeneralSystem
 
