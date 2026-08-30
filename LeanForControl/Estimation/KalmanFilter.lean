@@ -234,6 +234,84 @@ lemma dreStep_posSemidef (hSg : Sg.PosSemidef) :
       Matrix.conjTranspose_eq_transpose_of_trivial _] at h4
   exact h1.add h3
 
+/-- The classical gain identity `(MΣ)CᵀRi = ΣCᵀS⁻¹`. -/
+lemma measM_mul_gain (hSg : Sg.PosSemidef) :
+    S.measM Sg * Sg * (S.Cᵀ * S.Ri)
+      = Sg * S.Cᵀ * (S.innovS Sg)⁻¹ := by
+  have hbr : S.Ri - (S.innovS Sg)⁻¹ * (S.C * Sg * S.Cᵀ) * S.Ri
+      = (S.innovS Sg)⁻¹ := by
+    have h1 : S.C * Sg * S.Cᵀ * S.Ri = S.innovS Sg * S.Ri - 1 := by
+      unfold innovS
+      rw [Matrix.add_mul, S.Rcov_mul_Ri]
+      abel
+    rw [Matrix.mul_assoc ((S.innovS Sg)⁻¹) _ S.Ri]
+    rw [show S.C * Sg * S.Cᵀ * S.Ri = S.innovS Sg * S.Ri - 1 from h1]
+    rw [Matrix.mul_sub, ← Matrix.mul_assoc, S.innovS_inv_mul hSg,
+      Matrix.one_mul, Matrix.mul_one]
+    abel
+  have hexpand : S.measM Sg * Sg * (S.Cᵀ * S.Ri)
+      = Sg * S.Cᵀ * (S.Ri - (S.innovS Sg)⁻¹ * (S.C * Sg * S.Cᵀ) * S.Ri) := by
+    unfold measM
+    simp only [Matrix.mul_sub, Matrix.sub_mul, Matrix.mul_one,
+      Matrix.one_mul, Matrix.mul_assoc]
+  rw [hexpand, hbr]
+
+/-- The resolvent identity `M(1 + ΣCᵀRiC) = 1`. -/
+lemma measM_mul_resolvent (hSg : Sg.PosSemidef) :
+    S.measM Sg * (1 + Sg * (S.Cᵀ * S.Ri * S.C)) = 1 := by
+  have h1 := S.measM_mul_gain hSg
+  have h2 : S.measM Sg * (Sg * (S.Cᵀ * S.Ri * S.C))
+      = Sg * S.Cᵀ * (S.innovS Sg)⁻¹ * S.C := by
+    calc S.measM Sg * (Sg * (S.Cᵀ * S.Ri * S.C))
+        = S.measM Sg * Sg * (S.Cᵀ * S.Ri) * S.C := by
+          simp only [Matrix.mul_assoc]
+      _ = Sg * S.Cᵀ * (S.innovS Sg)⁻¹ * S.C := by rw [h1]
+  rw [Matrix.mul_add, Matrix.mul_one, h2]
+  unfold measM
+  abel
+
+/-- Transposed resolvent, the form used to hit the arrival witness:
+`(1 + CᵀRiCΣ)Mᵀ = 1`. -/
+lemma resolvent_mul_measM_transpose (hSg : Sg.PosSemidef) :
+    (1 + S.Cᵀ * S.Ri * S.C * Sg) * (S.measM Sg)ᵀ = 1 := by
+  have h1 := congrArg Matrix.transpose (S.measM_mul_resolvent hSg)
+  rw [Matrix.transpose_mul, Matrix.transpose_one] at h1
+  have h2 : (1 + Sg * (S.Cᵀ * S.Ri * S.C))ᵀ
+      = 1 + S.Cᵀ * S.Ri * S.C * Sg := by
+    rw [Matrix.transpose_add, Matrix.transpose_one]
+    congr 1
+    simp only [Matrix.transpose_mul, Matrix.transpose_transpose,
+      hSg.1.transpose_eq_self,
+      S.hRi.1.transpose_eq_self]
+    simp only [Matrix.mul_assoc]
+  rw [h2] at h1
+  exact h1
+
+/-- `MΣ` is the image parameterization of `Σ`, vector form. -/
+lemma measM_mul_key_vec (hSg : Sg.PosSemidef) (u : Fin n → ℝ) :
+    (S.measM Sg * Sg) *ᵥ ((1 + S.Cᵀ * S.Ri * (S.C * Sg)) *ᵥ u)
+      = Sg *ᵥ u := by
+  rw [Matrix.mulVec_mulVec, S.measM_mul_key hSg]
+
+/-- **The measured energy in update coordinates**: the post-measurement
+energy of `u` is the `MΣ`-quadratic of the resolvent image. -/
+lemma quadForm_measM_resolvent (hSg : Sg.PosSemidef) (u : Fin n → ℝ) :
+    quadForm (S.measM Sg * Sg) ((1 + S.Cᵀ * S.Ri * (S.C * Sg)) *ᵥ u)
+      = quadForm Sg u + quadForm S.Ri (S.C *ᵥ (Sg *ᵥ u)) := by
+  unfold quadForm
+  rw [S.measM_mul_key_vec hSg]
+  have h1 : ((1 + S.Cᵀ * S.Ri * (S.C * Sg)) *ᵥ u) ⬝ᵥ (Sg *ᵥ u)
+      = u ⬝ᵥ (Sg *ᵥ u)
+        + (S.Cᵀ * S.Ri * (S.C * Sg)) *ᵥ u ⬝ᵥ (Sg *ᵥ u) := by
+    rw [Matrix.add_mulVec, Matrix.one_mulVec, add_dotProduct]
+  rw [h1]
+  congr 1
+  have hsplit : (S.Cᵀ * S.Ri * (S.C * Sg)) *ᵥ u
+      = S.Cᵀ *ᵥ (S.Ri *ᵥ (S.C *ᵥ (Sg *ᵥ u))) := by
+    simp only [← Matrix.mulVec_mulVec]
+  rw [hsplit, mulVec_dotProduct_eq, Matrix.transpose_transpose,
+    dotProduct_comm]
+
 end PSD
 
 /-! ### The covariance iterates and the filter-error transition -/
