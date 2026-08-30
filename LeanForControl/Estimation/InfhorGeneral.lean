@@ -1,6 +1,7 @@
 import LeanForControl.Estimation.Reduction
 import LeanForControl.Estimation.Infhor
 import LeanForControl.Estimation.GeneralNecessity
+import LeanForControl.LinearSystems.OutputInjection
 import Architect
 
 /-!
@@ -534,6 +535,167 @@ theorem gInfCost_optLim (hC2 : S.C2) (a : Fin n → ℝ) :
         exact hsummable.sum_le_tsum _ fun k _ => S.gStage_nonneg _ _ _
       linarith
     exact ciSup_le hval
+
+/-! ### `it:xTT`: terminal errors track the limit rollout, under C1 ∧ C2 -/
+
+/-- Every prefix cost of the limit pair is dominated by the limiting
+value. -/
+lemma gCost_optLim_le (hC2 : S.C2) (a : Fin n → ℝ) (T : ℕ) :
+    S.gCost a (S.optInitLim a) (S.optCtrlLim a) T ≤ S.valueLim a := by
+  have h1 : S.glq.cost (S.optInitLim a) (S.optCtrlLim a) T
+      ≤ ∑' k, S.gStage (S.optInitLim a) (S.optCtrlLim a) k := by
+    rw [cost_eq_sum_gStage]
+    exact (S.summable_gStage_lim hC2 a).sum_le_tsum _
+      fun k _ => S.gStage_nonneg _ _ _
+  have h2 := S.gInfCost_optLim hC2 a
+  unfold gCost
+  unfold gInfCost at h2
+  linarith
+
+/-- The optimal terminal error is the trajectory endpoint of the
+optimal pair. -/
+lemma optTerm_eq_traj (a : Fin n → ℝ) (T : ℕ) :
+    S.optTerm a T = S.glq.traj (S.optInit a T)
+      (S.glq.optCtrl (S.optInit a T) T) T := by
+  unfold optTerm
+  rw [S.glq.traj_optCtrl]
+
+/-- **`it:xTT`**: under C1 ∧ C2 the horizon-`T` terminal error tracks
+the endpoint of the limit rollout. -/
+theorem tendsto_optTerm_sub_limTraj (hC1 : S.C1) (hC2 : S.C2)
+    (a : Fin n → ℝ) :
+    Tendsto (fun T => S.optTerm a T
+        - S.glq.traj (S.optInitLim a) (S.optCtrlLim a) T) atTop
+      (nhds 0) := by
+  classical
+  -- the deviation pair at horizon `T`
+  set d : ℕ → Fin n → ℝ :=
+    fun T => S.optInitLim a - S.optInit a T with hd
+  set δ : ℕ → ℕ → Fin m → ℝ :=
+    fun T j => S.optCtrlLim a j - S.glq.optCtrl (S.optInit a T) T j
+    with hδ
+  -- gap of the limit pair at horizon T
+  have hgap : ∀ T, S.gCost 0 (d T) (δ T) T
+      ≤ S.valueLim a - S.value a T := by
+    intro T
+    have h1 := S.gCost_gap hC2 (S.optInitLim_feasible hC2 a)
+      (S.optCtrlLim a) T
+    have h2 := S.gCost_optLim_le hC2 a T
+    rw [hd, hδ]
+    simp only
+    linarith
+  -- deviation feasibility
+  have hdfeas : ∀ T, S.Feasible 0 (d T) :=
+    fun T => S.feasible_sub (S.optInitLim_feasible hC2 a)
+      (S.optInit_feasible a T)
+  -- energy bound
+  obtain ⟨cE, hcE, hbE⟩ := S.exists_gap_energy_bound
+  -- output injection for the deviation dynamics
+  obtain ⟨L, hL⟩ := detect_inj S.A S.C hC1
+  obtain ⟨cT, hcT, hbT⟩ :=
+    exists_terminal_sq_bound_of_injection S.A S.C (-S.G) hL
+  -- the deviation trajectory is a trajectory of the error dynamics
+  have hrec : ∀ T k, S.glq.traj (d T) (δ T) (k + 1)
+      = S.A *ᵥ S.glq.traj (d T) (δ T) k + (-S.G) *ᵥ δ T k := by
+    intro T k
+    rw [LQSystem.traj_succ]
+    rfl
+  -- terminal deviation controlled by the gap
+  have hterm : ∀ T, ‖S.glq.traj (d T) (δ T) T‖ ^ 2
+      ≤ cT * (1 + cE) * (S.valueLim a - S.value a T) := by
+    intro T
+    have h3 := hbT (fun k => S.glq.traj (d T) (δ T) k) (δ T)
+      (hrec T) T
+    have h4 := hbE (hdfeas T) (δ T) T
+    have h5 := hgap T
+    have hgap0 : 0 ≤ S.gCost 0 (d T) (δ T) T := by
+      unfold gCost
+      have h20 := S.priorPen_nonneg 0 (d T)
+      have h21 : (0:ℝ) ≤ S.glq.cost (d T) (δ T) T :=
+        Finset.sum_nonneg fun k _ => S.glq.stage_nonneg _ _
+      linarith
+    have h6 : ‖(fun k => S.glq.traj (d T) (δ T) k) 0‖ ^ 2
+        + ∑ k ∈ Finset.range T,
+          (‖S.C *ᵥ (fun k => S.glq.traj (d T) (δ T) k) k‖ ^ 2
+            + ‖δ T k‖ ^ 2)
+        ≤ (1 + cE) * (S.valueLim a - S.value a T) := by
+      have h7 : (fun k => S.glq.traj (d T) (δ T) k) 0 = d T := rfl
+      rw [h7]
+      have h8 : ∑ k ∈ Finset.range T,
+          (‖S.C *ᵥ S.glq.traj (d T) (δ T) k‖ ^ 2 + ‖δ T k‖ ^ 2)
+          = (∑ k ∈ Finset.range T, ‖δ T k‖ ^ 2)
+            + ∑ k ∈ Finset.range T,
+              ‖S.C *ᵥ S.glq.traj (d T) (δ T) k‖ ^ 2 := by
+        rw [← Finset.sum_add_distrib]
+        exact Finset.sum_congr rfl fun k _ => by ring
+      rw [h8]
+      have h9 : cE * S.gCost 0 (d T) (δ T) T
+          ≤ cE * (S.valueLim a - S.value a T) :=
+        mul_le_mul_of_nonneg_left h5 hcE.le
+      have h10 : (0:ℝ) ≤ S.valueLim a - S.value a T :=
+        le_trans hgap0 h5
+      linarith
+    calc ‖S.glq.traj (d T) (δ T) T‖ ^ 2
+        ≤ cT * (‖(fun k => S.glq.traj (d T) (δ T) k) 0‖ ^ 2
+          + ∑ k ∈ Finset.range T,
+            (‖S.C *ᵥ (fun k => S.glq.traj (d T) (δ T) k) k‖ ^ 2
+              + ‖δ T k‖ ^ 2)) := h3
+      _ ≤ cT * ((1 + cE) * (S.valueLim a - S.value a T)) :=
+          mul_le_mul_of_nonneg_left h6 hcT.le
+      _ = cT * (1 + cE) * (S.valueLim a - S.value a T) := by ring
+  -- the deviation trajectory is the difference of trajectories
+  have hdiff : ∀ T, S.glq.traj (d T) (δ T) T
+      = S.glq.traj (S.optInitLim a) (S.optCtrlLim a) T
+        - S.glq.traj (S.optInit a T)
+            (S.glq.optCtrl (S.optInit a T) T) T := by
+    intro T
+    have h11 := S.glq.traj_add (S.optInit a T) (d T)
+      (S.glq.optCtrl (S.optInit a T) T) (δ T) T
+    have h12 : S.optInit a T + d T = S.optInitLim a := by
+      rw [hd]
+      module
+    have h13 : (fun j => S.glq.optCtrl (S.optInit a T) T j + δ T j)
+        = S.optCtrlLim a := by
+      funext j
+      rw [hδ]
+      module
+    rw [h12, h13] at h11
+    rw [h11]
+    module
+  -- squeeze
+  have hnorm : ∀ T, ‖S.optTerm a T
+      - S.glq.traj (S.optInitLim a) (S.optCtrlLim a) T‖ ^ 2
+      ≤ cT * (1 + cE) * (S.valueLim a - S.value a T) := by
+    intro T
+    have h14 := hterm T
+    rw [hdiff T] at h14
+    have h15 : S.optTerm a T
+        - S.glq.traj (S.optInitLim a) (S.optCtrlLim a) T
+        = -(S.glq.traj (S.optInitLim a) (S.optCtrlLim a) T
+          - S.glq.traj (S.optInit a T)
+              (S.glq.optCtrl (S.optInit a T) T) T) := by
+      rw [S.optTerm_eq_traj]
+      module
+    rw [h15, norm_neg]
+    exact h14
+  have hε : Tendsto (fun T => cT * (1 + cE)
+      * (S.valueLim a - S.value a T)) atTop (nhds 0) := by
+    have h16 := (S.tendsto_value hC2 a).const_sub (S.valueLim a)
+    have h17 := h16.const_mul (cT * (1 + cE))
+    simpa using h17
+  rw [tendsto_zero_iff_norm_tendsto_zero]
+  have hsq : Tendsto (fun T => ‖S.optTerm a T
+      - S.glq.traj (S.optInitLim a) (S.optCtrlLim a) T‖ ^ 2) atTop
+      (nhds 0) :=
+    squeeze_zero (fun T => sq_nonneg _) hnorm hε
+  have h18 : Tendsto (fun T => Real.sqrt (‖S.optTerm a T
+      - S.glq.traj (S.optInitLim a) (S.optCtrlLim a) T‖ ^ 2)) atTop
+      (nhds 0) := by
+    have h19 := (Real.continuous_sqrt.tendsto 0).comp hsq
+    rw [Real.sqrt_zero] at h19
+    exact h19
+  refine h18.congr fun T => ?_
+  rw [Real.sqrt_sq (norm_nonneg _)]
 
 end GeneralSystem
 
