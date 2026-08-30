@@ -13,6 +13,8 @@ import LeanForControl.Estimation.Staircase
 import LeanForControl.Estimation.Reduction
 import LeanForControl.Estimation.GeneralNecessity
 import LeanForControl.Estimation.GeneralHeadline
+import LeanForControl.Estimation.InfhorGeneral
+import LeanForControl.Estimation.ChiProblem
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
