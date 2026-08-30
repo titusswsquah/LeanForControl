@@ -322,8 +322,9 @@ lemma stairC_eq : S.stairC = S.C * S.stairWinv := by
 /-! ### Polynomial calculus across the intertwiner -/
 
 /-- Intertwining passes to polynomials. -/
-lemma aeval_intertwine {k l : ℕ} {M' : Matrix (Fin k) (Fin k) ℂ}
-    {M : Matrix (Fin l) (Fin l) ℂ} {Q : Matrix (Fin k) (Fin l) ℂ}
+lemma aeval_intertwine {α β : Type*} [Fintype α] [Fintype β]
+    [DecidableEq α] [DecidableEq β] {M' : Matrix α α ℂ}
+    {M : Matrix β β ℂ} {Q : Matrix α β ℂ}
     (h : M' * Q = Q * M) (q : Polynomial ℂ) :
     Polynomial.aeval M' q * Q = Q * Polynomial.aeval M q := by
   induction q using Polynomial.induction_on' with
@@ -387,6 +388,168 @@ lemma aeval_fromBlocks_triangular {k l : ℕ}
     ext i j
     rcases i with i | i <;> rcases j with j | j <;>
       simp [Matrix.fromBlocks]
+
+/-! ### Structural facts of the staircase blocks -/
+
+/-- Action form of the intertwiner: `W` computes staircase
+coordinates. -/
+lemma stairW_mulVec (x : Fin n → ℝ) :
+    S.stairW *ᵥ x = fun i => S.staircaseBasis.repr x i := by
+  have h1 := LinearMap.toMatrix_mulVec_repr (Pi.basisFun ℝ (Fin n))
+    S.staircaseBasis LinearMap.id x
+  rw [LinearMap.id_apply] at h1
+  have h2 : ⇑((Pi.basisFun ℝ (Fin n)).repr x) = x := by
+    funext j
+    simp
+  rw [h2] at h1
+  exact h1
+
+/-- The transformed stable projection. -/
+noncomputable def stairPs :
+    Matrix (Fin S.rk1 ⊕ Fin S.rk2) (Fin S.rk1 ⊕ Fin S.rk2) ℝ :=
+  S.stairW * stabProj S.A * S.stairWinv
+
+/-- The transformed antistable projection. -/
+noncomputable def stairPa :
+    Matrix (Fin S.rk1 ⊕ Fin S.rk2) (Fin S.rk1 ⊕ Fin S.rk2) ℝ :=
+  S.stairW * antiProj S.A * S.stairWinv
+
+lemma stairPs_add_stairPa : S.stairPs + S.stairPa = 1 := by
+  unfold stairPs stairPa
+  rw [← Matrix.add_mul, ← Matrix.mul_add, stabProj_add_antiProj,
+    Matrix.mul_one, stairW_mul_stairWinv]
+
+/-- The transformed stable projection lands in the first block. -/
+lemma stairPs_inr_row (i : Fin S.rk2) (j : Fin S.rk1 ⊕ Fin S.rk2) :
+    S.stairPs (Sum.inr i) j = 0 := by
+  have h1 : S.stairPs *ᵥ Pi.single j 1
+      = S.stairW *ᵥ (stabProj S.A *ᵥ (S.stairWinv *ᵥ Pi.single j 1)) := by
+    unfold stairPs
+    rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec]
+  have hmem : stabProj S.A *ᵥ (S.stairWinv *ᵥ Pi.single j 1)
+      ∈ S.stabilizableSub :=
+    Submodule.mem_sup_right ⟨S.stairWinv *ᵥ Pi.single j 1, rfl⟩
+  have h2 : (S.stairPs *ᵥ Pi.single j 1) (Sum.inr i) = 0 := by
+    rw [h1, stairW_mulVec]
+    exact S.staircaseBasis_repr_inr_eq_zero hmem i
+  rw [Matrix.mulVec_single_one] at h2
+  exact h2
+
+/-- Complexified version: second-block rows of the stable projection
+vanish. -/
+lemma stairPs_c_mulVec_inr (z : (Fin S.rk1 ⊕ Fin S.rk2) → ℂ)
+    (i : Fin S.rk2) :
+    (complexify S.stairPs *ᵥ z) (Sum.inr i) = 0 := by
+  simp [Matrix.mulVec, dotProduct, stairPs_inr_row]
+
+/-- Entry form of block triangularity. -/
+lemma stairA_inr_inl (i : Fin S.rk2) (j : Fin S.rk1) :
+    S.stairA (Sum.inr i) (Sum.inl j) = 0 := by
+  have h := congrFun (congrFun S.stairA_toBlocks₂₁ i) j
+  simpa [Matrix.toBlocks₂₁] using h
+
+/-- The complexified staircase matrix in block form. -/
+lemma stairA_c_blocks :
+    complexify S.stairA = Matrix.fromBlocks
+      (complexify S.stairA.toBlocks₁₁) (complexify S.stairA.toBlocks₁₂)
+      0 (complexify S.stairA.toBlocks₂₂) := by
+  ext i j
+  rcases i with i | i <;> rcases j with j | j <;>
+    simp [Matrix.fromBlocks, Matrix.toBlocks₁₁, Matrix.toBlocks₁₂,
+      Matrix.toBlocks₂₂, stairA_inr_inl]
+
+lemma stairA_c_comm :
+    complexify S.stairA * complexify S.stairW
+      = complexify S.stairW * complexify S.A := by
+  rw [← complexify_mul, ← complexify_mul, stairA_conj]
+
+/-- D1a(i): every eigenvalue of the second diagonal block is
+antistable. -/
+theorem stairA₂_antistable :
+    ∀ μ ∈ spectrum ℂ (complexify S.stairA.toBlocks₂₂), 1 ≤ ‖μ‖ := by
+  intro μ hμ
+  by_contra hlt
+  push Not at hlt
+  -- extract an eigenvector
+  have hspec : μ ∈ spectrum ℂ
+      (Matrix.toLin' (complexify S.stairA.toBlocks₂₂)) := by
+    rw [Matrix.spectrum_toLin']
+    exact hμ
+  obtain ⟨v, hv⟩ := (Module.End.hasEigenvalue_iff_mem_spectrum.mpr
+    hspec).exists_hasEigenvector
+  have hAv : complexify S.stairA.toBlocks₂₂ *ᵥ v = μ • v := by
+    have h := hv.apply_eq_smul
+    rwa [Matrix.toLin'_apply] at h
+  have hvne : v ≠ 0 := hv.2
+  -- the second-block coordinate vector
+  set y : (Fin S.rk1 ⊕ Fin S.rk2) → ℂ := Sum.elim 0 v with hy
+  -- the antistable projection preserves the second block of `y`
+  have hPay : ∀ i, (complexify S.stairPa *ᵥ y) (Sum.inr i) = v i := by
+    intro i
+    have h1 : complexify S.stairPa = 1 - complexify S.stairPs := by
+      rw [eq_sub_iff_add_eq, ← complexify_one, ← complexify_add]
+      rw [show S.stairPa + S.stairPs = 1 from by
+        rw [add_comm]; exact S.stairPs_add_stairPa]
+    rw [h1, Matrix.sub_mulVec, Pi.sub_apply, Matrix.one_mulVec,
+      stairPs_c_mulVec_inr, sub_zero]
+    simp [hy]
+  -- transferred annihilation identity
+  have hann : Polynomial.aeval (complexify S.stairA)
+      (antiPoly (complexify S.A)) * complexify S.stairPa = 0 := by
+    have h2 : complexify S.stairPa = complexify S.stairW
+        * complexify (antiProj S.A) * complexify S.stairWinv := by
+      unfold stairPa
+      rw [← complexify_mul, ← complexify_mul]
+    rw [h2]
+    calc Polynomial.aeval (complexify S.stairA)
+          (antiPoly (complexify S.A))
+          * (complexify S.stairW * complexify (antiProj S.A)
+            * complexify S.stairWinv)
+        = (Polynomial.aeval (complexify S.stairA)
+            (antiPoly (complexify S.A)) * complexify S.stairW)
+          * (complexify (antiProj S.A) * complexify S.stairWinv) := by
+          simp only [Matrix.mul_assoc]
+      _ = (complexify S.stairW * Polynomial.aeval (complexify S.A)
+            (antiPoly (complexify S.A)))
+          * (complexify (antiProj S.A) * complexify S.stairWinv) := by
+          rw [aeval_intertwine S.stairA_c_comm]
+      _ = complexify S.stairW
+          * ((Polynomial.aeval (complexify S.A)
+              (antiPoly (complexify S.A)) * complexify (antiProj S.A))
+            * complexify S.stairWinv) := by
+          simp only [Matrix.mul_assoc]
+      _ = 0 := by
+          rw [antiPoly_mul_antiProj, Matrix.zero_mul, Matrix.mul_zero]
+  -- push the annihilation to the second block
+  have h0 : Polynomial.aeval (complexify S.stairA)
+      (antiPoly (complexify S.A)) *ᵥ (complexify S.stairPa *ᵥ y) = 0 := by
+    rw [Matrix.mulVec_mulVec, hann, Matrix.zero_mulVec]
+  obtain ⟨X, hX⟩ := aeval_fromBlocks_triangular
+    (complexify S.stairA.toBlocks₁₁) (complexify S.stairA.toBlocks₁₂)
+    (complexify S.stairA.toBlocks₂₂) (antiPoly (complexify S.A))
+  rw [S.stairA_c_blocks, hX] at h0
+  have h3 : Polynomial.aeval (complexify S.stairA.toBlocks₂₂)
+      (antiPoly (complexify S.A)) *ᵥ v = 0 := by
+    funext i
+    have h4 := congrFun h0 (Sum.inr i)
+    rw [Matrix.fromBlocks_mulVec] at h4
+    simp only [Sum.elim_inr, Pi.add_apply, Matrix.zero_mulVec,
+      Pi.zero_apply, zero_add] at h4
+    have h5 : ((complexify S.stairPa *ᵥ y) ∘ Sum.inr) = v := by
+      funext k
+      exact hPay k
+    rw [h5] at h4
+    exact h4
+  -- eigenvalue calculus forces a root of the antistable factor
+  rw [aeval_mulVec_eigenvector hAv] at h3
+  have h6 : Polynomial.eval μ (antiPoly (complexify S.A)) = 0 := by
+    by_contra hne
+    exact hvne (by
+      have := smul_eq_zero.mp h3
+      rcases this with h | h
+      · exact absurd h hne
+      · exact h)
+  exact antiPoly_root_ge (Polynomial.IsRoot.def.mpr h6) hlt
 
 end GeneralSystem
 
