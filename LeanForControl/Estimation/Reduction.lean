@@ -1026,6 +1026,13 @@ theorem red_C3w_iff : S.redSys.C3w ↔ S.C3w := by
       rw [hv] at h8
       exact hψ.2 (S.transposeW_c_elim_eq_zero h8)
 
+/-- Optimal controls correspond under the transformation. -/
+lemma red_optCtrl (x₀ : Fin n → ℝ) (T k : ℕ) :
+    S.redSys.lq.optCtrl (S.redT *ᵥ x₀) T k = S.glq.optCtrl x₀ T k := by
+  unfold LQSystem.optCtrl
+  rw [red_optTraj, red_ric, red_gainK, ← Matrix.mulVec_mulVec,
+    redTinv_redT_mulVec]
+
 end GeneralSystem
 
 end Estimation

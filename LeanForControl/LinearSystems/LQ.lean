@@ -602,6 +602,51 @@ lemma cost_eq_sum_windows (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (M : ℕ)
 end Restart
 
 
+/-- **Uniqueness of the optimal control** (no hypotheses beyond the
+class): any input achieving the Riccati value follows the optimal
+feedback at every stage before the horizon. -/
+theorem optCtrl_unique (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (T : ℕ)
+    (h : S.cost x₀ u T = quadForm (S.ric T) x₀) :
+    ∀ k < T, u k = S.optCtrl x₀ T k := by
+  have h1 := S.cost_eq_quadForm_add_sum T x₀ u
+  rw [h] at h1
+  have h2 : ∑ k ∈ Finset.range T,
+      quadForm (S.gainΓ (S.ric (T - 1 - k)))
+        (u k + S.gainK (S.ric (T - 1 - k)) *ᵥ S.traj x₀ u k) = 0 := by
+    linarith
+  have h3 := (Finset.sum_eq_zero_iff_of_nonneg fun k _ =>
+    (S.gainΓ_posDef (S.ric_posSemidef _)).posSemidef.quadForm_nonneg
+      _).mp h2
+  have h4 : ∀ k < T,
+      u k + S.gainK (S.ric (T - 1 - k)) *ᵥ S.traj x₀ u k = 0 := by
+    intro k hk
+    by_contra hne
+    exact absurd (h3 k (Finset.mem_range.mpr hk))
+      (ne_of_gt ((S.gainΓ_posDef (S.ric_posSemidef _)).quadForm_pos hne))
+  have htraj : ∀ k, k ≤ T → S.traj x₀ u k = S.optTraj x₀ T k := by
+    intro k
+    induction k with
+    | zero =>
+      intro _
+      rfl
+    | succ k ih =>
+      intro hk
+      have hik := ih (by omega)
+      have h5 := h4 k (by omega)
+      rw [hik] at h5
+      have h6 : u k = -(S.gainK (S.ric (T - 1 - k)) *ᵥ S.optTraj x₀ T k) :=
+        eq_neg_of_add_eq_zero_left h5
+      show S.A *ᵥ S.traj x₀ u k + S.B *ᵥ u k = S.optTraj x₀ T (k + 1)
+      rw [hik, h6,
+        show S.optTraj x₀ T (k + 1)
+          = S.Acl (S.ric (T - 1 - k)) *ᵥ S.optTraj x₀ T k from rfl,
+        Acl, Matrix.sub_mulVec, Matrix.mulVec_neg, ← Matrix.mulVec_mulVec]
+      abel
+  intro k hk
+  have h5 := h4 k hk
+  rw [htraj k (le_of_lt hk)] at h5
+  exact eq_neg_of_add_eq_zero_left h5
+
 /-! ### Cost of an arbitrary geometrically stable feedback rollout
 
 Unlike `cost_fixedGain`, no Riccati fixed point (hence no detectability)
