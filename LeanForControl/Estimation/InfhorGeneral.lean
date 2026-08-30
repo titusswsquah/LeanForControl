@@ -388,6 +388,153 @@ theorem tendsto_lastStage (hC2 : S.C2) (a : Fin n → ℝ) :
   exact add_nonneg (S.glq.hQs.quadForm_nonneg _)
     (S.glq.hRu.posSemidef.quadForm_nonneg _)
 
+/-! ### `it:Vlim`: the infinite-horizon cost of the limit pair -/
+
+/-- One stage cost of the general LQ layer. -/
+noncomputable def gStage (e₀ : Fin n → ℝ) (ω : ℕ → Fin m → ℝ)
+    (k : ℕ) : ℝ :=
+  quadForm S.glq.Qs (S.glq.traj e₀ ω k) + quadForm S.glq.Ru (ω k)
+
+lemma gStage_nonneg (e₀ : Fin n → ℝ) (ω : ℕ → Fin m → ℝ) (k : ℕ) :
+    0 ≤ S.gStage e₀ ω k :=
+  S.glq.stage_nonneg _ _
+
+lemma cost_eq_sum_gStage (e₀ : Fin n → ℝ) (ω : ℕ → Fin m → ℝ) (T : ℕ) :
+    S.glq.cost e₀ ω T = ∑ k ∈ Finset.range T, S.gStage e₀ ω k :=
+  rfl
+
+/-- The infinite-horizon cost `V_∞` of a decision pair: prior penalty
+plus the series of stage costs. -/
+noncomputable def gInfCost (a e₀ : Fin n → ℝ) (ω : ℕ → Fin m → ℝ) : ℝ :=
+  S.priorPen a e₀ + ∑' k, S.gStage e₀ ω k
+
+/-- Trajectories converge stagewise along the optimizer limits. -/
+theorem tendsto_traj (hC2 : S.C2) (a : Fin n → ℝ) : ∀ k,
+    Tendsto (fun T => S.glq.traj (S.optInit a T)
+        (S.glq.optCtrl (S.optInit a T) T) k) atTop
+      (nhds (S.glq.traj (S.optInitLim a) (S.optCtrlLim a) k))
+  | 0 => by
+    simpa only [LQSystem.traj_zero] using S.tendsto_optInit hC2 a
+  | k + 1 => by
+    simp only [LQSystem.traj_succ]
+    exact (((continuous_mulVec S.glq.A).tendsto _).comp
+        (tendsto_traj hC2 a k)).add
+      (((continuous_mulVec S.glq.B).tendsto _).comp
+        (S.tendsto_optCtrl hC2 a k))
+
+/-- Stage costs converge along the optimizer limits. -/
+theorem tendsto_gStage (hC2 : S.C2) (a : Fin n → ℝ) (k : ℕ) :
+    Tendsto (fun T => S.gStage (S.optInit a T)
+        (S.glq.optCtrl (S.optInit a T) T) k) atTop
+      (nhds (S.gStage (S.optInitLim a) (S.optCtrlLim a) k)) := by
+  unfold gStage
+  have hq : ∀ (M : Matrix (Fin n) (Fin n) ℝ),
+      Continuous (fun v : Fin n → ℝ => quadForm M v) := by
+    intro M
+    unfold quadForm
+    exact continuous_id.dotProduct (continuous_mulVec M)
+  have hqm : ∀ (M : Matrix (Fin m) (Fin m) ℝ),
+      Continuous (fun v : Fin m → ℝ => quadForm M v) := by
+    intro M
+    unfold quadForm
+    exact continuous_id.dotProduct (continuous_mulVec M)
+  exact (((hq S.glq.Qs).tendsto _).comp (S.tendsto_traj hC2 a k)).add
+    (((hqm S.glq.Ru).tendsto _).comp (S.tendsto_optCtrl hC2 a k))
+
+/-- The prior penalty converges along the optimizer limits. -/
+theorem tendsto_priorPen (hC2 : S.C2) (a : Fin n → ℝ) :
+    Tendsto (fun T => S.priorPen a (S.optInit a T)) atTop
+      (nhds (S.priorPen a (S.optInitLim a))) := by
+  unfold priorPen quadForm
+  have hcont : Continuous (fun v : Fin n → ℝ =>
+      (v - a) ⬝ᵥ (symmPinv S.hSig0.1 *ᵥ (v - a))) := by
+    have h1 : Continuous (fun v : Fin n → ℝ => v - a) :=
+      continuous_id.sub continuous_const
+    exact (h1.dotProduct ((continuous_mulVec _).comp h1))
+  exact (hcont.tendsto _).comp (S.tendsto_optInit hC2 a)
+
+/-- Partial limit costs stay below the limiting value. -/
+theorem partial_le_valueLim (hC2 : S.C2) (a : Fin n → ℝ) (N : ℕ) :
+    S.priorPen a (S.optInitLim a)
+      + ∑ k ∈ Finset.range N, S.gStage (S.optInitLim a) (S.optCtrlLim a) k
+    ≤ S.valueLim a := by
+  have hlim : Tendsto (fun T => S.priorPen a (S.optInit a T)
+      + ∑ k ∈ Finset.range N, S.gStage (S.optInit a T)
+          (S.glq.optCtrl (S.optInit a T) T) k) atTop
+      (nhds (S.priorPen a (S.optInitLim a)
+        + ∑ k ∈ Finset.range N,
+            S.gStage (S.optInitLim a) (S.optCtrlLim a) k)) := by
+    refine (S.tendsto_priorPen hC2 a).add ?_
+    exact tendsto_finset_sum _ fun k _ => S.tendsto_gStage hC2 a k
+  refine le_of_tendsto hlim ?_
+  filter_upwards [eventually_ge_atTop N] with T hT
+  have h1 : ∑ k ∈ Finset.range N, S.gStage (S.optInit a T)
+      (S.glq.optCtrl (S.optInit a T) T) k
+      ≤ S.glq.cost (S.optInit a T) (S.glq.optCtrl (S.optInit a T) T) T := by
+    rw [cost_eq_sum_gStage]
+    refine Finset.sum_le_sum_of_subset_of_nonneg
+      (Finset.range_subset_range.mpr hT) fun k _ _ => S.gStage_nonneg _ _ _
+  have h2 : S.priorPen a (S.optInit a T)
+      + S.glq.cost (S.optInit a T) (S.glq.optCtrl (S.optInit a T) T) T
+      = S.value a T := S.gCost_optCtrl a T
+  have h3 := S.value_le_valueLim hC2 a T
+  linarith
+
+/-- The limit stage costs are summable. -/
+theorem summable_gStage_lim (hC2 : S.C2) (a : Fin n → ℝ) :
+    Summable (fun k => S.gStage (S.optInitLim a) (S.optCtrlLim a) k) := by
+  refine summable_of_sum_range_le (fun k => S.gStage_nonneg _ _ _)
+    (c := S.valueLim a - S.priorPen a (S.optInitLim a)) fun N => ?_
+  have h1 := S.partial_le_valueLim hC2 a N
+  linarith
+
+/-- The limit pair is feasible (closedness of the prior range). -/
+theorem optInitLim_feasible (hC2 : S.C2) (a : Fin n → ℝ) :
+    S.Feasible a (S.optInitLim a) := by
+  have hclosed : IsClosed (LinearMap.range S.Sig0.mulVecLin : Set (Fin n → ℝ)) :=
+    Submodule.closed_of_finiteDimensional _
+  have hmem : ∀ T, S.optInit a T - a ∈ LinearMap.range S.Sig0.mulVecLin := by
+    intro T
+    obtain ⟨z, hz⟩ := S.optInit_feasible a T
+    exact ⟨z, hz.symm⟩
+  have hlim : Tendsto (fun T => S.optInit a T - a) atTop
+      (nhds (S.optInitLim a - a)) :=
+    (S.tendsto_optInit hC2 a).sub_const a
+  have h2 : S.optInitLim a - a ∈ LinearMap.range S.Sig0.mulVecLin :=
+    hclosed.mem_of_tendsto hlim (Eventually.of_forall hmem)
+  obtain ⟨z, hz⟩ := h2
+  exact ⟨z, hz.symm⟩
+
+/-- **`it:Vlim`**: the infinite-horizon cost of the limit pair equals
+the limiting value, under C2 alone. -/
+theorem gInfCost_optLim (hC2 : S.C2) (a : Fin n → ℝ) :
+    S.gInfCost a (S.optInitLim a) (S.optCtrlLim a) = S.valueLim a := by
+  have hsummable := S.summable_gStage_lim hC2 a
+  refine le_antisymm ?_ ?_
+  · -- `≤`: partial sums are dominated, then pass to the series
+    unfold gInfCost
+    have h1 := Real.tsum_le_of_sum_range_le
+      (f := fun k => S.gStage (S.optInitLim a) (S.optCtrlLim a) k)
+      (c := S.valueLim a - S.priorPen a (S.optInitLim a))
+      (fun k => S.gStage_nonneg _ _ _) (fun N => by
+        have h2 := S.partial_le_valueLim hC2 a N
+        linarith)
+    linarith
+  · -- `≥`: every prefix of the limit pair is feasible at every horizon
+    have hval : ∀ T, S.value a T
+        ≤ S.gInfCost a (S.optInitLim a) (S.optCtrlLim a) := by
+      intro T
+      have h2 := S.value_le_gCost (S.optInitLim_feasible hC2 a)
+        (S.optCtrlLim a) T
+      refine h2.trans ?_
+      unfold gCost gInfCost
+      have h3 : S.glq.cost (S.optInitLim a) (S.optCtrlLim a) T
+          ≤ ∑' k, S.gStage (S.optInitLim a) (S.optCtrlLim a) k := by
+        rw [cost_eq_sum_gStage]
+        exact hsummable.sum_le_tsum _ fun k _ => S.gStage_nonneg _ _ _
+      linarith
+    exact ciSup_le hval
+
 end GeneralSystem
 
 end Estimation
