@@ -329,4 +329,46 @@ theorem exists_ioss_lyapunov (A : Matrix ι ι ℝ) (C : Matrix κ ι ℝ)
         + (2 * (2 * K ^ 2 + cq) * (‖L‖ + 1) ^ 2 + 1) * ‖C *ᵥ x‖ ^ 2 := by
         nlinarith [sq_nonneg ‖w‖, sq_nonneg ‖C *ᵥ x‖]
 
+/-- **Summed dissipation** (`eq:iosssum` device): telescoping the
+IOSS-Lyapunov decrease along a trajectory of `x⁺ = Ax + Gw` bounds the
+terminal state by the initial state and the input/output energies. -/
+theorem terminal_sq_bound_of_ioss {A : Matrix ι ι ℝ}
+    {C : Matrix κ ι ℝ} {G : Matrix ι σ ℝ} {P : Matrix ι ι ℝ}
+    {a₁ a₂ a₃ c₁ c₂ : ℝ} (ha₃ : 0 ≤ a₃)
+    (hbounds : ∀ x, a₁ * ‖x‖ ^ 2 ≤ quadForm P x
+      ∧ quadForm P x ≤ a₂ * ‖x‖ ^ 2)
+    (hdiss : ∀ x w, quadForm P (A *ᵥ x + G *ᵥ w) - quadForm P x
+      ≤ -a₃ * ‖x‖ ^ 2 + c₁ * ‖w‖ ^ 2 + c₂ * ‖C *ᵥ x‖ ^ 2)
+    (x : ℕ → ι → ℝ) (w : ℕ → σ → ℝ)
+    (hrec : ∀ k, x (k + 1) = A *ᵥ x k + G *ᵥ w k) (T : ℕ) :
+    a₁ * ‖x T‖ ^ 2
+      ≤ a₂ * ‖x 0‖ ^ 2
+        + c₁ * ∑ k ∈ Finset.range T, ‖w k‖ ^ 2
+        + c₂ * ∑ k ∈ Finset.range T, ‖C *ᵥ x k‖ ^ 2 := by
+  have htel : ∀ N : ℕ, quadForm P (x N)
+      ≤ quadForm P (x 0)
+        + ∑ k ∈ Finset.range N,
+            (c₁ * ‖w k‖ ^ 2 + c₂ * ‖C *ᵥ x k‖ ^ 2) := by
+    intro N
+    induction N with
+    | zero => simp
+    | succ N ih =>
+      have h1 := hdiss (x N) (w N)
+      rw [← hrec N] at h1
+      have h2 : -a₃ * ‖x N‖ ^ 2 ≤ 0 := by
+        have := sq_nonneg ‖x N‖
+        nlinarith
+      rw [Finset.sum_range_succ]
+      linarith
+  have h3 := (hbounds (x T)).1
+  have h4 := (hbounds (x 0)).2
+  have h5 := htel T
+  have h6 : ∑ k ∈ Finset.range T,
+      (c₁ * ‖w k‖ ^ 2 + c₂ * ‖C *ᵥ x k‖ ^ 2)
+      = c₁ * ∑ k ∈ Finset.range T, ‖w k‖ ^ 2
+        + c₂ * ∑ k ∈ Finset.range T, ‖C *ᵥ x k‖ ^ 2 := by
+    rw [Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
+  rw [h6] at h5
+  linarith
+
 end LinearSystems
