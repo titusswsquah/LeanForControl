@@ -758,6 +758,274 @@ theorem red_isGES (hC2 : S.C2) (h : S.IsGES) : S.redSys.IsGES := by
         nlinarith [norm_nonneg a', norm_nonneg (S.redTinv),
           norm_nonneg (S.redT), pow_nonneg hρ0.le T, hc.le]
 
+/-! ### Condition equivalences -/
+
+lemma redT_c_cancel :
+    complexify S.redT * complexify S.redTinv = 1 := by
+  rw [← complexify_mul, redT_mul_redTinv, complexify_one]
+
+lemma redTinv_c_cancel :
+    complexify S.redTinv * complexify S.redT = 1 := by
+  rw [← complexify_mul, redTinv_mul_redT, complexify_one]
+
+lemma redA_c : complexify S.redSys.fullA
+    = complexify S.redT * complexify S.A * complexify S.redTinv := by
+  rw [redSys_fullA, redA_eq, complexify_mul, complexify_mul]
+
+lemma redC_c : complexify S.redSys.fullC
+    = complexify S.C * complexify S.redTinv := by
+  rw [redSys_fullC, redC_mul_eq, complexify_mul]
+
+/-- **C1 is invariant** under the reduction. -/
+theorem red_C1_iff : S.redSys.C1 ↔ S.C1 := by
+  constructor
+  · intro h μ v hμ hv hCv
+    have h1 : complexify S.redSys.fullA
+        *ᵥ (complexify S.redT *ᵥ v)
+        = μ • (complexify S.redT *ᵥ v) := by
+      rw [redA_c, Matrix.mulVec_mulVec,
+        Matrix.mul_assoc (complexify S.redT * complexify S.A),
+        redTinv_c_cancel, Matrix.mul_one, ← Matrix.mulVec_mulVec, hv,
+        Matrix.mulVec_smul]
+    have h2 : complexify S.redSys.fullC
+        *ᵥ (complexify S.redT *ᵥ v) = 0 := by
+      rw [redC_c, Matrix.mulVec_mulVec, Matrix.mul_assoc,
+        redTinv_c_cancel, Matrix.mul_one, hCv]
+    have h3 := h μ (complexify S.redT *ᵥ v) hμ h1 h2
+    have h4 := congrArg (fun w => complexify S.redTinv *ᵥ w) h3
+    simpa [Matrix.mulVec_mulVec, redTinv_c_cancel] using h4
+  · intro h μ v hμ hv hCv
+    have h1 : complexify S.A *ᵥ (complexify S.redTinv *ᵥ v)
+        = μ • (complexify S.redTinv *ᵥ v) := by
+      have hint : complexify S.A * complexify S.redTinv
+          = complexify S.redTinv * complexify S.redSys.fullA := by
+        rw [redA_c]
+        calc complexify S.A * complexify S.redTinv
+            = (complexify S.redTinv * complexify S.redT)
+              * complexify S.A * complexify S.redTinv := by
+              rw [redTinv_c_cancel, Matrix.one_mul]
+          _ = complexify S.redTinv * (complexify S.redT
+              * complexify S.A * complexify S.redTinv) := by
+              simp only [Matrix.mul_assoc]
+      rw [Matrix.mulVec_mulVec, hint, ← Matrix.mulVec_mulVec, hv,
+        Matrix.mulVec_smul]
+    have h2 : complexify S.C *ᵥ (complexify S.redTinv *ᵥ v) = 0 := by
+      have h6 : complexify S.C *ᵥ (complexify S.redTinv *ᵥ v)
+          = complexify S.redSys.fullC *ᵥ v := by
+        rw [redC_c, ← Matrix.mulVec_mulVec]
+      rw [h6, hCv]
+    have h3 := h μ (complexify S.redTinv *ᵥ v) hμ h1 h2
+    have h4 := congrArg (fun w => complexify S.redT *ᵥ w) h3
+    simpa [Matrix.mulVec_mulVec, redT_c_cancel] using h4
+
+/-- **C2 is invariant** under the reduction. -/
+theorem red_C2_iff : S.redSys.C2 ↔ S.C2 :=
+  (S.C2_iff_stairSig₂_posDef).symm
+
+/-- Complexified transpose-injectivity of the second-block coordinates. -/
+lemma transposeW_c_elim_eq_zero {ψ : Fin S.rk2 → ℂ}
+    (h : (complexify S.stairW)ᵀ *ᵥ Sum.elim 0 ψ = 0) : ψ = 0 := by
+  have h1 : (complexify S.stairWinv)ᵀ * (complexify S.stairW)ᵀ = 1 := by
+    rw [← Matrix.transpose_mul, ← complexify_mul, stairW_mul_stairWinv,
+      complexify_one, Matrix.transpose_one]
+  have h2 : (Sum.elim 0 ψ : (Fin S.rk1 ⊕ Fin S.rk2) → ℂ) = 0 := by
+    have h3 := congrArg (fun w => (complexify S.stairWinv)ᵀ *ᵥ w) h
+    simpa [Matrix.mulVec_mulVec, h1] using h3
+  funext i
+  exact congrFun h2 (Sum.inr i)
+
+/-- **C3w is invariant** under the reduction. -/
+theorem red_C3w_iff : S.redSys.C3w ↔ S.C3w := by
+  constructor
+  · -- no unit-circle eigenvalue of A₂ ⟹ the general Hautus test
+    intro h μ v hμ hveig hGv
+    -- transported left eigenvector in staircase coordinates
+    set η : (Fin S.rk1 ⊕ Fin S.rk2) → ℂ :=
+      (complexify S.stairWinv)ᵀ *ᵥ v with hη
+    have hvW : v = (complexify S.stairW)ᵀ *ᵥ η := by
+      rw [hη, Matrix.mulVec_mulVec, ← Matrix.transpose_mul,
+        ← complexify_mul, stairWinv_mul_stairW, complexify_one,
+        Matrix.transpose_one, Matrix.one_mulVec]
+    -- the staircase transpose acts as the transported eigenrelation
+    have hstairT : complexify S.stairA
+        = complexify S.stairW * complexify S.A
+          * complexify S.stairWinv := by
+      rw [← complexify_mul, ← complexify_mul, ← stairA_eq]
+    have hreal : S.stairWinv * S.stairA = S.A * S.stairWinv := by
+      rw [stairA_eq, ← Matrix.mul_assoc, ← Matrix.mul_assoc,
+        stairWinv_mul_stairW, Matrix.one_mul]
+    have hηeig : (complexify S.stairA)ᵀ *ᵥ η = μ • η := by
+      have hcommT : (complexify S.stairA)ᵀ
+            * (complexify S.stairWinv)ᵀ
+          = (complexify S.stairWinv)ᵀ * (complexify S.A)ᵀ := by
+        rw [← Matrix.transpose_mul, ← Matrix.transpose_mul,
+          ← complexify_mul, ← complexify_mul, hreal]
+      rw [hη, Matrix.mulVec_mulVec, hcommT, ← Matrix.mulVec_mulVec,
+        hveig, Matrix.mulVec_smul]
+    -- the first block is killed by stabilizability
+    have hη₁ : ∀ i, η (Sum.inl i) = 0 := by
+      have hblocks := S.stairA_c_blocks
+      have heig₁ : (complexify S.stairA.toBlocks₁₁)ᵀ
+          *ᵥ (fun i => η (Sum.inl i))
+          = μ • (fun i => η (Sum.inl i)) := by
+        funext i
+        have h4 := congrFun hηeig (Sum.inl i)
+        rw [hblocks, Matrix.fromBlocks_transpose,
+          Matrix.fromBlocks_mulVec] at h4
+        simp only [Sum.elim_inl, Pi.add_apply, Matrix.transpose_zero,
+          Matrix.zero_mulVec, Pi.zero_apply, add_zero] at h4
+        exact h4
+      have hG₁ : (complexify S.stairG₁)ᵀ
+          *ᵥ (fun i => η (Sum.inl i)) = 0 := by
+        -- G-orthogonality transfers to the staircase noise input
+        have h5 : (complexify S.stairG)ᵀ *ᵥ η = 0 := by
+          have h6 : (complexify S.stairG)ᵀ
+              * (complexify S.stairWinv)ᵀ = (complexify S.G)ᵀ := by
+            rw [← Matrix.transpose_mul, ← complexify_mul,
+              show S.stairWinv * S.stairG = S.G from by
+                rw [stairG_eq, ← Matrix.mul_assoc,
+                  stairWinv_mul_stairW, Matrix.one_mul]]
+          rw [hη, Matrix.mulVec_mulVec, h6, hGv]
+        funext j
+        have h7 := congrFun h5 j
+        simp only [Matrix.mulVec, dotProduct, Matrix.transpose_apply,
+          Fintype.sum_sum_type] at h7 ⊢
+        have h8 : ∀ i : Fin S.rk2,
+            complexify S.stairG (Sum.inr i) j * η (Sum.inr i) = 0 := by
+          intro i
+          rw [show complexify S.stairG (Sum.inr i) j = 0 from by
+            rw [complexify_apply, S.stairG_inr_eq_zero i j,
+              Complex.ofReal_zero], zero_mul]
+        rw [Finset.sum_congr rfl fun i _ => h8 i] at h7
+        simpa using h7
+      have h9 := S.stair_stabilizable μ (fun i => η (Sum.inl i))
+        (le_of_eq hμ.symm) heig₁ hG₁
+      intro i
+      exact congrFun h9 i
+    -- the second block is killed by the strict antistability
+    have hη₂ : ∀ i, η (Sum.inr i) = 0 := by
+      have heig₂ : (complexify S.stairA.toBlocks₂₂)ᵀ
+          *ᵥ (fun i => η (Sum.inr i))
+          = μ • (fun i => η (Sum.inr i)) := by
+        funext i
+        have h4 := congrFun hηeig (Sum.inr i)
+        rw [S.stairA_c_blocks, Matrix.fromBlocks_transpose,
+          Matrix.fromBlocks_mulVec] at h4
+        simp only [Sum.elim_inr, Pi.add_apply] at h4
+        have h5 : (complexify S.stairA.toBlocks₁₂)ᵀ
+            *ᵥ (η ∘ Sum.inl) = 0 := by
+          rw [show (η ∘ Sum.inl) = (0 : Fin S.rk1 → ℂ) from
+            funext fun i => hη₁ i, Matrix.mulVec_zero]
+        rw [h5] at h4
+        simpa using h4
+      by_contra hne
+      push Not at hne
+      obtain ⟨i, hi⟩ := hne
+      have hψne : (fun i => η (Sum.inr i)) ≠ 0 := by
+        intro h0
+        exact hi (congrFun h0 i)
+      -- μ is then an eigenvalue of A₂ with modulus one
+      have hμspec : μ ∈ spectrum ℂ
+          (complexify S.stairA.toBlocks₂₂) := by
+        rcases isEmpty_or_nonempty (Fin S.rk2) with he | hn
+        · exact absurd (funext fun i => (he.false i).elim) hψne
+        · rw [Matrix.mem_spectrum_iff_isRoot_charpoly,
+            ← Matrix.charpoly_transpose]
+          have hev : Module.End.HasEigenvector
+              (Matrix.toLin' (complexify S.stairA.toBlocks₂₂)ᵀ) μ
+              (fun i => η (Sum.inr i)) := by
+            refine ⟨Module.End.mem_eigenspace_iff.mpr ?_, hψne⟩
+            rw [Matrix.toLin'_apply]
+            exact heig₂
+          have := Module.End.hasEigenvalue_iff_mem_spectrum.mp
+            (Module.End.hasEigenvalue_of_hasEigenvector hev)
+          rw [Matrix.spectrum_toLin'] at this
+          rw [← Matrix.mem_spectrum_iff_isRoot_charpoly]
+          exact this
+      have := h μ hμspec
+      rw [hμ] at this
+      exact absurd this (lt_irrefl 1)
+    have hη0 : η = 0 := by
+      funext j
+      rcases j with j | j
+      · exact hη₁ j
+      · exact hη₂ j
+    rw [hvW, hη0, Matrix.mulVec_zero]
+  · -- the general Hautus test excludes unit-circle eigenvalues of A₂
+    intro h μ hμspec
+    have h1 := S.stairA₂_antistable μ hμspec
+    rcases lt_or_eq_of_le h1 with h2 | h2
+    · exact h2
+    · exfalso
+      -- extract a left eigenvector of A₂ at the unit-circle μ
+      have hμT : μ ∈ spectrum ℂ
+          ((complexify S.stairA.toBlocks₂₂)ᵀ) := by
+        rcases isEmpty_or_nonempty (Fin S.rk2) with he | hn
+        · rwa [Subsingleton.elim
+            ((complexify S.stairA.toBlocks₂₂)ᵀ)
+            (complexify S.stairA.toBlocks₂₂)]
+        · rw [Matrix.mem_spectrum_iff_isRoot_charpoly,
+            Matrix.charpoly_transpose,
+            ← Matrix.mem_spectrum_iff_isRoot_charpoly]
+          exact hμspec
+      have hspec2 : μ ∈ spectrum ℂ
+          (Matrix.toLin' (complexify S.stairA.toBlocks₂₂)ᵀ) := by
+        rw [Matrix.spectrum_toLin']
+        exact hμT
+      obtain ⟨ψ, hψ⟩ := (Module.End.hasEigenvalue_iff_mem_spectrum.mpr
+        hspec2).exists_hasEigenvector
+      have hψeig : (complexify S.stairA.toBlocks₂₂)ᵀ *ᵥ ψ = μ • ψ := by
+        have h3 := hψ.apply_eq_smul
+        rwa [Matrix.toLin'_apply] at h3
+      -- lift to a left eigenvector of the full system
+      set v : Fin n → ℂ :=
+        (complexify S.stairW)ᵀ *ᵥ Sum.elim (0 : Fin S.rk1 → ℂ) ψ
+        with hv
+      have hveig : (complexify S.A)ᵀ *ᵥ v = μ • v := by
+        have hcomm : (complexify S.A)ᵀ * (complexify S.stairW)ᵀ
+            = (complexify S.stairW)ᵀ * (complexify S.stairA)ᵀ := by
+          rw [← Matrix.transpose_mul, ← Matrix.transpose_mul,
+            stairA_c_comm]
+        rw [hv, Matrix.mulVec_mulVec, hcomm, ← Matrix.mulVec_mulVec]
+        have helim : (complexify S.stairA)ᵀ
+              *ᵥ Sum.elim (0 : Fin S.rk1 → ℂ) ψ
+            = μ • (Sum.elim (0 : Fin S.rk1 → ℂ) ψ) := by
+          rw [S.stairA_c_blocks, Matrix.fromBlocks_transpose,
+            Matrix.fromBlocks_mulVec]
+          funext j
+          rcases j with j | j
+          · simp
+          · simp only [Sum.elim_inr, Pi.add_apply, Pi.smul_apply,
+              Sum.elim_inl]
+            have h4 : (Sum.elim (0 : Fin S.rk1 → ℂ) ψ ∘ Sum.inl)
+                = (0 : Fin S.rk1 → ℂ) := by
+              funext i
+              simp
+            have h5 : (Sum.elim (0 : Fin S.rk1 → ℂ) ψ ∘ Sum.inr)
+                = ψ := by
+              funext i
+              simp
+            rw [h4, h5, Matrix.mulVec_zero]
+            have h6 := congrFun hψeig j
+            simpa using h6
+        rw [helim, Matrix.mulVec_smul]
+      have hGv : (complexify S.G)ᵀ *ᵥ v = 0 := by
+        have h7 : (complexify S.G)ᵀ * (complexify S.stairW)ᵀ
+            = (complexify S.stairG)ᵀ := by
+          rw [← Matrix.transpose_mul, ← complexify_mul, ← stairG_eq]
+        rw [hv, Matrix.mulVec_mulVec, h7]
+        funext j
+        simp only [Matrix.mulVec, dotProduct, Matrix.transpose_apply,
+          Fintype.sum_sum_type, Sum.elim_inl, Sum.elim_inr,
+          Pi.zero_apply, mul_zero, Finset.sum_const_zero, zero_add]
+        refine Finset.sum_eq_zero fun i _ => ?_
+        rw [show complexify S.stairG (Sum.inr i) j = 0 from by
+          rw [complexify_apply, S.stairG_inr_eq_zero i j,
+            Complex.ofReal_zero], zero_mul]
+      have h8 := h μ v h2.symm hveig hGv
+      rw [hv] at h8
+      exact hψ.2 (S.transposeW_c_elim_eq_zero h8)
+
 end GeneralSystem
 
 end Estimation
