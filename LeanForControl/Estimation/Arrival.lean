@@ -176,6 +176,98 @@ lemma pushforward_mem_range (hSg : Sg.PosSemidef) (v : Fin n → ℝ)
 
 end OneStep
 
+/-! ### One-step helpers -/
+
+section StepHelpers
+
+variable {Sg : Matrix (Fin n) (Fin n) ℝ}
+
+/-- The update coordinate of a supported point. -/
+noncomputable def updCoord (Sg : Matrix (Fin n) (Fin n) ℝ)
+    (z e : Fin n → ℝ) : Fin n → ℝ :=
+  (1 + S.Cᵀ * S.Ri * (S.C * Sg))
+    *ᵥ (z + S.Cᵀ *ᵥ ((S.innovS Sg)⁻¹ *ᵥ (S.C *ᵥ e)))
+
+/-- One-step energy: prior-plus-output cost in update coordinates. -/
+lemma one_step_energy (hSg : Sg.PosSemidef) (z e : Fin n → ℝ) :
+    quadForm Sg z + quadForm S.Ri (S.C *ᵥ (e + Sg *ᵥ z))
+      = quadForm (S.innovS Sg)⁻¹ (S.C *ᵥ e)
+        + quadForm (S.measM Sg * Sg) (S.updCoord Sg z e) := by
+  have h1 : S.C *ᵥ (e + Sg *ᵥ z) = S.C *ᵥ e + S.C *ᵥ (Sg *ᵥ z) := by
+    rw [Matrix.mulVec_add]
+  rw [h1, S.meas_square hSg z e]
+  congr 1
+  unfold updCoord
+  rw [S.quadForm_measM_resolvent hSg]
+
+/-- The measurement recentering: `e − Me = ΣCᵀS⁻¹Ce`. -/
+lemma measM_recenter (e : Fin n → ℝ) :
+    e - S.measM Sg *ᵥ e
+      = Sg *ᵥ (S.Cᵀ *ᵥ ((S.innovS Sg)⁻¹ *ᵥ (S.C *ᵥ e))) := by
+  unfold measM
+  rw [Matrix.sub_mulVec, Matrix.one_mulVec]
+  simp only [← Matrix.mulVec_mulVec]
+  module
+
+/-- The displacement identity: a supported point moves under the
+dynamics to the recentered image plus an `MΣ`-image displacement. -/
+lemma displacement (hSg : Sg.PosSemidef) (z e : Fin n → ℝ) :
+    S.A *ᵥ (e + Sg *ᵥ z) - S.errF Sg *ᵥ e
+      = S.A *ᵥ ((S.measM Sg * Sg) *ᵥ S.updCoord Sg z e) := by
+  have h1 : (S.measM Sg * Sg) *ᵥ S.updCoord Sg z e
+      = Sg *ᵥ (z + S.Cᵀ *ᵥ ((S.innovS Sg)⁻¹ *ᵥ (S.C *ᵥ e))) := by
+    unfold updCoord
+    exact S.measM_mul_key_vec hSg _
+  rw [h1, S.errF_eq_A_mul_measM, ← Matrix.mulVec_mulVec]
+  rw [show Sg *ᵥ (z + S.Cᵀ *ᵥ ((S.innovS Sg)⁻¹ *ᵥ (S.C *ᵥ e)))
+      = Sg *ᵥ z + (e - S.measM Sg *ᵥ e) from by
+    rw [S.measM_recenter, Matrix.mulVec_add]]
+  simp only [Matrix.mulVec_add, Matrix.mulVec_sub]
+  module
+
+/-- Witness algebra: the update coordinate of the arrival witness is
+`Aᵀw`. -/
+lemma updCoord_witness (hSg : Sg.PosSemidef) (e w : Fin n → ℝ) :
+    S.updCoord Sg
+      ((S.measM Sg)ᵀ *ᵥ (S.Aᵀ *ᵥ w)
+        - S.Cᵀ *ᵥ ((S.innovS Sg)⁻¹ *ᵥ (S.C *ᵥ e))) e
+      = S.Aᵀ *ᵥ w := by
+  unfold updCoord
+  rw [show (S.measM Sg)ᵀ *ᵥ (S.Aᵀ *ᵥ w)
+      - S.Cᵀ *ᵥ ((S.innovS Sg)⁻¹ *ᵥ (S.C *ᵥ e))
+      + S.Cᵀ *ᵥ ((S.innovS Sg)⁻¹ *ᵥ (S.C *ᵥ e))
+      = (S.measM Sg)ᵀ *ᵥ (S.Aᵀ *ᵥ w) from by module]
+  rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec]
+  have h1 : (1 + S.Cᵀ * S.Ri * (S.C * Sg)) * (S.measM Sg)ᵀ = 1 := by
+    have h2 := S.resolvent_mul_measM_transpose hSg
+    rwa [show S.Cᵀ * S.Ri * S.C * Sg = S.Cᵀ * S.Ri * (S.C * Sg) from
+      Matrix.mul_assoc _ _ _] at h2
+  rw [h1, Matrix.one_mul]
+
+/-- The stage-cost split of the horizon-extended objective. -/
+lemma gCost_succ_split (a e₀ : Fin n → ℝ) (ω : ℕ → Fin m → ℝ)
+    (T : ℕ) :
+    S.gCost a e₀ ω (T + 1)
+      = S.gCost a e₀ ω T
+        + (quadForm S.Qi (ω T)
+          + quadForm S.Ri (S.C *ᵥ S.glq.traj e₀ ω T)) := by
+  unfold gCost LQSystem.cost
+  rw [Finset.sum_range_succ]
+  have h1 : quadForm S.glq.Qs (S.glq.traj e₀ ω T)
+      = quadForm S.Ri (S.C *ᵥ S.glq.traj e₀ ω T) := S.quadForm_glq_Qs _
+  have h2 : quadForm S.glq.Ru (ω T) = quadForm S.Qi (ω T) := rfl
+  rw [h1, h2]
+  ring
+
+/-- The trajectory step in error form. -/
+lemma traj_succ_glq (e₀ : Fin n → ℝ) (ω : ℕ → Fin m → ℝ) (T : ℕ) :
+    S.glq.traj e₀ ω (T + 1)
+      = S.A *ᵥ S.glq.traj e₀ ω T - S.G *ᵥ ω T := by
+  rw [LQSystem.traj_succ, glq_A_eq, glq_B_eq, Matrix.neg_mulVec]
+  module
+
+end StepHelpers
+
 end GeneralSystem
 
 end Estimation
