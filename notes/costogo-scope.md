@@ -369,7 +369,20 @@ stable" to "the Kalman filter error is stable". Needs the PSD pseudoinverse
 and support-constrained quadratic minimization from M0/M1 but none of the
 stability results. Ballpark: 1.5–3k lines.
 
-### M4 — general coordinates (deferred)
+### M4 — general coordinates (DONE, 2026-08-29)
+
+Completed by the generality sprint (see
+`notes/costogo-sprint-generality.md`, "Sprint outcome"). The headline
+`thm:gas-ges-fi` now holds for an arbitrary `GeneralSystem` — any
+(A, G, C) with PSD prior Σ₀ and PD weights, no canonical form, no
+block-diagonal prior — with the conditions stated invariantly
+(`GeneralSystem.gas_ges_dichotomy` in
+`Estimation/GeneralHeadline.lean`; axioms:
+`[propext, Classical.choice, Quot.sound]`). The formalization no longer
+"cheats": the reduced coordinates are *derived* (staircase + prior
+decoupling), not assumed.
+
+### M4 — original deferred plan (superseded)
 
 Kalman/stabilizability decomposition with unit-circle spectral split of the
 uncontrollable block (real invariant subspaces — hard), plus `app:congruence`.
