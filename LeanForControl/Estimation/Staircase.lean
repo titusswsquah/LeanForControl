@@ -901,6 +901,127 @@ theorem C2_iff_stairSig₂_posDef :
     rw [show (Sum.elim 0 0 : (Fin S.rk1 ⊕ Fin S.rk2) → ℝ) = 0 from by
       funext j; rcases j with j | j <;> simp, Matrix.mulVec_zero]
 
+/-! ### C2 as full feasibility of the antistable coordinates
+(the paper's `U₂/E₂` independence argument, in derived coordinates) -/
+
+/-- Membership in the stabilizable subspace is vanishing of the
+second-block coordinates. -/
+lemma mem_stabilizableSub_iff_inr (x : Fin n → ℝ) :
+    x ∈ S.stabilizableSub ↔ ∀ i, (S.stairW *ᵥ x) (Sum.inr i) = 0 := by
+  constructor
+  · intro hx i
+    rw [stairW_mulVec]
+    exact S.staircaseBasis_repr_inr_eq_zero hx i
+  · intro hx
+    refine S.mem_of_repr_inr_eq_zero fun i => ?_
+    have h1 := hx i
+    rw [stairW_mulVec] at h1
+    exact h1
+
+/-- The second-block coordinate rows of the intertwiner. -/
+noncomputable def blkTwoMat : Matrix (Fin S.rk2) (Fin n) ℝ :=
+  S.stairW.submatrix Sum.inr id
+
+lemma blkTwoMat_mulVec (x : Fin n → ℝ) (i : Fin S.rk2) :
+    (S.blkTwoMat *ᵥ x) i = (S.stairW *ᵥ x) (Sum.inr i) :=
+  rfl
+
+/-- Its transpose acts as the annihilator pairing. -/
+lemma blkTwoMat_transpose_mulVec (w : Fin S.rk2 → ℝ) :
+    S.blkTwoMatᵀ *ᵥ w = S.stairWᵀ *ᵥ Sum.elim (0 : Fin S.rk1 → ℝ) w := by
+  funext j
+  simp only [Matrix.mulVec, dotProduct, Matrix.transpose_apply,
+    blkTwoMat, Matrix.submatrix_apply, id_eq, Fintype.sum_sum_type,
+    Sum.elim_inl, Sum.elim_inr, Pi.zero_apply, mul_zero,
+    Finset.sum_const_zero, zero_add]
+
+/-- The antistable-coordinate image of the prior. -/
+noncomputable def antiFeasMat : Matrix (Fin S.rk2) (Fin n) ℝ :=
+  S.blkTwoMat * S.Sig0
+
+/-- **C2 makes every antistable coordinate reachable through the
+prior** (`U₁₂` full column rank, invariantly): the map
+`z ↦ blk₂(W Σ₀ z)` is surjective. -/
+theorem antiFeasMat_surjective (hC2 : S.C2) :
+    Function.Surjective S.antiFeasMat.mulVecLin := by
+  -- dual injectivity via the C2 pairing
+  have hinj : Function.Injective (S.antiFeasMatᵀ).mulVecLin := by
+    rw [← LinearMap.ker_eq_bot, LinearMap.ker_eq_bot']
+    intro w hw
+    rw [Matrix.mulVecLin_apply] at hw
+    have h1 : S.antiFeasMatᵀ *ᵥ w
+        = S.Sig0 *ᵥ (S.stairWᵀ *ᵥ Sum.elim (0 : Fin S.rk1 → ℝ) w) := by
+      unfold antiFeasMat
+      rw [Matrix.transpose_mul, ← Matrix.mulVec_mulVec,
+        blkTwoMat_transpose_mulVec,
+        show S.Sig0ᵀ = S.Sig0 from S.hSig0.1.transpose_eq_self]
+    rw [h1] at hw
+    have h2 := hC2 _ hw (S.transposeW_elim_mem_uucSub w)
+    exact S.transposeW_elim_eq_zero h2
+  -- rank equality upgrades dual injectivity to surjectivity
+  have hrank : S.antiFeasMatᵀ.rank = S.rk2 := by
+    have h3 := LinearMap.finrank_range_of_inj hinj
+    rw [Matrix.rank]
+    rw [h3]
+    simp [Module.finrank_pi]
+  have hrank2 : S.antiFeasMat.rank = S.rk2 := by
+    rw [← Matrix.rank_transpose]
+    exact hrank
+  have htop : LinearMap.range S.antiFeasMat.mulVecLin = ⊤ := by
+    refine Submodule.eq_top_of_finrank_eq ?_
+    rw [← Matrix.rank] at *
+    rw [hrank2]
+    simp [Module.finrank_pi]
+  exact LinearMap.range_eq_top.mp htop
+
+/-- A bounded linear right inverse of the antistable feasibility map. -/
+theorem exists_antiFeas_rightInverse (hC2 : S.C2) :
+    ∃ (σ : (Fin S.rk2 → ℝ) →ₗ[ℝ] (Fin n → ℝ)) (c : ℝ), 0 < c ∧
+      (∀ w, S.antiFeasMat *ᵥ σ w = w) ∧ ∀ w, ‖σ w‖ ≤ c * ‖w‖ := by
+  have hsurj : LinearMap.range S.antiFeasMat.mulVecLin = ⊤ :=
+    LinearMap.range_eq_top.mpr (S.antiFeasMat_surjective hC2)
+  obtain ⟨σ, hσ⟩ := LinearMap.exists_rightInverse_of_surjective
+    S.antiFeasMat.mulVecLin hsurj
+  obtain ⟨c, hc, hbound⟩ :=
+    (LinearMap.toContinuousLinearMap σ).isBoundedLinearMap.bound
+  refine ⟨σ, c + 1, by positivity, ?_, ?_⟩
+  · intro w
+    have h1 := congrArg (fun g => g w) hσ
+    simpa [Matrix.mulVecLin_apply] using h1
+  · intro w
+    have h1 := hbound w
+    have h2 : ‖σ w‖ ≤ c * ‖w‖ := h1
+    have h3 : c * ‖w‖ ≤ (c + 1) * ‖w‖ := by
+      have := norm_nonneg w
+      nlinarith
+    linarith
+
+/-- **The invariant `U₂/E₂` statement**: under C2 the prior range and
+the stabilizable subspace together span everything. -/
+theorem range_sup_stabilizable_eq_top (hC2 : S.C2) :
+    LinearMap.range S.Sig0.mulVecLin ⊔ S.stabilizableSub = ⊤ := by
+  rw [Submodule.eq_top_iff']
+  intro a
+  obtain ⟨σ, c, hc, hσinv, hσb⟩ := S.exists_antiFeas_rightInverse hC2
+  set z := σ (S.blkTwoMat *ᵥ a) with hz
+  have h1 : a = S.Sig0 *ᵥ z + (a - S.Sig0 *ᵥ z) := by module
+  have h2 : a - S.Sig0 *ᵥ z ∈ S.stabilizableSub := by
+    rw [S.mem_stabilizableSub_iff_inr]
+    intro i
+    have h3 := congrFun (hσinv (S.blkTwoMat *ᵥ a)) i
+    unfold antiFeasMat at h3
+    rw [← Matrix.mulVec_mulVec, ← hz] at h3
+    rw [Matrix.mulVec_sub]
+    have h4 : (S.stairW *ᵥ (S.Sig0 *ᵥ z)) (Sum.inr i)
+        = (S.blkTwoMat *ᵥ (S.Sig0 *ᵥ z)) i := rfl
+    have h5 : (S.stairW *ᵥ a) (Sum.inr i) = (S.blkTwoMat *ᵥ a) i := rfl
+    simp only [Pi.sub_apply]
+    rw [h4, h5, h3]
+    ring
+  rw [h1]
+  exact Submodule.add_mem _
+    (Submodule.mem_sup_left ⟨z, rfl⟩) (Submodule.mem_sup_right h2)
+
 end GeneralSystem
 
 end Estimation
