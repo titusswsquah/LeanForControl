@@ -183,30 +183,117 @@ lemma feasible_sub {a e₀ e₀' : Fin n → ℝ} (h : S.Feasible a e₀)
   rw [sub_zero, Matrix.mulVec_sub, ← hz, ← hz']
   abel
 
-/-- **`eq:gap`** at the general level: any feasible pair's excess cost
-over the value is the zero-prior cost of the deviation pair. -/
-theorem gCost_gap (hC2 : S.C2) {a e₀ : Fin n → ℝ}
+/-- Quadratic expansion of the prior penalty along an affine line. -/
+lemma priorPen_add_smul (a e₀ d : Fin n → ℝ) (t : ℝ) :
+    S.priorPen a (e₀ + t • d)
+      = S.priorPen a e₀
+        + 2 * t * ((e₀ - a) ⬝ᵥ (symmPinv S.hSig0.1 *ᵥ d))
+        + t ^ 2 * S.priorPen 0 d := by
+  unfold priorPen
+  have h1 : e₀ + t • d - a = (e₀ - a) + t • d := by abel
+  rw [h1, quadForm_add_of_isHermitian (symmPinv_isHermitian S.hSig0.1),
+    quadForm_smul]
+  have h2 : d - 0 = d := sub_zero d
+  rw [h2]
+  have h3 : (e₀ - a) ⬝ᵥ (symmPinv S.hSig0.1 *ᵥ (t • d))
+      = t * ((e₀ - a) ⬝ᵥ (symmPinv S.hSig0.1 *ᵥ d)) := by
+    rw [Matrix.mulVec_smul, dotProduct_smul, smul_eq_mul]
+  rw [h3]
+  ring
+
+/-- Feasibility is stable along feasible directions. -/
+lemma feasible_add_smul {a e₀ d : Fin n → ℝ} (h : S.Feasible a e₀)
+    (hd : S.Feasible 0 d) (t : ℝ) : S.Feasible a (e₀ + t • d) := by
+  obtain ⟨z, hz⟩ := h
+  obtain ⟨w, hw⟩ := hd
+  rw [sub_zero] at hw
+  refine ⟨z + t • w, ?_⟩
+  rw [Matrix.mulVec_add, ← hz, Matrix.mulVec_smul, ← hw]
+  abel
+
+private lemma cross_eq_zero_of_nonneg' {c D : ℝ} (hD : 0 ≤ D)
+    (h : ∀ t : ℝ, 0 ≤ 2 * t * c + t ^ 2 * D) : c = 0 := by
+  have hD1 : (0:ℝ) < D + 1 := by linarith
+  have h1 := h (-c / (D + 1))
+  have h2 : 2 * (-c / (D + 1)) * c + (-c / (D + 1)) ^ 2 * D
+      = c ^ 2 / (D + 1) * (D / (D + 1) - 2) := by
+    field_simp
+    ring
+  rw [h2] at h1
+  have h3 : D / (D + 1) - 2 < 0 := by
+    have h4 : D / (D + 1) < 1 := by
+      rw [div_lt_one hD1]
+      linarith
+    linarith
+  have h7 : (0:ℝ) ≤ c ^ 2 / (D + 1) := by positivity
+  have h8 : c ^ 2 = 0 := by
+    have h5 : c ^ 2 / (D + 1) = 0 := by nlinarith
+    field_simp at h5
+    linarith
+  exact pow_eq_zero_iff (by norm_num) |>.mp h8
+
+lemma gCost_nonneg (a e₀ : Fin n → ℝ) (ω : ℕ → Fin m → ℝ) (T : ℕ) :
+    0 ≤ S.gCost a e₀ ω T := by
+  unfold gCost
+  have h1 := S.priorPen_nonneg a e₀
+  have h2 : (0:ℝ) ≤ S.glq.cost e₀ ω T :=
+    Finset.sum_nonneg fun k _ => S.glq.stage_nonneg _ _
+  linarith
+
+/-- **`eq:gap`** at the general level, C2-free and by the paper's own
+route (quadratic refactoring about the optimizer, `eq:quadmin` style):
+any feasible pair's excess cost over the value is the zero-prior cost
+of the deviation pair. -/
+theorem gCost_gap {a e₀ : Fin n → ℝ}
     (hfeas : S.Feasible a e₀) (ω : ℕ → Fin m → ℝ) (T : ℕ) :
     S.gCost a e₀ ω T
       = S.value a T
         + S.gCost 0 (e₀ - S.optInit a T)
             (fun j => ω j - S.glq.optCtrl (S.optInit a T) T j) T := by
-  have h1 := (S.red_fieCost hC2 hfeas ω T).symm
-  have h2 := S.redSys.fieCost_gap (S.red_feasible hC2 hfeas) ω T
-  rw [S.red_optInit hC2] at h2
-  have h3 : S.redT *ᵥ e₀ - S.redT *ᵥ S.optInit a T
-      = S.redT *ᵥ (e₀ - S.optInit a T) := (Matrix.mulVec_sub _ _ _).symm
-  have h4 : (fun j => ω j
-        - S.redSys.lq.optCtrl (S.redT *ᵥ S.optInit a T) T j)
-      = fun j => ω j - S.glq.optCtrl (S.optInit a T) T j := by
+  set es := S.optInit a T with hes
+  set ωs := S.glq.optCtrl es T with hωs
+  set d := e₀ - es with hd
+  set δ : ℕ → Fin m → ℝ := fun j => ω j - ωs j with hδ
+  have hdfeas : S.Feasible 0 d :=
+    S.feasible_sub hfeas (S.optInit_feasible a T)
+  set CR : ℝ := (es - a) ⬝ᵥ (symmPinv S.hSig0.1 *ᵥ d)
+      + S.glq.costCross es d ωs δ T with hCRdef
+  -- the cost along the line through the optimizer
+  have hg : ∀ t : ℝ,
+      S.gCost a (es + t • d) (fun j => ωs j + t • δ j) T
+        = S.value a T + 2 * t * CR + t ^ 2 * S.gCost 0 d δ T := by
+    intro t
+    unfold gCost
+    rw [S.priorPen_add_smul a es d t, S.glq.cost_add_smul es d ωs δ T t]
+    have hval : S.priorPen a es + S.glq.cost es ωs T = S.value a T := by
+      have h := S.gCost_optCtrl a T
+      unfold gCost at h
+      rw [← hes, ← hωs] at h
+      exact h
+    rw [hCRdef]
+    linarith [hval]
+  -- optimality along the line kills the cross term
+  have hDpos : 0 ≤ S.gCost 0 d δ T := S.gCost_nonneg 0 d δ T
+  have hCR : CR = 0 := by
+    refine cross_eq_zero_of_nonneg' hDpos fun t => ?_
+    have hfeas' : S.Feasible a (es + t • d) :=
+      S.feasible_add_smul (S.optInit_feasible a T) hdfeas t
+    have h1 := S.value_le_gCost hfeas' (fun j => ωs j + t • δ j) T
+    rw [hg t] at h1
+    linarith
+  -- evaluate at `t = 1`
+  have h1 := hg 1
+  rw [hCR] at h1
+  have h2 : es + (1 : ℝ) • d = e₀ := by
+    rw [hd, one_smul]
+    abel
+  have h3 : (fun j => ωs j + (1 : ℝ) • δ j) = ω := by
     funext j
-    rw [red_optCtrl]
-  rw [h3, h4] at h2
-  have h5 := S.red_fieCost hC2
-    (S.feasible_sub hfeas (S.optInit_feasible a T))
-    (fun j => ω j - S.glq.optCtrl (S.optInit a T) T j) T
-  rw [Matrix.mulVec_zero] at h5
-  rw [h1, h2, S.red_value hC2, h5]
+    rw [hδ]
+    simp
+  rw [h2, h3] at h1
+  rw [h1]
+  ring
 
 /-- The gap dominates the squared deviation energies (the
 `eq:rangebound`/`eq:quadbound` mechanism). -/
@@ -578,7 +665,7 @@ theorem tendsto_optTerm_sub_limTraj (hC1 : S.C1) (hC2 : S.C2)
   have hgap : ∀ T, S.gCost 0 (d T) (δ T) T
       ≤ S.valueLim a - S.value a T := by
     intro T
-    have h1 := S.gCost_gap hC2 (S.optInitLim_feasible hC2 a)
+    have h1 := S.gCost_gap (S.optInitLim_feasible hC2 a)
       (S.optCtrlLim a) T
     have h2 := S.gCost_optLim_le hC2 a T
     rw [hd, hδ]
