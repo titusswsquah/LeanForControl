@@ -319,6 +319,75 @@ lemma stairC_eq : S.stairC = S.C * S.stairWinv := by
   rw [h2]
   rfl
 
+/-! ### Polynomial calculus across the intertwiner -/
+
+/-- Intertwining passes to polynomials. -/
+lemma aeval_intertwine {k l : ℕ} {M' : Matrix (Fin k) (Fin k) ℂ}
+    {M : Matrix (Fin l) (Fin l) ℂ} {Q : Matrix (Fin k) (Fin l) ℂ}
+    (h : M' * Q = Q * M) (q : Polynomial ℂ) :
+    Polynomial.aeval M' q * Q = Q * Polynomial.aeval M q := by
+  induction q using Polynomial.induction_on' with
+  | add q r hq hr =>
+    rw [map_add, map_add, Matrix.add_mul, Matrix.mul_add, hq, hr]
+  | monomial d a =>
+    have hpow : ∀ j : ℕ, M' ^ j * Q = Q * M ^ j := by
+      intro j
+      induction j with
+      | zero => simp
+      | succ j ih =>
+        calc M' ^ (j + 1) * Q = M' * (M' ^ j * Q) := by
+              rw [pow_succ']
+              simp only [Matrix.mul_assoc]
+        _ = M' * (Q * M ^ j) := by rw [ih]
+        _ = (M' * Q) * M ^ j := by simp only [Matrix.mul_assoc]
+        _ = (Q * M) * M ^ j := by rw [h]
+        _ = Q * M ^ (j + 1) := by
+            rw [pow_succ']
+            simp only [Matrix.mul_assoc]
+    simp only [Polynomial.aeval_monomial, Algebra.algebraMap_eq_smul_one,
+      Matrix.smul_mul, Matrix.mul_smul, Matrix.one_mul]
+    rw [hpow]
+
+/-- Polynomials of a block-triangular matrix are block-triangular with
+polynomial diagonal blocks. -/
+lemma aeval_fromBlocks_triangular {k l : ℕ}
+    (B₁₁ : Matrix (Fin k) (Fin k) ℂ) (B₁₂ : Matrix (Fin k) (Fin l) ℂ)
+    (B₂₂ : Matrix (Fin l) (Fin l) ℂ) (q : Polynomial ℂ) :
+    ∃ X : Matrix (Fin k) (Fin l) ℂ,
+      Polynomial.aeval (Matrix.fromBlocks B₁₁ B₁₂ 0 B₂₂) q
+        = Matrix.fromBlocks (Polynomial.aeval B₁₁ q) X 0
+            (Polynomial.aeval B₂₂ q) := by
+  induction q using Polynomial.induction_on' with
+  | add q r hq hr =>
+    obtain ⟨X, hX⟩ := hq
+    obtain ⟨Y, hY⟩ := hr
+    refine ⟨X + Y, ?_⟩
+    rw [map_add, map_add, map_add, hX, hY, Matrix.fromBlocks_add,
+      add_zero]
+  | monomial d a =>
+    have hpow : ∀ j : ℕ, ∃ Z : Matrix (Fin k) (Fin l) ℂ,
+        Matrix.fromBlocks B₁₁ B₁₂ 0 B₂₂ ^ j
+          = Matrix.fromBlocks (B₁₁ ^ j) Z 0 (B₂₂ ^ j) := by
+      intro j
+      induction j with
+      | zero =>
+        refine ⟨0, ?_⟩
+        rw [pow_zero, pow_zero, pow_zero, ← Matrix.fromBlocks_one]
+      | succ j ih =>
+        obtain ⟨Z, hZ⟩ := ih
+        refine ⟨B₁₁ * Z + B₁₂ * B₂₂ ^ j, ?_⟩
+        rw [pow_succ', hZ, pow_succ', pow_succ',
+          Matrix.fromBlocks_multiply]
+        congr 1 <;> simp
+    obtain ⟨Z, hZ⟩ := hpow d
+    refine ⟨a • Z, ?_⟩
+    simp only [Polynomial.aeval_monomial, Algebra.algebraMap_eq_smul_one,
+      Matrix.smul_mul, Matrix.one_mul]
+    rw [hZ]
+    ext i j
+    rcases i with i | i <;> rcases j with j | j <;>
+      simp [Matrix.fromBlocks]
+
 end GeneralSystem
 
 end Estimation
