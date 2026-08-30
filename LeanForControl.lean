@@ -10,6 +10,9 @@ import LeanForControl.Estimation.Instances
 import LeanForControl.Estimation.GES
 import LeanForControl.Estimation.General
 import LeanForControl.Estimation.Staircase
+import LeanForControl.Estimation.Reduction
+import LeanForControl.Estimation.GeneralNecessity
+import LeanForControl.Estimation.GeneralHeadline
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability

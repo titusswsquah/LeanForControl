@@ -1,4 +1,5 @@
 import LeanForControl.Estimation.FIE
+import LeanForControl.Estimation.General
 import Architect
 
 /-!
@@ -66,5 +67,20 @@ noncomputable def exampleSystem : FIESystem 1 1 1 1 where
     have h4 : μ = 2 := (mul_right_cancel₀ hi h3).symm
     rw [h4]
     norm_num
+
+/-- A concrete witness in general coordinates: `n = m = p = 1`,
+`A = 2`, `G = C = Σ₀ = 1`, unit weights. `GeneralSystem` carries no
+structural hypotheses, so this certifies satisfiability of its
+weight-positivity assumptions. -/
+noncomputable def exampleGeneralSystem : GeneralSystem 1 1 1 where
+  A := (2 : ℝ) • 1
+  G := 1
+  C := 1
+  Sig0 := 1
+  Qi := 1
+  Ri := 1
+  hSig0 := Matrix.PosSemidef.one
+  hQi := Matrix.PosDef.one
+  hRi := Matrix.PosDef.one
 
 end Estimation
