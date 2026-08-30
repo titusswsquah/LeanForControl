@@ -278,6 +278,12 @@ The M2 discharge layer:
 for the newer `Estimation`/M2 theorems, and lint cleanup (a handful of
 style warnings).
 
+**Next sprint**: M4 is being closed out — see
+`notes/costogo-sprint-generality.md` (general-coordinates
+`thm:gas-ges-fi`, invariant C1/C2/C3w, staircase + congruence
+transfer; `lem:semiPT` confirmed out of scope since `def:gas` is
+defined on `ℙ_Te`).
+
 Original plan (kept for reference). Prereq: M0, plus the two staged facts
 of M2 as `sorry`'d statements.
 
