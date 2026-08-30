@@ -205,3 +205,73 @@ As before: work independently, commit per landed cluster; prefer
 paper.tex where costogo.tex disagrees; every divergence and every
 supplied-but-unstated step gets recorded here so the paper can be
 patched to match what was verified.
+
+## Phase 1 outcome (2026-08-30) — COMPLETE
+
+All Stage 1a and 1b targets landed, sorry-free; `lake build` green;
+`#print axioms` on every headline item:
+`[propext, Classical.choice, Quot.sound]` only.
+
+- **P1.1** `Estimation/ChiProblem.lean`: the `ℙ_T` problem in χ-coordinates
+  with nominal data; `U₂'`-constraint as the SVD-free kernel-annihilator
+  criterion (`mem_range_iff_forall_ker`, new in `SymmPinv.lean` along
+  with `self_mul_symmPinv_comm`); affine bijection to the
+  error-coordinate `GeneralSystem` problem; `lem:exist` in `ℙ_T` form.
+- **P1.2–P1.3** `Estimation/InfhorGeneral.lean`: general `eq:gap` under
+  C2 (transfer from `fieCost_gap`), energy corollary, joint optimizer
+  uniqueness (C2-free, via the new `LQSystem.optCtrl_unique`).
+- **P1.4** C2-only `lem:unibounded`: `LQSystem.exists_cost_feedback_bound`
+  (geometric feedback rollout, no Riccati/detectability) +
+  `FIESystem.exists_value_bound_C2` + general transfer; value
+  monotonicity/convergence; `eq:ellT`. The Infhor limit layer was
+  refactored to C2-only hypotheses (finding 1 fixed, not reproduced).
+- **P1.5–P1.7** `it:zlim` (C2), `it:Vlim` (C2, `tsum` infinite cost),
+  `it:xTT` (C1∧C2, via output injection); assembled as
+  `prop_infhor_zlim`/`prop_infhor_Vlim`/`prop_infhor_xTT` in the
+  paper's variables in `ChiProblem.lean`.
+- **P1.8** `LinearSystems/IOSS.lean`: the quadratic IOSS-Lyapunov fact
+  (`eq:iioss-bounds`/`eq:iioss-dec`) via the Lyapunov matrix series for
+  the output-injection closed loop.
+- **P1.9–P1.12** `Estimation/QFunction.lean`: partial costs and
+  `Z(j|k)`; **`prop:tvkfQuns`** (`exists_modQ`, quadratic μ's);
+  **`prop:modQgas`** (`isGAS_of_modQ`); optimizer linearity +
+  pointwise-to-uniform upgrade; **`prop:tvkf` (optimizer form)** —
+  `IsGAS ↔ C1 ∧ C2` by the paper's Q-function route
+  (`prop_tvkf_optimizer`), and in the paper's `def:GAS` KL formulation
+  (`prop_tvkf_optimizer_kl` via `isGAS_iff_kl`).
+
+### New finding for the authors (8)
+
+**`def:modQ`/`prop:modQgas` carry a hidden hypothesis.** The
+`prop:modQgas` proof takes `Q(j|∞) := lim_k Q(j|k)` to exist "by
+`prop:infhor` and continuity" — but that argument is specific to the
+*constructed* Q of `prop:tvkfQuns`; an arbitrary function satisfying
+only `eq:QunsInitUB`/`eq:QunsLBUB`/`eq:QunsDecrease` need not converge
+along horizons. Suggested patch: either add the existence of the
+horizon limits to `def:modQ`, or state `prop:modQgas` for Q-functions
+with convergent horizon limits (our `isGAS_of_modQ` does the latter,
+and `exists_modQ` supplies the convergence for the constructed Q).
+
+### Mapping table (Phase 1)
+
+| Paper | Lean |
+|---|---|
+| `ℙ_T` (`lem:semiPT` form) | `GeneralSystem.chiCost`/`ChiFeasible` (+ `chiFeasible_iff_ker` for `U₂'`) |
+| `lem:exist` | `chiOpt_unique` / `optimal_pair_unique` (+ existing existence) |
+| `lem:unibounded` | `exists_value_bound_C2` (FIE + general), `valueLim_le_bound`; `eq:ellT` = `tendsto_lastStage` |
+| `eq:gap` | `gCost_gap`; energy corollary `exists_gap_energy_bound` |
+| `prop:infhor` it:zlim | `prop_infhor_zlim` (C2 alone) |
+| `prop:infhor` it:xTT | `prop_infhor_xTT` (C1 ∧ C2) |
+| `prop:infhor` it:Vlim | `prop_infhor_Vlim` (C2 alone) |
+| `eq:iioss-bounds`/`eq:iioss-dec` | `LinearSystems.exists_ioss_lyapunov` |
+| `prop:tvkfQuns` | `GeneralSystem.exists_modQ` |
+| `prop:modQgas` | `GeneralSystem.isGAS_of_modQ` (+ `isGAS_of_pointwise`) |
+| `def:GAS` (KL) | `GeneralSystem.IsGASkl`; bridge `isGAS_iff_kl` |
+| `prop:tvkf` (optimizer estimator) | `prop_tvkf_optimizer`, `prop_tvkf_optimizer_kl` |
+| C1/C2 necessity | existing `C1_of_isGAS`, `C2_of_isGAS` |
+
+Deferred to Phase 2: `lem:semiPT` (KF bridge), DRE layer, `prop:tvkf`
+as the literal Kalman-filter sentence, `M(k)`-version of the KL
+uniformization. Deliberately excluded: examples (D7); the
+IOSS-faithful C2-necessity re-derivation remains an optional Phase 2
+item.
