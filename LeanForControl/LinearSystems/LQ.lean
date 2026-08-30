@@ -602,6 +602,127 @@ lemma cost_eq_sum_windows (x₀ : ι → ℝ) (u : ℕ → κ → ℝ) (M : ℕ)
 end Restart
 
 
+/-! ### Cost of an arbitrary geometrically stable feedback rollout
+
+Unlike `cost_fixedGain`, no Riccati fixed point (hence no detectability)
+is needed: any feedback whose closed loop decays geometrically gives a
+horizon-uniform quadratic cost bound. This is the engine behind the
+C2-only uniform value bound (`lem:unibounded`). -/
+
+section FeedbackRollout
+
+open scoped Matrix.Norms.Operator
+
+private lemma sum_pow_le_inv_one_sub {q : ℝ} (hq0 : 0 ≤ q) (hq1 : q < 1)
+    (T : ℕ) : ∑ k ∈ Finset.range T, q ^ k ≤ (1 - q)⁻¹ := by
+  have hpos : 0 < 1 - q := by linarith
+  have hgs := geom_sum_eq (ne_of_lt hq1) T
+  have heq : (q ^ T - 1) / (q - 1) = (1 - q ^ T) / (1 - q) := by
+    rw [show (1 - q ^ T) = -(q ^ T - 1) from by ring,
+      show (1 - q) = -(q - 1) from by ring, neg_div_neg_eq]
+  rw [hgs, heq, div_le_iff₀ hpos, inv_mul_cancel₀ (ne_of_gt hpos)]
+  nlinarith [pow_nonneg hq0 T]
+
+/-- The trajectory driven by a fixed feedback along the closed-loop
+powers is the closed-loop rollout. -/
+lemma traj_feedback (K : Matrix κ ι ℝ) (x₀ : ι → ℝ) : ∀ k,
+    S.traj x₀ (fun j => K *ᵥ ((S.A + S.B * K) ^ j *ᵥ x₀)) k
+      = (S.A + S.B * K) ^ k *ᵥ x₀
+  | 0 => by simp
+  | k + 1 => by
+    rw [traj_succ, traj_feedback K x₀ k,
+      show (S.A + S.B * K) ^ (k + 1) *ᵥ x₀
+          = (S.A + S.B * K) *ᵥ ((S.A + S.B * K) ^ k *ᵥ x₀) from by
+        rw [Matrix.mulVec_mulVec, ← pow_succ'],
+      Matrix.add_mulVec, ← Matrix.mulVec_mulVec]
+
+/-- **Feedback-rollout cost bound**: a geometrically stable closed loop
+gives a horizon-uniform quadratic bound on the rollout cost. -/
+theorem exists_cost_feedback_bound (K : Matrix κ ι ℝ) {c ρ : ℝ}
+    (hc : 0 < c) (hρ0 : 0 < ρ) (hρ1 : ρ < 1)
+    (hpow : ∀ k : ℕ, ‖(S.A + S.B * K) ^ k‖ ≤ c * ρ ^ k) :
+    ∃ cb : ℝ, 0 < cb ∧ ∀ (x₀ : ι → ℝ) (T : ℕ),
+      S.cost x₀ (fun j => K *ᵥ ((S.A + S.B * K) ^ j *ᵥ x₀)) T
+        ≤ cb * ‖x₀‖ ^ 2 := by
+  obtain ⟨cQ, hcQ, hbQ⟩ := exists_quadForm_le S.Qs
+  obtain ⟨cR, hcR, hbR⟩ := exists_quadForm_le S.Ru
+  have hq0 : (0:ℝ) ≤ ρ ^ 2 := by positivity
+  have hq1 : ρ ^ 2 < 1 := by nlinarith
+  have hinv : 0 < (1 - ρ ^ 2)⁻¹ := by
+    rw [inv_pos]
+    linarith
+  set cb := (cQ + cR * (‖K‖ + 1) ^ 2) * c ^ 2 * (1 - ρ ^ 2)⁻¹ + 1
+    with hcb
+  have hKpos : 0 < ‖K‖ + 1 := by
+    have := norm_nonneg K
+    linarith
+  refine ⟨cb, by positivity, fun x₀ T => ?_⟩
+  have hstate : ∀ k : ℕ, ‖(S.A + S.B * K) ^ k *ᵥ x₀‖ ≤ c * ρ ^ k * ‖x₀‖ := by
+    intro k
+    refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+    exact mul_le_mul_of_nonneg_right (hpow k) (norm_nonneg _)
+  have hstage : ∀ k : ℕ,
+      quadForm S.Qs (S.traj x₀
+          (fun j => K *ᵥ ((S.A + S.B * K) ^ j *ᵥ x₀)) k)
+        + quadForm S.Ru (K *ᵥ ((S.A + S.B * K) ^ k *ᵥ x₀))
+      ≤ (cQ + cR * (‖K‖ + 1) ^ 2) * c ^ 2 * (ρ ^ 2) ^ k * ‖x₀‖ ^ 2 := by
+    intro k
+    rw [S.traj_feedback K x₀ k]
+    set v := (S.A + S.B * K) ^ k *ᵥ x₀ with hv
+    set X := c * ρ ^ k * ‖x₀‖ with hX
+    have hX0 : (0:ℝ) ≤ X := by
+      rw [hX]
+      positivity
+    have h2 : ‖v‖ ≤ X := hstate k
+    have hv2 : ‖v‖ ^ 2 ≤ X ^ 2 := by
+      have h0 := norm_nonneg v
+      nlinarith
+    have h1 : quadForm S.Qs v ≤ cQ * X ^ 2 :=
+      (hbQ v).trans (mul_le_mul_of_nonneg_left hv2 hcQ.le)
+    have h4 : ‖K *ᵥ v‖ ≤ (‖K‖ + 1) * X := by
+      refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+      have h8 : ‖K‖ ≤ ‖K‖ + 1 := by linarith
+      calc ‖K‖ * ‖v‖
+          ≤ ‖K‖ * X := mul_le_mul_of_nonneg_left h2 (norm_nonneg K)
+        _ ≤ (‖K‖ + 1) * X := mul_le_mul_of_nonneg_right h8 hX0
+    have hu2 : ‖K *ᵥ v‖ ^ 2 ≤ ((‖K‖ + 1) * X) ^ 2 := by
+      have h0 := norm_nonneg (K *ᵥ v)
+      nlinarith
+    have h5 : quadForm S.Ru (K *ᵥ v) ≤ cR * ((‖K‖ + 1) * X) ^ 2 :=
+      (hbR _).trans (mul_le_mul_of_nonneg_left hu2 hcR.le)
+    have hXsq : X ^ 2 = c ^ 2 * (ρ ^ 2) ^ k * ‖x₀‖ ^ 2 := by
+      rw [hX]
+      ring
+    calc quadForm S.Qs v + quadForm S.Ru (K *ᵥ v)
+        ≤ cQ * X ^ 2 + cR * ((‖K‖ + 1) * X) ^ 2 := by linarith
+      _ = (cQ + cR * (‖K‖ + 1) ^ 2) * X ^ 2 := by ring
+      _ = (cQ + cR * (‖K‖ + 1) ^ 2) * c ^ 2 * (ρ ^ 2) ^ k
+          * ‖x₀‖ ^ 2 := by
+          rw [hXsq]
+          ring
+  unfold cost
+  calc ∑ k ∈ Finset.range T,
+        (quadForm S.Qs (S.traj x₀
+            (fun j => K *ᵥ ((S.A + S.B * K) ^ j *ᵥ x₀)) k)
+          + quadForm S.Ru (K *ᵥ ((S.A + S.B * K) ^ k *ᵥ x₀)))
+      ≤ ∑ k ∈ Finset.range T,
+        (cQ + cR * (‖K‖ + 1) ^ 2) * c ^ 2 * (ρ ^ 2) ^ k * ‖x₀‖ ^ 2 :=
+        Finset.sum_le_sum fun k _ => hstage k
+    _ = (cQ + cR * (‖K‖ + 1) ^ 2) * c ^ 2 * ‖x₀‖ ^ 2
+        * ∑ k ∈ Finset.range T, (ρ ^ 2) ^ k := by
+        rw [Finset.mul_sum]
+        exact Finset.sum_congr rfl fun k _ => by ring
+    _ ≤ (cQ + cR * (‖K‖ + 1) ^ 2) * c ^ 2 * ‖x₀‖ ^ 2
+        * (1 - ρ ^ 2)⁻¹ := by
+        refine mul_le_mul_of_nonneg_left
+          (sum_pow_le_inv_one_sub hq0 hq1 T) ?_
+        positivity
+    _ ≤ cb * ‖x₀‖ ^ 2 := by
+        rw [hcb]
+        nlinarith [sq_nonneg ‖x₀‖]
+
+end FeedbackRollout
+
 end LQSystem
 
 end LinearSystems

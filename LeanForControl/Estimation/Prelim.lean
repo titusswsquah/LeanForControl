@@ -410,6 +410,22 @@ lemma lq_cost_sumElim_zero (x₁ : Fin n₁ → ℝ) (ω : ℕ → Fin m → ℝ
     rw [h3, ← quadForm_mulVec]
   rw [h2]
 
+/-- A stabilizing state-feedback gain for the reduced pair `(A₁, G₁)`
+(from the staged `detect_inj` by duality). -/
+theorem exists_stabilizing_gain :
+    ∃ Kt : Matrix (Fin m) (Fin n₁) ℝ,
+      IsSchurStable (Sys.A₁ - Sys.G₁ * Kt) := by
+  have hdet : IsDetectable (complexify Sys.A₁ᵀ) (complexify Sys.G₁ᵀ) := by
+    rw [complexify_transpose, complexify_transpose]
+    exact Sys.hStab
+  obtain ⟨L, hL⟩ := detect_inj Sys.A₁ᵀ Sys.G₁ᵀ hdet
+  refine ⟨Lᵀ, ?_⟩
+  have h1 : (Sys.A₁ᵀ - L * Sys.G₁ᵀ)ᵀ = Sys.A₁ - Sys.G₁ * Lᵀ := by
+    rw [Matrix.transpose_sub, Matrix.transpose_transpose,
+      Matrix.transpose_mul, Matrix.transpose_transpose]
+  have h2 := hL.transpose
+  rwa [h1] at h2
+
 /-- **Uniform value bound** (`lem:unibounded`): under C1 and C2 the optimal
 value is bounded by a fixed multiple of `‖a‖²`, uniformly in the horizon. -/
 theorem exists_value_bound (hC1 : Sys.C1) (hC2 : Sys.C2) :
@@ -507,6 +523,77 @@ theorem exists_optInit_blk₁_bound (hC1 : Sys.C1) (hC2 : Sys.C2) :
   calc ‖blk₁ (Sys.optInit a T - a)‖ ≤ Real.sqrt (Cr * cv * ‖a‖ ^ 2) := h5
   _ = Real.sqrt (Cr * cv) * ‖a‖ := by
       rw [Real.sqrt_mul (by positivity), Real.sqrt_sq (norm_nonneg a)]
+
+
+
+/-- **Uniform value bound under C2 alone** (`lem:unibounded`, corrected
+hypothesis bookkeeping): detectability is not needed — any stabilizing
+feedback for the stabilizable block bounds the candidate rollout cost
+through the Lyapunov-free geometric estimate
+`LQSystem.exists_cost_feedback_bound`. -/
+theorem exists_value_bound_C2 (hC2 : Sys.C2) :
+    ∃ c : ℝ, 0 < c ∧ ∀ (a : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ),
+      Sys.value a T ≤ c * ‖a‖ ^ 2 := by
+  obtain ⟨Kt, hKt⟩ := Sys.exists_stabilizing_gain
+  obtain ⟨cF, ρ, hcF, hρ0, hρ1, hpow⟩ := hKt.exists_pow_norm_le
+  have hloop : Sys.lqRed.A + Sys.lqRed.B * Kt = Sys.A₁ - Sys.G₁ * Kt := by
+    show Sys.A₁ + -Sys.G₁ * Kt = Sys.A₁ - Sys.G₁ * Kt
+    rw [Matrix.neg_mul, sub_eq_add_neg]
+  obtain ⟨cb, hcb, hbcost⟩ := Sys.lqRed.exists_cost_feedback_bound Kt
+    hcF hρ0 hρ1 (fun k => by rw [hloop]; exact hpow k)
+  obtain ⟨c₂, hc₂, hqb₂⟩ := exists_quadForm_le (symmPinv Sys.hSig₂.1)
+  refine ⟨c₂ + cb, by positivity, fun a T => ?_⟩
+  set e₀ : Fin n₁ ⊕ Fin n₂ → ℝ := Sum.elim (blk₁ a) 0 with he₀
+  set ω : ℕ → Fin m → ℝ := fun j =>
+    Kt *ᵥ ((Sys.lqRed.A + Sys.lqRed.B * Kt) ^ j *ᵥ blk₁ a) with hω
+  have hfeas : Sys.Feasible a e₀ := by
+    constructor
+    · refine ⟨0, ?_⟩
+      rw [he₀]
+      funext i
+      simp
+    · refine ⟨Sys.Sig₂⁻¹ *ᵥ (-(blk₂ a)), ?_⟩
+      rw [Matrix.mulVec_mulVec, Matrix.mul_nonsing_inv _
+        ((Matrix.isUnit_iff_isUnit_det _).mp hC2.isUnit), Matrix.one_mulVec,
+        he₀]
+      funext i
+      simp
+  have hval := Sys.value_le_fieCost hfeas ω T
+  have hprior : Sys.priorPenalty a e₀
+      = quadForm (symmPinv Sys.hSig₂.1) (blk₂ a) := by
+    unfold priorPenalty
+    have h1 : blk₁ (e₀ - a) = 0 := by
+      rw [he₀]
+      funext i
+      simp
+    have h2 : blk₂ (e₀ - a) = -(blk₂ a) := by
+      rw [he₀]
+      funext i
+      simp
+    rw [h1, h2]
+    have h3 : quadForm (symmPinv Sys.hSig₂.1) (-(blk₂ a))
+        = quadForm (symmPinv Sys.hSig₂.1) (blk₂ a) := quadForm_neg _ _
+    rw [h3, quadForm_zero]
+    ring
+  have hcost : Sys.lq.cost e₀ ω T ≤ cb * ‖blk₁ a‖ ^ 2 := by
+    rw [he₀, Sys.lq_cost_sumElim_zero, hω]
+    exact hbcost (blk₁ a) T
+  have h4 : quadForm (symmPinv Sys.hSig₂.1) (blk₂ a) ≤ c₂ * ‖a‖ ^ 2 := by
+    refine le_trans (hqb₂ (blk₂ a)) ?_
+    have h5 := norm_blk₂_le a
+    have h6 : ‖blk₂ a‖ ^ 2 ≤ ‖a‖ ^ 2 := by
+      have h0 : (0 : ℝ) ≤ ‖blk₂ a‖ := norm_nonneg _
+      gcongr
+    exact mul_le_mul_of_nonneg_left h6 hc₂.le
+  have h7 : cb * ‖blk₁ a‖ ^ 2 ≤ cb * ‖a‖ ^ 2 := by
+    have h5 := norm_blk₁_le a
+    have h6 : ‖blk₁ a‖ ^ 2 ≤ ‖a‖ ^ 2 := by
+      have h0 : (0 : ℝ) ≤ ‖blk₁ a‖ := norm_nonneg _
+      gcongr
+    exact mul_le_mul_of_nonneg_left h6 hcb.le
+  unfold fieCost at hval
+  rw [hprior] at hval
+  linarith
 
 
 end FIESystem

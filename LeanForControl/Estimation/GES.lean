@@ -307,22 +307,6 @@ lemma pow_mulVec_eq_invPow (e₂ : Fin n₂ → ℝ) {j T : ℕ} (hj : j ≤ T) 
   rw [h2] at h3
   exact h3.symm
 
-/-- A stabilizing state-feedback gain for the reduced pair `(A₁, G₁)`
-(from the staged `detect_inj` by duality). -/
-theorem exists_stabilizing_gain :
-    ∃ Kt : Matrix (Fin m) (Fin n₁) ℝ,
-      IsSchurStable (Sys.A₁ - Sys.G₁ * Kt) := by
-  have hdet : IsDetectable (complexify Sys.A₁ᵀ) (complexify Sys.G₁ᵀ) := by
-    rw [complexify_transpose, complexify_transpose]
-    exact Sys.hStab
-  obtain ⟨L, hL⟩ := detect_inj Sys.A₁ᵀ Sys.G₁ᵀ hdet
-  refine ⟨Lᵀ, ?_⟩
-  have h1 : (Sys.A₁ᵀ - L * Sys.G₁ᵀ)ᵀ = Sys.A₁ - Sys.G₁ * Lᵀ := by
-    rw [Matrix.transpose_sub, Matrix.transpose_transpose,
-      Matrix.transpose_mul, Matrix.transpose_transpose]
-  have h2 := hL.transpose
-  rwa [h1] at h2
-
 /-- The stable block of the `K̃`-rollout from `(0, e₂)`. -/
 noncomputable def rollE₁ (Kt : Matrix (Fin m) (Fin n₁) ℝ)
     (e₂ : Fin n₂ → ℝ) : ℕ → Fin n₁ → ℝ
