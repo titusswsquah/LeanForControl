@@ -371,4 +371,46 @@ theorem terminal_sq_bound_of_ioss {A : Matrix ι ι ℝ}
   rw [h6] at h5
   linarith
 
+/-- **`eq:iosssum`**: summing the dissipation along a trajectory bounds
+the cumulative state energy by the initial energy and the input/output
+energies (the `−a₃` terms kept on the left). -/
+theorem sum_sq_bound_of_ioss {A : Matrix ι ι ℝ}
+    {C : Matrix κ ι ℝ} {G : Matrix ι σ ℝ} {P : Matrix ι ι ℝ}
+    {a₃ c₁ c₂ : ℝ}
+    (hP : ∀ x, 0 ≤ quadForm P x)
+    (hdiss : ∀ x w, quadForm P (A *ᵥ x + G *ᵥ w) - quadForm P x
+      ≤ -a₃ * ‖x‖ ^ 2 + c₁ * ‖w‖ ^ 2 + c₂ * ‖C *ᵥ x‖ ^ 2)
+    (x : ℕ → ι → ℝ) (w : ℕ → σ → ℝ)
+    (hrec : ∀ k, x (k + 1) = A *ᵥ x k + G *ᵥ w k) (T : ℕ) :
+    a₃ * ∑ k ∈ Finset.range T, ‖x k‖ ^ 2
+      ≤ quadForm P (x 0)
+        + c₁ * ∑ k ∈ Finset.range T, ‖w k‖ ^ 2
+        + c₂ * ∑ k ∈ Finset.range T, ‖C *ᵥ x k‖ ^ 2 := by
+  have htel : ∀ N : ℕ, quadForm P (x N)
+      + a₃ * ∑ k ∈ Finset.range N, ‖x k‖ ^ 2
+      ≤ quadForm P (x 0)
+        + ∑ k ∈ Finset.range N,
+            (c₁ * ‖w k‖ ^ 2 + c₂ * ‖C *ᵥ x k‖ ^ 2) := by
+    intro N
+    induction N with
+    | zero => simp
+    | succ N ih =>
+      have h1 := hdiss (x N) (w N)
+      rw [← hrec N] at h1
+      rw [Finset.sum_range_succ, Finset.sum_range_succ]
+      have h2 : a₃ * (∑ k ∈ Finset.range N, ‖x k‖ ^ 2 + ‖x N‖ ^ 2)
+          = a₃ * ∑ k ∈ Finset.range N, ‖x k‖ ^ 2 + a₃ * ‖x N‖ ^ 2 := by
+        ring
+      rw [h2]
+      linarith
+  have h3 := htel T
+  have h4 := hP (x T)
+  have h5 : ∑ k ∈ Finset.range T,
+      (c₁ * ‖w k‖ ^ 2 + c₂ * ‖C *ᵥ x k‖ ^ 2)
+      = c₁ * ∑ k ∈ Finset.range T, ‖w k‖ ^ 2
+        + c₂ * ∑ k ∈ Finset.range T, ‖C *ᵥ x k‖ ^ 2 := by
+    rw [Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
+  rw [h5] at h3
+  linarith
+
 end LinearSystems

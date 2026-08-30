@@ -1,5 +1,6 @@
 import LeanForControl.Estimation.Reduction
 import LeanForControl.Estimation.Coercive
+import LeanForControl.LinearSystems.IOSS
 import Architect
 
 /-!
@@ -425,27 +426,236 @@ theorem C2_of_isGAS (hC1 : S.C1) (hgas : S.IsGAS) : S.C2 := by
     rw [hc₀, div_le_iff₀ (by positivity)]
     nlinarith [sq_nonneg (ξ ⬝ᵥ ξ), hww, hcard]
   -- linear growth of the value along full windows
-  obtain ⟨β, hβ, hgrow⟩ := S.exists_red_window_growth hC1
-  set M := S.rk1 + S.rk2 with hM
-  have hM1 : 1 ≤ M := by
-    have h1 : 0 < S.rk2 := Fin.pos_iff_nonempty.mpr hne2
-    omega
-  have hlin : ∀ J : ℕ, 1 ≤ J → β * c₀ * J ≤ S.value ξ (M * J) := by
-    intro J hJ
-    have h1 := hgrow ξ J (M * J) hJ le_rfl
-    have h2 := hlow (M * J)
-    have h3 : (0:ℝ) ≤ (J:ℝ) := Nat.cast_nonneg J
-    have h4 := mul_le_mul_of_nonneg_left h2 (mul_nonneg hβ.le h3)
-    calc β * c₀ * (J:ℝ) = β * (J:ℝ) * c₀ := by ring
-    _ ≤ β * (J:ℝ)
-        * ‖FIESystem.blk₂ (S.redT *ᵥ S.optInit ξ (M * J))‖ ^ 2 := h4
-    _ ≤ S.value ξ (M * J) := h1
-  -- GAS caps the value sublinearly
+  -- IOSS data along the optimal trajectories (`eq:iosssum` route)
+  obtain ⟨P, a₁, a₂, a₃, c₁, c₂, hPD, ha₁, ha₂, ha₃, hc₁, hc₂,
+    hbounds, hdiss⟩ := exists_ioss_lyapunov S.A S.C (-S.G) hC1
+  obtain ⟨αQ, hαQ, hbQ⟩ := S.hQi.exists_le_quadForm
+  obtain ⟨αR, hαR, hbR⟩ := S.hRi.exists_le_quadForm
+  obtain ⟨cr, hcr, hbr⟩ := S.hSig0.exists_sq_norm_mulVec_le
+  obtain ⟨cB, hcB, hgram⟩ := gramian_growth S.redSys.A₂ S.redSys.hAnti
+  set eT : ℕ → ℕ → Fin n → ℝ := fun T k =>
+    S.glq.traj (S.optInit ξ T) (S.glq.optCtrl (S.optInit ξ T) T) k
+    with heT
+  have hrec : ∀ T k, eT T (k + 1)
+      = S.A *ᵥ eT T k + (-S.G) *ᵥ S.glq.optCtrl (S.optInit ξ T) T k := by
+    intro T k
+    rw [heT]
+    simp only
+    rw [LQSystem.traj_succ]
+    rfl
+  -- `eq:iosssum` along the optimum
+  have hsum : ∀ T, a₃ * ∑ k ∈ Finset.range T, ‖eT T k‖ ^ 2
+      ≤ quadForm P (eT T 0)
+        + c₁ * ∑ k ∈ Finset.range T,
+            ‖S.glq.optCtrl (S.optInit ξ T) T k‖ ^ 2
+        + c₂ * ∑ k ∈ Finset.range T, ‖S.C *ᵥ eT T k‖ ^ 2 :=
+    fun T => sum_sq_bound_of_ioss
+      (fun x => hPD.posSemidef.quadForm_nonneg x) hdiss
+      (eT T) (S.glq.optCtrl (S.optInit ξ T) T) (hrec T) T
+  -- `eq:rhs-bound`: the right side is dominated by the optimal cost
+  set cV : ℝ := max (2 * a₂ * cr) (max (c₁ / αQ) (c₂ / αR)) + 1
+    with hcV
+  have hcV0 : 0 < cV := by
+    have h1 : (0:ℝ) ≤ 2 * a₂ * cr := by positivity
+    have h2 := le_max_left (2 * a₂ * cr) (max (c₁ / αQ) (c₂ / αR))
+    rw [hcV]
+    linarith
+  have hrhs : ∀ T, quadForm P (eT T 0)
+      + c₁ * ∑ k ∈ Finset.range T,
+          ‖S.glq.optCtrl (S.optInit ξ T) T k‖ ^ 2
+      + c₂ * ∑ k ∈ Finset.range T, ‖S.C *ᵥ eT T k‖ ^ 2
+      ≤ 2 * a₂ * ‖ξ‖ ^ 2 + cV * S.value ξ T := by
+    intro T
+    -- initial-state energy against the prior term
+    have h1 : eT T 0 = S.optInit ξ T := rfl
+    have h2 : quadForm P (eT T 0)
+        ≤ 2 * a₂ * (cr * S.priorPen ξ (S.optInit ξ T))
+          + 2 * a₂ * ‖ξ‖ ^ 2 := by
+      rw [h1]
+      have h3 := (hbounds (S.optInit ξ T)).2
+      have h4 : ‖S.optInit ξ T‖ ^ 2
+          ≤ 2 * ‖S.optInit ξ T - ξ‖ ^ 2 + 2 * ‖ξ‖ ^ 2 := by
+        have h5 := norm_add_le (S.optInit ξ T - ξ) ξ
+        have h6 : S.optInit ξ T - ξ + ξ = S.optInit ξ T := by module
+        rw [h6] at h5
+        nlinarith [norm_nonneg (S.optInit ξ T - ξ), norm_nonneg ξ,
+          sq_nonneg (‖S.optInit ξ T - ξ‖ - ‖ξ‖),
+          mul_le_mul h5 h5 (norm_nonneg _) (by positivity :
+            (0:ℝ) ≤ ‖S.optInit ξ T - ξ‖ + ‖ξ‖)]
+      have h7 : ‖S.optInit ξ T - ξ‖ ^ 2
+          ≤ cr * S.priorPen ξ (S.optInit ξ T) := by
+        obtain ⟨z, hz⟩ := S.optInit_feasible ξ T
+        unfold priorPen
+        rw [hz, quadForm_symmPinv_image S.hSig0]
+        exact hbr z
+      nlinarith
+    -- stage energies against the stage costs
+    have h8 : c₁ * ∑ k ∈ Finset.range T,
+        ‖S.glq.optCtrl (S.optInit ξ T) T k‖ ^ 2
+        ≤ (c₁ / αQ) * ∑ k ∈ Finset.range T,
+            quadForm S.Qi (S.glq.optCtrl (S.optInit ξ T) T k) := by
+      rw [Finset.mul_sum, Finset.mul_sum]
+      refine Finset.sum_le_sum fun k _ => ?_
+      have h9 := hbQ (S.glq.optCtrl (S.optInit ξ T) T k)
+      rw [div_mul_eq_mul_div, le_div_iff₀ hαQ]
+      nlinarith [sq_nonneg ‖S.glq.optCtrl (S.optInit ξ T) T k‖]
+    have h10 : c₂ * ∑ k ∈ Finset.range T, ‖S.C *ᵥ eT T k‖ ^ 2
+        ≤ (c₂ / αR) * ∑ k ∈ Finset.range T,
+            quadForm S.Ri (S.C *ᵥ eT T k) := by
+      rw [Finset.mul_sum, Finset.mul_sum]
+      refine Finset.sum_le_sum fun k _ => ?_
+      have h9 := hbR (S.C *ᵥ eT T k)
+      rw [div_mul_eq_mul_div, le_div_iff₀ hαR]
+      nlinarith [sq_nonneg ‖S.C *ᵥ eT T k‖]
+    -- the optimal cost splits into exactly these stage costs
+    have h11 : S.priorPen ξ (S.optInit ξ T)
+        + ∑ k ∈ Finset.range T,
+            (quadForm S.Qi (S.glq.optCtrl (S.optInit ξ T) T k)
+              + quadForm S.Ri (S.C *ᵥ eT T k))
+        = S.value ξ T := by
+      have h12 := S.gCost_optCtrl ξ T
+      unfold gCost at h12
+      rw [← h12]
+      congr 1
+      unfold LQSystem.cost
+      refine Finset.sum_congr rfl fun k _ => ?_
+      rw [S.quadForm_glq_Qs]
+      have h13 : quadForm S.glq.Ru (S.glq.optCtrl (S.optInit ξ T) T k)
+          = quadForm S.Qi (S.glq.optCtrl (S.optInit ξ T) T k) := rfl
+      rw [h13, heT]
+      simp only
+      ring
+    have h14 : (0:ℝ) ≤ S.priorPen ξ (S.optInit ξ T) :=
+      S.priorPen_nonneg _ _
+    have h15 : ∀ k ∈ Finset.range T, (0:ℝ)
+        ≤ quadForm S.Qi (S.glq.optCtrl (S.optInit ξ T) T k) :=
+      fun k _ => S.hQi.posSemidef.quadForm_nonneg _
+    have h16 : ∀ k ∈ Finset.range T, (0:ℝ)
+        ≤ quadForm S.Ri (S.C *ᵥ eT T k) :=
+      fun k _ => S.hRi.posSemidef.quadForm_nonneg _
+    have h17 : (2 * a₂ * cr) * S.priorPen ξ (S.optInit ξ T)
+        + (c₁ / αQ) * ∑ k ∈ Finset.range T,
+            quadForm S.Qi (S.glq.optCtrl (S.optInit ξ T) T k)
+        + (c₂ / αR) * ∑ k ∈ Finset.range T,
+            quadForm S.Ri (S.C *ᵥ eT T k)
+        ≤ cV * S.value ξ T := by
+      have hm1 : 2 * a₂ * cr ≤ cV := by
+        have := le_max_left (2 * a₂ * cr) (max (c₁ / αQ) (c₂ / αR))
+        rw [hcV]
+        linarith
+      have hm2 : c₁ / αQ ≤ cV := by
+        have h18 := le_trans (le_max_left (c₁ / αQ) (c₂ / αR))
+          (le_max_right (2 * a₂ * cr) _)
+        rw [hcV]
+        linarith
+      have hm3 : c₂ / αR ≤ cV := by
+        have h18 := le_trans (le_max_right (c₁ / αQ) (c₂ / αR))
+          (le_max_right (2 * a₂ * cr) _)
+        rw [hcV]
+        linarith
+      have hs1 : (0:ℝ) ≤ ∑ k ∈ Finset.range T,
+          quadForm S.Qi (S.glq.optCtrl (S.optInit ξ T) T k) :=
+        Finset.sum_nonneg h15
+      have hs2 : (0:ℝ) ≤ ∑ k ∈ Finset.range T,
+          quadForm S.Ri (S.C *ᵥ eT T k) := Finset.sum_nonneg h16
+      have h19 : (2 * a₂ * cr) * S.priorPen ξ (S.optInit ξ T)
+          ≤ cV * S.priorPen ξ (S.optInit ξ T) :=
+        mul_le_mul_of_nonneg_right hm1 h14
+      have h20 : (c₁ / αQ) * ∑ k ∈ Finset.range T,
+          quadForm S.Qi (S.glq.optCtrl (S.optInit ξ T) T k)
+          ≤ cV * ∑ k ∈ Finset.range T,
+            quadForm S.Qi (S.glq.optCtrl (S.optInit ξ T) T k) :=
+        mul_le_mul_of_nonneg_right hm2 hs1
+      have h21 : (c₂ / αR) * ∑ k ∈ Finset.range T,
+          quadForm S.Ri (S.C *ᵥ eT T k)
+          ≤ cV * ∑ k ∈ Finset.range T,
+            quadForm S.Ri (S.C *ᵥ eT T k) :=
+        mul_le_mul_of_nonneg_right hm3 hs2
+      have h22 : cV * S.priorPen ξ (S.optInit ξ T)
+          + cV * (∑ k ∈ Finset.range T,
+              quadForm S.Qi (S.glq.optCtrl (S.optInit ξ T) T k))
+          + cV * ∑ k ∈ Finset.range T,
+              quadForm S.Ri (S.C *ᵥ eT T k)
+          = cV * S.value ξ T := by
+        rw [← h11, Finset.sum_add_distrib]
+        ring
+      linarith
+    linarith
+  -- `eq:lhs-bound`: the antistable coordinates force linear growth
+  set bm : ℝ := ‖S.blkTwoMat‖ + 1 with hbm
+  have hbm0 : 0 < bm := by
+    have := norm_nonneg S.blkTwoMat
+    rw [hbm]
+    linarith
+  have hcoords : ∀ T k, FIESystem.blk₂ (S.redT *ᵥ eT T k)
+      = S.redSys.A₂ ^ k
+        *ᵥ FIESystem.blk₂ (S.redT *ᵥ S.optInit ξ T) := by
+    intro T k
+    rw [heT]
+    simp only
+    rw [← S.red_traj (S.optInit ξ T) (S.glq.optCtrl (S.optInit ξ T) T) k]
+    exact S.redSys.blk₂_traj _ _ k
+  have hlhs : ∀ T : ℕ, 1 ≤ T →
+      cB * T * c₀ ≤ bm ^ 2 * ∑ k ∈ Finset.range T, ‖eT T k‖ ^ 2 := by
+    intro T hT
+    have h1 := hgram (FIESystem.blk₂ (S.redT *ᵥ S.optInit ξ T)) T hT
+    have h2 := hlow T
+    have h3 : ∀ k, ‖FIESystem.blk₂ (S.redT *ᵥ eT T k)‖
+        ≤ bm * ‖eT T k‖ := by
+      intro k
+      have h4 : FIESystem.blk₂ (S.redT *ᵥ eT T k)
+          = S.blkTwoMat *ᵥ eT T k := by
+        funext i
+        rw [FIESystem.blk₂_apply, S.redT_mulVec_inr]
+        rfl
+      rw [h4]
+      refine (Matrix.linfty_opNorm_mulVec _ _).trans ?_
+      have h5 : ‖S.blkTwoMat‖ ≤ bm := by
+        rw [hbm]
+        linarith
+      exact mul_le_mul_of_nonneg_right h5 (norm_nonneg _)
+    have h6 : ∑ k ∈ Finset.range T,
+        ‖S.redSys.A₂ ^ k
+          *ᵥ FIESystem.blk₂ (S.redT *ᵥ S.optInit ξ T)‖ ^ 2
+        ≤ bm ^ 2 * ∑ k ∈ Finset.range T, ‖eT T k‖ ^ 2 := by
+      rw [Finset.mul_sum]
+      refine Finset.sum_le_sum fun k _ => ?_
+      rw [← hcoords T k]
+      have h7 := h3 k
+      have h8 := norm_nonneg (FIESystem.blk₂ (S.redT *ᵥ eT T k))
+      nlinarith [norm_nonneg (eT T k), hbm0.le]
+    have h9 : cB * T * c₀
+        ≤ cB * T * ‖FIESystem.blk₂ (S.redT *ᵥ S.optInit ξ T)‖ ^ 2 := by
+      have h10 : (0:ℝ) ≤ cB * T := by positivity
+      exact mul_le_mul_of_nonneg_left h2 h10
+    linarith
+  -- `eq:Vlinear`: the value grows at least linearly
+  set β : ℝ := a₃ * cB * c₀ / bm ^ 2 with hβ
+  have hβ0 : 0 < β := by
+    rw [hβ]
+    positivity
+  have hVlin : ∀ T : ℕ, 1 ≤ T →
+      β * T ≤ 2 * a₂ * ‖ξ‖ ^ 2 + cV * S.value ξ T := by
+    intro T hT
+    have h1 := hsum T
+    have h2 := hrhs T
+    have h3 := hlhs T hT
+    have h4 : a₃ * (cB * T * c₀ / bm ^ 2)
+        ≤ a₃ * ∑ k ∈ Finset.range T, ‖eT T k‖ ^ 2 := by
+      refine mul_le_mul_of_nonneg_left ?_ ha₃.le
+      rw [div_le_iff₀ (by positivity : (0:ℝ) < bm ^ 2)]
+      linarith [hlhs T hT]
+    have h5 : β * T = a₃ * (cB * T * c₀ / bm ^ 2) := by
+      rw [hβ]
+      ring
+    rw [h5]
+    linarith
+  -- `eq:Venergy` cap and the Cesàro contradiction
   obtain ⟨σ, hσ0, hσb⟩ := hgas
   obtain ⟨cy, hcy, hyb⟩ := exists_quadForm_le S.glq.Qs
-  have hane : ‖ξ‖ ≠ 0 := by
-    rw [norm_ne_zero_iff]
-    exact hξne
+  have hξnorm : (0:ℝ) < ‖ξ‖ ^ 2 := by
+    have h1 : 0 < ‖ξ‖ := norm_pos_iff.mpr hξne
+    positivity
   have hup : ∀ T, S.value ξ T
       ≤ cy * ‖ξ‖ ^ 2 * ∑ k ∈ Finset.range T, σ k ^ 2 := by
     intro T
@@ -465,40 +675,51 @@ theorem C2_of_isGAS (hC1 : S.C1) (hgas : S.IsGAS) : S.C2 := by
     have h1 := hσ0.pow 2
     simpa using h1
   have hces := hσ2.cesaro
-  have hMJ : Tendsto (fun J : ℕ => M * J) atTop atTop := by
-    refine tendsto_atTop_mono (fun J => ?_) tendsto_id
-    calc (J:ℕ) = 1 * J := (one_mul J).symm
-    _ ≤ M * J := Nat.mul_le_mul_right J hM1
-  have hsub := hces.comp hMJ
-  have hcyA : (0:ℝ) < cy * ‖ξ‖ ^ 2 := by
-    have h1 : 0 < ‖ξ‖ := lt_of_le_of_ne (norm_nonneg ξ) (Ne.symm hane)
-    positivity
-  set δ := β * c₀ / (cy * ‖ξ‖ ^ 2 * M) with hδ
-  have hδpos : 0 < δ := by
+  set δ : ℝ := β / (cV * (cy * ‖ξ‖ ^ 2)) with hδ
+  have hδ0 : 0 < δ := by
     rw [hδ]
-    have h1 : (0:ℝ) < (M:ℝ) := by exact_mod_cast hM1
     positivity
-  have hδle : ∀ J : ℕ, 1 ≤ J →
-      δ ≤ ((M * J : ℕ) : ℝ)⁻¹ • ∑ k ∈ Finset.range (M * J), σ k ^ 2 := by
-    intro J hJ
-    have h1 := hlin J hJ
-    have h2 := hup (M * J)
-    have hMJpos : (0:ℝ) < ((M * J : ℕ) : ℝ) := by
-      have h3 : 0 < M * J := Nat.mul_pos (by omega) (by omega)
-      exact_mod_cast h3
-    rw [smul_eq_mul, inv_mul_eq_div, le_div_iff₀ hMJpos, hδ]
-    have hcast : ((M * J : ℕ) : ℝ) = (M:ℝ) * (J:ℝ) := by push_cast; ring
-    rw [hcast, div_mul_eq_mul_div, div_le_iff₀ (by positivity :
-      (0:ℝ) < cy * ‖ξ‖ ^ 2 * (M:ℝ))]
-    have h4 : β * c₀ * J ≤ cy * ‖ξ‖ ^ 2
-        * ∑ k ∈ Finset.range (M * J), σ k ^ 2 := le_trans h1 h2
-    have hMpos : (0:ℝ) < (M:ℝ) := by exact_mod_cast hM1
-    nlinarith [Finset.sum_nonneg (fun k (_ : k ∈ Finset.range (M * J)) =>
-      sq_nonneg (σ k))]
-  obtain ⟨J, hJlt, hJ1⟩ :=
-    ((hsub.eventually_lt_const hδpos).and (eventually_ge_atTop 1)).exists
-  exact absurd (hδle J hJ1) (not_le.mpr hJlt)
-
+  set cA : ℝ := 2 * a₂ * ‖ξ‖ ^ 2 / (cV * (cy * ‖ξ‖ ^ 2)) with hcA
+  have hcA0 : 0 ≤ cA := by
+    rw [hcA]
+    positivity
+  have hδle : ∀ T : ℕ, 1 ≤ T →
+      δ - cA / T ≤ (T:ℝ)⁻¹ • ∑ k ∈ Finset.range T, σ k ^ 2 := by
+    intro T hT
+    have hTpos : (0:ℝ) < (T:ℝ) := by exact_mod_cast hT
+    have h1 := hVlin T hT
+    have h2 := hup T
+    have hden : (0:ℝ) < cV * (cy * ‖ξ‖ ^ 2) := by positivity
+    have h3 : β * T ≤ 2 * a₂ * ‖ξ‖ ^ 2
+        + cV * (cy * ‖ξ‖ ^ 2 * ∑ k ∈ Finset.range T, σ k ^ 2) := by
+      have h4 : cV * S.value ξ T
+          ≤ cV * (cy * ‖ξ‖ ^ 2 * ∑ k ∈ Finset.range T, σ k ^ 2) :=
+        mul_le_mul_of_nonneg_left h2 hcV0.le
+      linarith
+    rw [smul_eq_mul, hδ, hcA, inv_mul_eq_div, le_div_iff₀ hTpos]
+    have hexp : (β / (cV * (cy * ‖ξ‖ ^ 2))
+        - 2 * a₂ * ‖ξ‖ ^ 2 / (cV * (cy * ‖ξ‖ ^ 2)) / T) * T
+        = (β * T - 2 * a₂ * ‖ξ‖ ^ 2) / (cV * (cy * ‖ξ‖ ^ 2)) := by
+      field_simp
+    rw [hexp, div_le_iff₀ hden]
+    calc β * T - 2 * a₂ * ‖ξ‖ ^ 2
+        ≤ cV * (cy * ‖ξ‖ ^ 2 * ∑ k ∈ Finset.range T, σ k ^ 2) := by
+          linarith
+      _ = (∑ k ∈ Finset.range T, σ k ^ 2) * (cV * (cy * ‖ξ‖ ^ 2)) := by
+          ring
+  -- eventual contradiction
+  have hev1 := hces.eventually_lt_const (by linarith : (0:ℝ) < δ / 2)
+  have hev2 : ∀ᶠ T : ℕ in atTop, cA / T < δ / 2 := by
+    have h1 : Tendsto (fun T : ℕ => cA / (T:ℝ)) atTop (nhds 0) := by
+      have h2 := tendsto_natCast_atTop_atTop (R := ℝ)
+      exact Tendsto.div_atTop tendsto_const_nhds h2
+    exact h1.eventually_lt_const (by linarith)
+  obtain ⟨T, hT⟩ := ((hev1.and hev2).and (eventually_ge_atTop 1)).exists
+  obtain ⟨⟨hT1, hT2⟩, hT3⟩ := hT
+  have h1 := hδle T hT3
+  have h2 : δ - cA / T > δ / 2 := by linarith
+  have h3 : ((T:ℝ)⁻¹ • ∑ k ∈ Finset.range T, σ k ^ 2) < δ / 2 := hT1
+  linarith
 end GeneralSystem
 
 end Estimation
