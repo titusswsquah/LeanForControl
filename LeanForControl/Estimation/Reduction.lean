@@ -383,6 +383,59 @@ lemma red_cost (x₀ : Fin n → ℝ) (u : ℕ → Fin m → ℝ) (T : ℕ) :
   rw [red_traj, red_quadForm_Qs]
   rfl
 
+/-! ### Riccati similarity and the optimal trajectory -/
+
+lemma red_step (P : Matrix (Fin n) (Fin n) ℝ) :
+    S.redSys.lq.step (S.redTinvᵀ * P * S.redTinv)
+      = S.redTinvᵀ * S.glq.step P * S.redTinv := by
+  unfold LQSystem.step LQSystem.gainΓ
+  rw [redSys_lq_A, redSys_lq_B, redSys_lq_Qs, redSys_lq_Ru]
+  simp only [Matrix.transpose_mul, Matrix.transpose_transpose,
+    Matrix.mul_assoc, redTinv_redT_cancel, redTt_redTinvt_cancel,
+    Matrix.mul_add, Matrix.add_mul, Matrix.mul_sub, Matrix.sub_mul]
+
+lemma red_ric (T : ℕ) :
+    S.redSys.lq.ric T = S.redTinvᵀ * S.glq.ric T * S.redTinv := by
+  induction T with
+  | zero =>
+    rw [LQSystem.ric_zero, LQSystem.ric_zero, Matrix.mul_zero,
+      Matrix.zero_mul]
+  | succ T ih =>
+    rw [LQSystem.ric_succ, LQSystem.ric_succ, ih, red_step]
+
+lemma red_gainK (P : Matrix (Fin n) (Fin n) ℝ) :
+    S.redSys.lq.gainK (S.redTinvᵀ * P * S.redTinv)
+      = S.glq.gainK P * S.redTinv := by
+  unfold LQSystem.gainK LQSystem.gainΓ
+  rw [redSys_lq_A, redSys_lq_B, redSys_lq_Ru]
+  simp only [Matrix.transpose_mul, Matrix.transpose_transpose,
+    Matrix.mul_assoc, redTinv_redT_cancel, redTt_redTinvt_cancel]
+
+lemma red_Acl (P : Matrix (Fin n) (Fin n) ℝ) :
+    S.redSys.lq.Acl (S.redTinvᵀ * P * S.redTinv)
+      = S.redT * S.glq.Acl P * S.redTinv := by
+  unfold LQSystem.Acl
+  rw [red_gainK, redSys_lq_A, redSys_lq_B]
+  rw [Matrix.mul_sub, Matrix.sub_mul]
+  simp only [Matrix.mul_assoc]
+
+/-- Optimal closed-loop trajectories correspond. -/
+lemma red_optTraj (x₀ : Fin n → ℝ) (T k : ℕ) :
+    S.redSys.lq.optTraj (S.redT *ᵥ x₀) T k
+      = S.redT *ᵥ S.glq.optTraj x₀ T k := by
+  induction k with
+  | zero => rfl
+  | succ k ih =>
+    show S.redSys.lq.Acl (S.redSys.lq.ric (T - 1 - k))
+        *ᵥ S.redSys.lq.optTraj (S.redT *ᵥ x₀) T k
+      = S.redT *ᵥ (S.glq.Acl (S.glq.ric (T - 1 - k))
+        *ᵥ S.glq.optTraj x₀ T k)
+    rw [ih, red_ric, red_Acl, Matrix.mulVec_mulVec,
+      Matrix.mulVec_mulVec]
+    congr 1
+    rw [Matrix.mul_assoc (S.redT * S.glq.Acl (S.glq.ric (T - 1 - k))),
+      redTinv_mul_redT, Matrix.mul_one]
+
 end GeneralSystem
 
 end Estimation
