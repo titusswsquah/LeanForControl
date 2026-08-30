@@ -183,7 +183,7 @@ Where Phase 1 certified a statement by a route other than the paper's:
 | `lem:unibounded` feasibility | `Σ₂ ≻ 0` in staircase coordinates | `U₂/E₂` independence ⟺ invariantly `range Σ₀ + V₁ = ℝⁿ` under C2 | F2 |
 | `it:xTT` | output-injection convolution (commented-out variant) | IOSS summation (active wording) | F3 |
 | C2-necessity growth step | window coercivity (costogo route) | `eq:iosssum` IOSS chain | F4 |
-| KL uniformization | optimizer linearity (`N(k)` columns) | `M(k)` from the DRE | F5 (Stage 2b — needs the DRE) |
+| KL uniformization | optimizer linearity (`N(k)` columns) | `M(k)` from the DRE | F5 (landed Phase 2: `isGASkf_of_pointwise` — after `lem:semiPT` the two maps coincide, so the column trick runs on `M(k)` itself) |
 | `value`/`optCtrl` definitions | Riccati-backed construction, variational facts as theorems | optimization problem primary | F6 (certify, don't refactor) |
 
 Faithful already (the paper's manner, verbatim in structure):
@@ -339,3 +339,95 @@ feasibility, IOSS-route `it:xTT` and C2-necessity, `value_isLeast`)
 and Stage 2b (`lem:semiPT` KF bridge, DRE layer, `prop:tvkf` as the
 literal Kalman-filter sentence, `M(k)`-version of the KL
 uniformization, F5). Deliberately excluded: examples (D7).
+
+## Phase 2 outcome (2026-08-30) — COMPLETE
+
+Both stages landed, sorry-free; full `lake build` green; `#print
+axioms` on `arrival`, `value_eq_arrV`, `semiPT_error`,
+`value_succ_innovation`, `prop_tvkf`, `prop_tvkf_kl`:
+`[propext, Classical.choice, Quot.sound]` only. **The program's done
+criteria are met**: every inventoried claim of paper.tex has a Lean
+counterpart proven by the paper's own route (audit table cleared,
+F1–F6 landed), C2-only claims are C2-only, and the headline
+`prop:tvkf` is verified as the paper's literal sentence about the
+time-varying Kalman filter.
+
+### Stage 2a (route faithfulness, F1–F4 + F6)
+
+- **F1** `eq:gap`/`it:zlim` direct: C2-free `gCost_gap` by completing
+  squares in the general coordinates (no reduction transfer);
+  `truncation_gap` + `exists_gap_energy_bound` give `it:zlim` by the
+  paper's Cauchy argument run directly on the general problem.
+- **F2** `lem:unibounded` feasibility invariantly: `Staircase.lean`'s
+  `antiFeasMat_surjective` + `exists_antiFeas_rightInverse` — the
+  `U₂/E₂` dual-independence argument (rank surjectivity of
+  `W₂Σ₀`), then the feedback-rollout candidate through the C2-free
+  cost bound. No `Σ₂ ≻ 0` staircase shortcut in the proof route.
+- **F3** `it:xTT` via IOSS (the active wording):
+  `terminal_sq_bound_of_ioss` consuming `exists_ioss_lyapunov`.
+- **F4** C2-necessity by the `eq:iosssum` chain in
+  `GeneralNecessity.lean`: IOSS-Lyapunov sum bound
+  (`sum_sq_bound_of_ioss`), `eq:rhs-bound`/`eq:lhs-bound`, stride-1
+  quantitative `gramian_growth`, Cesàro contradiction.
+- **F6** `value_isLeast`: the optimization problem certified primary —
+  `value` IS the least feasible cost, the Riccati construction a
+  witness.
+
+### Stage 2b (the KF bridge — `Estimation/KalmanFilter.lean` + `Estimation/Arrival.lean`)
+
+- **P2.1 DRE layer** (`KalmanFilter.lean`): `innovS` (PD), `measM`,
+  `dreStep`, `kfGain`, `errF = A − LC = A·M`, `dre` recursion with
+  `dre_posSemidef`, transition `kfErrTrans` (`M(k)`). Key algebra,
+  all pinv-free and √-free: `measM_mul_key`
+  (`MΣ(1 + CᵀR⁻¹CΣ) = Σ`), Hermitian/PSD of `MΣ`, gain identity
+  `MΣ·CᵀR⁻¹ = ΣCᵀS⁻¹`, resolvent `M(1 + ΣCᵀR⁻¹C) = 1`, and the
+  scalar measurement-square identity `meas_square` (`eq:meas-square`).
+- **P2.2 `lem:arrival`** (`Arrival.lean`, theorem `arrival`): the
+  forward induction, image-parameterized (`ξ = c(T) + Σ_T z` instead
+  of pinv/projector bookkeeping): for every horizon the terminally
+  constrained problem is feasible exactly on the affine set
+  `arrC + im (dre T)`, with least cost
+  `arrV T + quadForm (dre T) z`; centers update by `errF`, curvatures
+  by the DRE, and the innovation term accrues to `arrV`. One-step
+  machinery: `quadForm_dreStep`, `pushforward_lower` (completion of
+  squares with explicit multipliers `Aᵀw`, `−Q_c Gᵀw`),
+  `pushforward_mem_range` (annihilator feasibility), `updCoord` +
+  `displacement` + `updCoord_witness`, `one_step_energy`.
+- **P2.3 `lem:semiPT`**: `value_eq_arrV` (the innovations
+  decomposition of the value), `optTerm_eq_arrC` (PSD-kernel forcing
+  `Σ_T z* = 0`), `arrC_eq_kfErrTrans`, assembled as **`semiPT_error`:
+  `e*(T|T) = M(T)a`** — the paper's one unproven lemma, now certified
+  (finding 2 resolved in Lean; the paper should still cite a source).
+  Bonus: `value_succ_innovation` — `V⁰_{T+1} = V⁰_T + ‖C M(T)a‖²_{S(T)⁻¹}`.
+- **P2.4 headline**: `IsGASkf` (`def:GAS` on the filter error),
+  `isGASkf_iff_isGAS` (via `lem:semiPT`), **`prop_tvkf`:
+  `IsGASkf ↔ C1 ∧ C2`** — the paper's literal Kalman-filter sentence —
+  and `prop_tvkf_kl` (KL formulation). **F5** landed as
+  `isGASkf_of_pointwise`: the pointwise-to-uniform column trick on
+  `M(k)` itself.
+
+### Mapping table (Phase 2 additions)
+
+| Paper | Lean |
+|---|---|
+| DRE `eq:dre`, gains, `M(k)` | `GeneralSystem.dre`/`kfGain`/`errF`/`kfErrTrans` (`KalmanFilter.lean`) |
+| `eq:meas-square` | `meas_square` |
+| `lem:arrival` (gas-lyap draft) | `GeneralSystem.arrival` |
+| `lem:semiPT` | `semiPT_error` (`optTerm_eq_arrC` + `arrC_eq_kfErrTrans`) |
+| innovations decomposition | `value_eq_arrV`, `value_succ_innovation` |
+| `def:GAS` (KF error) | `IsGASkf`; bridge `isGASkf_iff_isGAS` |
+| KL uniformization on `M(k)` (F5) | `isGASkf_of_pointwise` |
+| **`prop:tvkf` (literal KF sentence)** | **`prop_tvkf`**, `prop_tvkf_kl` |
+
+### Notes for the authors (Phase 2)
+
+- Finding 2 update: `lem:semiPT` is now machine-verified via the
+  arrival recursion, in nominal-error coordinates
+  (`e*(T|T) = M(T)a` with `e = x − x̄`, `a = x(0) − x̄₀`); the
+  formalized proof is the gas-lyap draft's `lem:arrival` argument,
+  reworked pseudoinverse-free (image parameterization + the identity
+  `MΣ(1 + CᵀR⁻¹CΣ) = Σ`). Worth absorbing: the pinv-free version is
+  shorter on paper too.
+- Finding 5 closed: the `M(k)` KL-uniformization is exactly the
+  optimizer-linearity column trick once `lem:semiPT` identifies the
+  two maps; no separate DRE argument is needed.

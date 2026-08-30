@@ -1,4 +1,5 @@
 import LeanForControl.Estimation.KalmanFilter
+import LeanForControl.Estimation.QFunction
 import Architect
 
 /-!
@@ -429,6 +430,126 @@ theorem arrival (a : Fin n → ℝ) : ∀ T : ℕ,
         show S.dre (T + 1) = S.dreStep (S.dre T) from rfl, ← hw,
         ← hdisp]
       module
+
+/-! ### Corollaries: `lem:semiPT` and the innovations decomposition -/
+
+/-- **The innovations decomposition**: the optimal value is the
+accumulated innovation cost of the Kalman filter. -/
+theorem value_eq_arrV (a : Fin n → ℝ) (T : ℕ) :
+    S.value a T = S.arrV a T := by
+  refine le_antisymm ?_ ?_
+  · -- the arrival center is attainable at cost `arrV`
+    have h1 := (S.arrival a T).1 0
+    rw [Matrix.mulVec_zero, add_zero, quadForm_zero, add_zero] at h1
+    obtain ⟨e₀, ω, hfeas, htraj, hcost⟩ := h1.1
+    calc S.value a T ≤ S.gCost a e₀ ω T := S.value_le_gCost hfeas ω T
+      _ = S.arrV a T := hcost.symm
+  · -- the optimum lands on the support
+    have hmem : S.gCost a (S.optInit a T)
+        (S.glq.optCtrl (S.optInit a T) T) T
+        ∈ S.arrSet a T (S.glq.traj (S.optInit a T)
+          (S.glq.optCtrl (S.optInit a T) T) T) :=
+      ⟨_, _, S.optInit_feasible a T, rfl, rfl⟩
+    obtain ⟨z, hz⟩ := (S.arrival a T).2 _ ⟨_, hmem⟩
+    have h2 := ((S.arrival a T).1 z).2 (by rw [← hz]; exact hmem)
+    have h3 := (S.dre_posSemidef T).quadForm_nonneg z
+    have h4 := S.gCost_optCtrl a T
+    linarith [h2, h4.ge, h4.le]
+
+/-- The optimal terminal error is the arrival center. -/
+theorem optTerm_eq_arrC (a : Fin n → ℝ) (T : ℕ) :
+    S.optTerm a T = S.arrC a T := by
+  have hmem : S.gCost a (S.optInit a T)
+      (S.glq.optCtrl (S.optInit a T) T) T
+      ∈ S.arrSet a T (S.glq.traj (S.optInit a T)
+        (S.glq.optCtrl (S.optInit a T) T) T) :=
+    ⟨_, _, S.optInit_feasible a T, rfl, rfl⟩
+  obtain ⟨z, hz⟩ := (S.arrival a T).2 _ ⟨_, hmem⟩
+  have h2 := ((S.arrival a T).1 z).2 (by rw [← hz]; exact hmem)
+  have h4 := S.gCost_optCtrl a T
+  have h5 := S.value_eq_arrV a T
+  have h6 : quadForm (S.dre T) z ≤ 0 := by linarith
+  have h7 : quadForm (S.dre T) z = 0 :=
+    le_antisymm h6 ((S.dre_posSemidef T).quadForm_nonneg z)
+  have h8 := (S.dre_posSemidef T).mulVec_eq_zero_of_quadForm_eq_zero h7
+  rw [S.optTerm_eq_traj, hz, h8, add_zero]
+
+/-- The arrival center is the Kalman-filter error iterate. -/
+theorem arrC_eq_kfErrTrans (a : Fin n → ℝ) : ∀ T : ℕ,
+    S.arrC a T = S.kfErrTrans T *ᵥ a
+  | 0 => by
+    rw [arrC_zero, kfErrTrans_zero, Matrix.one_mulVec]
+  | T + 1 => by
+    rw [arrC_succ, kfErrTrans_succ, arrC_eq_kfErrTrans a T,
+      Matrix.mulVec_mulVec]
+
+/-- **`lem:semiPT`, nominal-error form** (`eq:fie-center`): the
+horizon-`T` optimal terminal error of the full-information problem is
+the time-varying Kalman filter error `M(T)a`. -/
+theorem semiPT_error (a : Fin n → ℝ) (T : ℕ) :
+    S.optTerm a T = S.kfErrTrans T *ᵥ a := by
+  rw [S.optTerm_eq_arrC, S.arrC_eq_kfErrTrans]
+
+/-- The innovations formula for the value increments. -/
+theorem value_succ_innovation (a : Fin n → ℝ) (T : ℕ) :
+    S.value a (T + 1)
+      = S.value a T
+        + quadForm (S.innovS (S.dre T))⁻¹
+            (S.C *ᵥ (S.kfErrTrans T *ᵥ a)) := by
+  rw [S.value_eq_arrV, S.value_eq_arrV, S.arrV_succ,
+    S.arrC_eq_kfErrTrans]
+
+/-! ### `prop:tvkf` for the Kalman filter -/
+
+/-- GAS of the time-varying Kalman filter (`def:GAS` for the recursive
+filter error `ê(k) = M(k)ê(0)`, σ-form). -/
+def IsGASkf : Prop :=
+  ∃ σ : ℕ → ℝ, Filter.Tendsto σ Filter.atTop (nhds 0) ∧
+    ∀ (T : ℕ) (a : Fin n → ℝ), ‖S.kfErrTrans T *ᵥ a‖ ≤ σ T * ‖a‖
+
+/-- The filter error and the optimizer error coincide (`lem:semiPT`),
+so the two stability notions agree. -/
+theorem isGASkf_iff_isGAS : S.IsGASkf ↔ S.IsGAS := by
+  unfold IsGASkf IsGAS
+  constructor
+  · rintro ⟨σ, h0, hb⟩
+    exact ⟨σ, h0, fun T a => by rw [S.semiPT_error]; exact hb T a⟩
+  · rintro ⟨σ, h0, hb⟩
+    exact ⟨σ, h0, fun T a => by rw [← S.semiPT_error]; exact hb T a⟩
+
+/-- **`prop:tvkf`**, the paper's literal headline: the time-varying
+Kalman filter is asymptotically stable iff C1 ∧ C2. -/
+theorem prop_tvkf : S.IsGASkf ↔ S.C1 ∧ S.C2 := by
+  rw [S.isGASkf_iff_isGAS]
+  exact S.prop_tvkf_optimizer
+
+/-- **F5, the paper's `M(k)` uniformization**: pointwise convergence
+of the Kalman-filter error `M(k)a → 0` upgrades to the uniform σ-bound
+of `def:GAS`, by linearity of `a ↦ M(k)a` and the standard-basis
+column trick — run on the very map the paper's `M(k)` denotes, via
+`lem:semiPT`. -/
+theorem isGASkf_of_pointwise
+    (h : ∀ a : Fin n → ℝ,
+      Filter.Tendsto (fun T => ‖S.kfErrTrans T *ᵥ a‖)
+        Filter.atTop (nhds 0)) : S.IsGASkf := by
+  rw [S.isGASkf_iff_isGAS]
+  exact S.isGAS_of_pointwise fun a => by
+    simpa only [S.semiPT_error] using h a
+
+/-- `prop:tvkf` in the KL formulation of `def:GAS`, on the filter
+error. -/
+theorem prop_tvkf_kl :
+    (∃ α : ℕ → ℝ, Antitone α ∧ Filter.Tendsto α Filter.atTop (nhds 0) ∧
+      ∀ (k : ℕ) (a : Fin n → ℝ), ‖S.kfErrTrans k *ᵥ a‖ ≤ α k * ‖a‖)
+      ↔ S.C1 ∧ S.C2 := by
+  constructor
+  · rintro ⟨α, _hanti, h0, hb⟩
+    exact S.prop_tvkf.mp ⟨α, h0, hb⟩
+  · intro h
+    have h1 := S.prop_tvkf_optimizer_kl.mpr h
+    obtain ⟨α, hanti, h0, hb⟩ := h1
+    exact ⟨α, hanti, h0, fun k a => by
+      rw [← S.semiPT_error]; exact hb k a⟩
 
 end GeneralSystem
 
