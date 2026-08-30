@@ -623,6 +623,141 @@ theorem red_optInit (hC2 : S.C2) (a : Fin n → ℝ) (T : ℕ) :
           rw [hz', pinv_pairing S.hSig0]
       _ = 0 := hstat
 
+/-! ### Terminal-error correspondence and stability transfer -/
+
+open scoped Matrix.Norms.Operator
+
+theorem red_optTerm (hC2 : S.C2) (a : Fin n → ℝ) (T : ℕ) :
+    S.redSys.optTerm (S.redT *ᵥ a) T = S.redT *ᵥ S.optTerm a T := by
+  unfold FIESystem.optTerm optTerm
+  rw [red_optInit S hC2, red_optTraj]
+
+/-- GAS transfers from the reduced system to the general one. -/
+theorem isGAS_of_red (hC2 : S.C2) (h : S.redSys.IsGAS) : S.IsGAS := by
+  obtain ⟨σ, hσ0, hσb⟩ := h
+  refine ⟨fun T => ‖S.redTinv‖ * ‖S.redT‖ * max (σ T) 0, ?_, ?_⟩
+  · have h1 : Filter.Tendsto (fun T => max (σ T) 0) Filter.atTop
+        (nhds 0) := by
+      have h2 := hσ0.max (tendsto_const_nhds (x := (0 : ℝ))
+        (f := Filter.atTop (α := ℕ)))
+      simpa using h2
+    have h3 := h1.const_mul (‖S.redTinv‖ * ‖S.redT‖)
+    simpa using h3
+  · intro T a
+    have h4 : S.optTerm a T
+        = S.redTinv *ᵥ (S.redSys.optTerm (S.redT *ᵥ a) T) := by
+      rw [red_optTerm S hC2, redTinv_redT_mulVec]
+    rw [h4]
+    have h5 := Matrix.linfty_opNorm_mulVec S.redTinv
+      (S.redSys.optTerm (S.redT *ᵥ a) T)
+    have h6 := hσb T (S.redT *ᵥ a)
+    have h7 := Matrix.linfty_opNorm_mulVec S.redT a
+    have h8 : ‖S.redSys.optTerm (S.redT *ᵥ a) T‖
+        ≤ max (σ T) 0 * (‖S.redT‖ * ‖a‖) := by
+      have h9 : σ T * ‖S.redT *ᵥ a‖ ≤ max (σ T) 0 * (‖S.redT‖ * ‖a‖) := by
+        have h10 : σ T * ‖S.redT *ᵥ a‖
+            ≤ max (σ T) 0 * ‖S.redT *ᵥ a‖ :=
+          mul_le_mul_of_nonneg_right (le_max_left _ _) (norm_nonneg _)
+        have h11 : max (σ T) 0 * ‖S.redT *ᵥ a‖
+            ≤ max (σ T) 0 * (‖S.redT‖ * ‖a‖) :=
+          mul_le_mul_of_nonneg_left h7 (le_max_right _ _)
+        linarith
+      linarith
+    calc ‖S.redTinv *ᵥ S.redSys.optTerm (S.redT *ᵥ a) T‖
+        ≤ ‖S.redTinv‖ * ‖S.redSys.optTerm (S.redT *ᵥ a) T‖ := h5
+      _ ≤ ‖S.redTinv‖ * (max (σ T) 0 * (‖S.redT‖ * ‖a‖)) :=
+          mul_le_mul_of_nonneg_left h8 (norm_nonneg _)
+      _ = ‖S.redTinv‖ * ‖S.redT‖ * max (σ T) 0 * ‖a‖ := by ring
+
+/-- GAS transfers from the general system to the reduced one. -/
+theorem red_isGAS (hC2 : S.C2) (h : S.IsGAS) : S.redSys.IsGAS := by
+  obtain ⟨σ, hσ0, hσb⟩ := h
+  refine ⟨fun T => ‖S.redT‖ * ‖S.redTinv‖ * max (σ T) 0, ?_, ?_⟩
+  · have h1 : Filter.Tendsto (fun T => max (σ T) 0) Filter.atTop
+        (nhds 0) := by
+      have h2 := hσ0.max (tendsto_const_nhds (x := (0 : ℝ))
+        (f := Filter.atTop (α := ℕ)))
+      simpa using h2
+    have h3 := h1.const_mul (‖S.redT‖ * ‖S.redTinv‖)
+    simpa using h3
+  · intro T a'
+    have h4 : S.redSys.optTerm a' T
+        = S.redT *ᵥ S.optTerm (S.redTinv *ᵥ a') T := by
+      have h5 := red_optTerm S hC2 (S.redTinv *ᵥ a') T
+      rwa [redT_redTinv_mulVec] at h5
+    rw [h4]
+    have h5 := Matrix.linfty_opNorm_mulVec S.redT
+      (S.optTerm (S.redTinv *ᵥ a') T)
+    have h6 := hσb T (S.redTinv *ᵥ a')
+    have h7 := Matrix.linfty_opNorm_mulVec S.redTinv a'
+    have h8 : ‖S.optTerm (S.redTinv *ᵥ a') T‖
+        ≤ max (σ T) 0 * (‖S.redTinv‖ * ‖a'‖) := by
+      have h10 : σ T * ‖S.redTinv *ᵥ a'‖
+          ≤ max (σ T) 0 * ‖S.redTinv *ᵥ a'‖ :=
+        mul_le_mul_of_nonneg_right (le_max_left _ _) (norm_nonneg _)
+      have h11 : max (σ T) 0 * ‖S.redTinv *ᵥ a'‖
+          ≤ max (σ T) 0 * (‖S.redTinv‖ * ‖a'‖) :=
+        mul_le_mul_of_nonneg_left h7 (le_max_right _ _)
+      linarith
+    calc ‖S.redT *ᵥ S.optTerm (S.redTinv *ᵥ a') T‖
+        ≤ ‖S.redT‖ * ‖S.optTerm (S.redTinv *ᵥ a') T‖ := h5
+      _ ≤ ‖S.redT‖ * (max (σ T) 0 * (‖S.redTinv‖ * ‖a'‖)) :=
+          mul_le_mul_of_nonneg_left h8 (norm_nonneg _)
+      _ = ‖S.redT‖ * ‖S.redTinv‖ * max (σ T) 0 * ‖a'‖ := by ring
+
+/-- GES transfers from the reduced system to the general one. -/
+theorem isGES_of_red (hC2 : S.C2) (h : S.redSys.IsGES) : S.IsGES := by
+  obtain ⟨c, ρ, hc, hρ0, hρ1, hb⟩ := h
+  refine ⟨(‖S.redTinv‖ * ‖S.redT‖ + 1) * c, ρ, by positivity, hρ0,
+    hρ1, ?_⟩
+  intro T a
+  have h4 : S.optTerm a T
+      = S.redTinv *ᵥ (S.redSys.optTerm (S.redT *ᵥ a) T) := by
+    rw [red_optTerm S hC2, redTinv_redT_mulVec]
+  rw [h4]
+  have h5 := Matrix.linfty_opNorm_mulVec S.redTinv
+    (S.redSys.optTerm (S.redT *ᵥ a) T)
+  have h6 := hb T (S.redT *ᵥ a)
+  have h7 := Matrix.linfty_opNorm_mulVec S.redT a
+  have hcρ : 0 ≤ c * ρ ^ T := by positivity
+  calc ‖S.redTinv *ᵥ S.redSys.optTerm (S.redT *ᵥ a) T‖
+      ≤ ‖S.redTinv‖ * ‖S.redSys.optTerm (S.redT *ᵥ a) T‖ := h5
+    _ ≤ ‖S.redTinv‖ * (c * ρ ^ T * ‖S.redT *ᵥ a‖) :=
+        mul_le_mul_of_nonneg_left h6 (norm_nonneg _)
+    _ ≤ ‖S.redTinv‖ * (c * ρ ^ T * (‖S.redT‖ * ‖a‖)) := by
+        refine mul_le_mul_of_nonneg_left ?_ (norm_nonneg _)
+        exact mul_le_mul_of_nonneg_left h7 hcρ
+    _ ≤ (‖S.redTinv‖ * ‖S.redT‖ + 1) * c * ρ ^ T * ‖a‖ := by
+        nlinarith [norm_nonneg a, norm_nonneg (S.redTinv),
+          norm_nonneg (S.redT), pow_nonneg hρ0.le T, hc.le]
+
+/-- GES transfers from the general system to the reduced one. -/
+theorem red_isGES (hC2 : S.C2) (h : S.IsGES) : S.redSys.IsGES := by
+  obtain ⟨c, ρ, hc, hρ0, hρ1, hb⟩ := h
+  refine ⟨(‖S.redT‖ * ‖S.redTinv‖ + 1) * c, ρ, by positivity, hρ0,
+    hρ1, ?_⟩
+  intro T a'
+  have h4 : S.redSys.optTerm a' T
+      = S.redT *ᵥ S.optTerm (S.redTinv *ᵥ a') T := by
+    have h5 := red_optTerm S hC2 (S.redTinv *ᵥ a') T
+    rwa [redT_redTinv_mulVec] at h5
+  rw [h4]
+  have h5 := Matrix.linfty_opNorm_mulVec S.redT
+    (S.optTerm (S.redTinv *ᵥ a') T)
+  have h6 := hb T (S.redTinv *ᵥ a')
+  have h7 := Matrix.linfty_opNorm_mulVec S.redTinv a'
+  have hcρ : 0 ≤ c * ρ ^ T := by positivity
+  calc ‖S.redT *ᵥ S.optTerm (S.redTinv *ᵥ a') T‖
+      ≤ ‖S.redT‖ * ‖S.optTerm (S.redTinv *ᵥ a') T‖ := h5
+    _ ≤ ‖S.redT‖ * (c * ρ ^ T * ‖S.redTinv *ᵥ a'‖) :=
+        mul_le_mul_of_nonneg_left h6 (norm_nonneg _)
+    _ ≤ ‖S.redT‖ * (c * ρ ^ T * (‖S.redTinv‖ * ‖a'‖)) := by
+        refine mul_le_mul_of_nonneg_left ?_ (norm_nonneg _)
+        exact mul_le_mul_of_nonneg_left h7 hcρ
+    _ ≤ (‖S.redT‖ * ‖S.redTinv‖ + 1) * c * ρ ^ T * ‖a'‖ := by
+        nlinarith [norm_nonneg a', norm_nonneg (S.redTinv),
+          norm_nonneg (S.redT), pow_nonneg hρ0.le T, hc.le]
+
 end GeneralSystem
 
 end Estimation
