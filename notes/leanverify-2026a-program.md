@@ -8,8 +8,15 @@ formalize against (`lem:semiPT` via the arrival-cost machinery of
 wording of `prop:infhor` does not block anything: its statement is
 stable, and both candidate proof routes for `it:xTT` are verifiable.
 Estimated total: ~3–6k new lines, 4–6 sessions, organized as two
-phases below. Phase 1 is next. Examples are excluded by decision (see
-inventory).
+phases below. **Phase 1 is complete; Phase 2 is next.** Examples are
+excluded by decision (see inventory).
+
+**Program goal (sharpened after Phase 1, agreed with Titus):** verify
+the paper *and its proof routes* — each 2026a theorem should be proven
+in the manner of paper.tex, not merely certified true via
+costogo-track machinery. Phase 1 established every statement; the
+route-faithfulness gaps it left (recorded in the audit below) are
+folded into Phase 2 as Stage 2a.
 
 ## Claim-by-claim inventory
 
@@ -92,13 +99,15 @@ deviation device, infinite-horizon `tsum` cost, `detect_inj`, `lqr`,
   paper. Support constraint as `∈ range Σ₀`, with the SVD-free
   equivalence `v ∈ range Σ₀ ⟺ ∀ z, Σ₀z = 0 → z⬝v = 0` standing in for
   `U₂'v = 0`. No `U`-matrices in Lean.
-- **D2 (route).** Every part of the paper's analysis assumes C2, so the
-  costogo reduction is available throughout: prove C2-only statements on
-  the reduced side and transfer; replay directly only where transfer is
-  awkward.
-- **D3 (it:xTT).** Output-injection now; IOSS-faithful variant optional in Phase 2.
-- **D4 (gap).** General `eq:gap` under C2 by transferring
-  `fieCost_gap`; the C2-free version is true but out of scope.
+- **D2 (route) — superseded by the program goal.** Phase 1 used the
+  costogo reduction for speed; Stage 2a replaces every 2026a-facing
+  proof that leans on it with the paper's own route (the reduction
+  remains in the repo as costogo's verification and as scaffolding).
+- **D3 (it:xTT) — superseded.** Phase 1 verified via output-injection;
+  Stage 2a re-proves via the active IOSS summation (F3).
+- **D4 (gap) — superseded.** Phase 1 transferred `fieCost_gap` under
+  C2; Stage 2a proves `eq:gap` directly at the general level,
+  C2-free, by the paper's flat completing-of-squares (F1).
 - **D5 (Q-function).** `def:modQ` specialized to quadratic μ's;
   `prop:modQgas` proved in KL-product form `β(r,k) = r·α(k)`.
 - **D6 (estimator object).** Phase 1 states theorems about the
@@ -163,28 +172,78 @@ reduction)*
     Conclude AS ⟺ C1∧C2 for the full-information estimate `x̂(k|k)`;
     axiom audit; notes; PR.
 
-## Phase 2: the Kalman-filter bridge and the literal headline
+## Route-faithfulness audit (post-Phase 1)
 
-*(~1500–3000 lines, 2 sessions — `lem:semiPT` is the big rock; follow
+Where Phase 1 certified a statement by a route other than the paper's:
+
+| Item | Phase 1 route | Paper's route | Fix |
+|---|---|---|---|
+| `eq:gap` | transfer of `fieCost_gap` through the reduction (C2-scoped) | direct completing-of-squares in `z = (α₁, ω)`, no C2 | F1 |
+| `it:zlim` | reduced-side Cauchy argument + transfer | same argument, run directly on `ℙ_T`/general problem | F1 |
+| `lem:unibounded` feasibility | `Σ₂ ≻ 0` in staircase coordinates | `U₂/E₂` independence ⟺ invariantly `range Σ₀ + V₁ = ℝⁿ` under C2 | F2 |
+| `it:xTT` | output-injection convolution (commented-out variant) | IOSS summation (active wording) | F3 |
+| C2-necessity growth step | window coercivity (costogo route) | `eq:iosssum` IOSS chain | F4 |
+| KL uniformization | optimizer linearity (`N(k)` columns) | `M(k)` from the DRE | F5 (Stage 2b — needs the DRE) |
+| `value`/`optCtrl` definitions | Riccati-backed construction, variational facts as theorems | optimization problem primary | F6 (certify, don't refactor) |
+
+Faithful already (the paper's manner, verbatim in structure):
+`prop:tvkfQuns`, `prop:modQgas`, `it:Vlim`, the `lem:unibounded`
+candidate/rollout idea, `lem:exist`'s uniqueness-by-strict-convexity
+content, and the IOSS fact itself (paper cites Cai–Teel; we supplied
+the linear-case proof it reduces to).
+
+## Phase 2: route faithfulness + the Kalman-filter bridge
+
+*(~2100–4000 lines, 3 sessions — Stage 2a is the folded-in
+faithfulness pass; Stage 2b's `lem:semiPT` is the big rock; follow
 `gas-lyap-draft.tex`)*
 
-1. **P2.1 — DRE layer**: `Σ(k)` recursion, PSD preservation
+### Stage 2a — prove the optimization side in the paper's manner (ex-"Phase 1.5", ~600–1000 lines)
+
+1. **F1 — direct `eq:gap`, C2-free** *(medium)*: flat quadratic
+   expansion of `gCost` about the optimizer in the decisions
+   (`eq:quadmin` style, single-block prior, no reduction); then re-run
+   `it:zlim`'s truncation-Cauchy argument directly on the general
+   problem. Retire the C2-scoping of the gap and the reduction
+   dependence of `prop_infhor_zlim`.
+2. **F2 — `lem:unibounded` feasibility the paper's way** *(small–medium)*:
+   C2 ⟹ `range Σ₀ + V₁ = ℝⁿ` by the annihilator computation
+   (`(range Σ₀ + V₁)ᗮ = ker Σ₀ ∩ 𝒳_{u,uc} = 0`) — the invariant form of
+   the `U₁₂`-full-column-rank argument, in original coordinates;
+   rebuild the candidate feasibility on it.
+3. **F3 — `it:xTT` via IOSS** *(small)*: replace the output-injection
+   step with the `eq:iioss-dec` summation
+   (`a₁‖δx̂(T)‖² ≤ a₂‖δx̂(0)‖² + c₁Σ‖δŵ‖² + c₂Σ‖δv̂‖²`), matching the
+   active wording.
+4. **F4 — C2-necessity via `eq:iosssum`** *(medium)*: re-derive the
+   linear-growth step with the IOSS chain
+   (`eq:iosssum`/`eq:rhs-bound`/`eq:lhs-bound`) in place of window
+   coercivity, feeding the existing `eq:pin` pinning, quantitative
+   Gramian, `eq:Venergy` cap, and Cesàro ending; conclude a
+   paper-faithful `C2_of_isGAS`.
+5. **F6 — variational front door** *(small)*: `value_isLeast` — certify
+   `V_T⁰ = min` of the feasible costs so the Riccati appears only as a
+   construction witness inside definitions, never as an analysis tool
+   in any 2026a-facing statement.
+
+### Stage 2b — the Kalman-filter bridge and the literal headline
+
+6. **P2.1 — DRE layer**: `Σ(k)` recursion, PSD preservation
    (Schur-complement bound), gains `L(k)`, transition `M(k)`,
    `ê(k) = M(k)ê(0)`.
-2. **P2.2 — arrival cost** (`lem:arrival`): forward induction — the
+7. **P2.2 — arrival cost** (`lem:arrival`): forward induction — the
    horizon-`T` arrival quadratic is
    `𝒥_T(ξ) = V_T⁰ + ½‖ξ − e*(T|T)‖²_{Σ_T†}` with feasibility exactly on
    `e*(T|T) + im Σ_T`, and `Σ_T` follows the DRE. Uses
    `ConstrainedQuadratic`/`symmPinv` machinery; the one-step propagate +
    measurement-update completion of squares with singular priors is the
    hard induction.
-3. **P2.3 — `lem:semiPT`**: `x̂(T|T) = x̂ᵏᶠ(T)` for all `T` and data;
+8. **P2.3 — `lem:semiPT`**: `x̂(T|T) = x̂ᵏᶠ(T)` for all `T` and data;
    covariance identification `Σ_T = Σ(T)`.
-4. **P2.4 — headline transfer and wrap-up**: `prop:tvkf` restated about
+9. **P2.4 — headline transfer and wrap-up**: `prop:tvkf` restated about
    the time-varying Kalman filter (the paper's literal sentence); the KL
-   proof's `M(k)`-version verified as written; optional IOSS-faithful
-   `it:xTT` re-proof; paper remark drafts (what-is-verified statement),
-   final mapping table; axiom audit; PR.
+   proof's `M(k)`-version verified as written (F5); paper remark drafts
+   (what-is-verified statement), final mapping table; axiom audit; PR.
 
 ## Done criteria (program level)
 
@@ -196,7 +255,11 @@ reduction)*
    `[propext, Classical.choice, Quot.sound]` only.
 3. Hypothesis bookkeeping matches the paper's intended splits (C2-only
    claims verified without C1 — finding 1 fixed, not reproduced).
-4. Mapping table (paper label ↔ Lean name) complete; scope notes
+4. **Route faithfulness**: every 2026a-facing theorem's proof follows
+   the paper's own argument (audit table cleared — F1–F6 landed); the
+   costogo reduction appears in no 2026a proof where the paper does
+   not use a change of coordinates.
+5. Mapping table (paper label ↔ Lean name) complete; scope notes
    updated; one PR per phase.
 
 ## Working agreements
@@ -270,8 +333,9 @@ and `exists_modQ` supplies the convergence for the constructed Q).
 | `prop:tvkf` (optimizer estimator) | `prop_tvkf_optimizer`, `prop_tvkf_optimizer_kl` |
 | C1/C2 necessity | existing `C1_of_isGAS`, `C2_of_isGAS` |
 
-Deferred to Phase 2: `lem:semiPT` (KF bridge), DRE layer, `prop:tvkf`
-as the literal Kalman-filter sentence, `M(k)`-version of the KL
-uniformization. Deliberately excluded: examples (D7); the
-IOSS-faithful C2-necessity re-derivation remains an optional Phase 2
-item.
+Deferred to Phase 2 — Stage 2a (route faithfulness, F1–F4/F6: direct
+`eq:gap` + direct `it:zlim`, annihilator-form `lem:unibounded`
+feasibility, IOSS-route `it:xTT` and C2-necessity, `value_isLeast`)
+and Stage 2b (`lem:semiPT` KF bridge, DRE layer, `prop:tvkf` as the
+literal Kalman-filter sentence, `M(k)`-version of the KL
+uniformization, F5). Deliberately excluded: examples (D7).
