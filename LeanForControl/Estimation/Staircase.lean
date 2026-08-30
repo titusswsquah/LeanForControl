@@ -551,6 +551,125 @@ theorem stairA₂_antistable :
       · exact h)
   exact antiPoly_root_ge (Polynomial.IsRoot.def.mpr h6) hlt
 
+/-! ### Stabilizability of the first block (D1a(ii)) -/
+
+private lemma dot_mulVec_transpose {α β : Type*} [Fintype α] [Fintype β]
+    (φ : α → ℂ) (M : Matrix α β ℂ) (w : β → ℂ) :
+    φ ⬝ᵥ (M *ᵥ w) = (Mᵀ *ᵥ φ) ⬝ᵥ w := by
+  rw [Matrix.dotProduct_mulVec]
+  congr 1
+  rw [← Matrix.transpose_transpose M, Matrix.vecMul_transpose,
+    Matrix.transpose_transpose]
+
+/-- The noise input restricted to the first block. -/
+noncomputable def stairG₁ : Matrix (Fin S.rk1) (Fin m) ℝ :=
+  S.stairG.submatrix Sum.inl id
+
+lemma stairG_c_mulVec_inl (u : Fin m → ℂ) (i : Fin S.rk1) :
+    (complexify S.stairG *ᵥ u) (Sum.inl i)
+      = (complexify S.stairG₁ *ᵥ u) i :=
+  rfl
+
+lemma stairG_c_mulVec_inr (u : Fin m → ℂ) (i : Fin S.rk2) :
+    (complexify S.stairG *ᵥ u) (Sum.inr i) = 0 := by
+  simp [Matrix.mulVec, dotProduct, stairG_inr_eq_zero]
+
+/-- Block powers of the complexified staircase matrix. -/
+lemma stairA_c_pow_blocks (k : ℕ) :
+    ∃ X : Matrix (Fin S.rk1) (Fin S.rk2) ℂ,
+      complexify S.stairA ^ k
+        = Matrix.fromBlocks (complexify S.stairA.toBlocks₁₁ ^ k) X 0
+            (complexify S.stairA.toBlocks₂₂ ^ k) := by
+  obtain ⟨X, hX⟩ := aeval_fromBlocks_triangular
+    (complexify S.stairA.toBlocks₁₁) (complexify S.stairA.toBlocks₁₂)
+    (complexify S.stairA.toBlocks₂₂) (Polynomial.X ^ k)
+  refine ⟨X, ?_⟩
+  rw [map_pow, Polynomial.aeval_X] at hX
+  rw [S.stairA_c_blocks, hX, map_pow, map_pow, Polynomial.aeval_X,
+    Polynomial.aeval_X]
+
+/-- The complex first-block coordinates of a real vector. -/
+lemma coordsC_eq (x : Fin n → ℝ) :
+    (fun i => (S.staircaseBasis.repr x (Sum.inl i) : ℂ))
+      = fun i => (complexify S.stairW *ᵥ complexifyVec x) (Sum.inl i) := by
+  funext i
+  rw [complexify_mulVec, stairW_mulVec]
+  rfl
+
+/-- The first-block pairing functional, as an additive map. -/
+noncomputable def pairLM (φ : Fin S.rk1 → ℂ) :
+    (Fin n → ℝ) →+ ℂ where
+  toFun x := φ ⬝ᵥ fun i => (S.staircaseBasis.repr x (Sum.inl i) : ℂ)
+  map_zero' := by
+    simp [dotProduct]
+  map_add' x y := by
+    simp only [map_add, Finsupp.add_apply, Complex.ofReal_add,
+      dotProduct, mul_add]
+    rw [Finset.sum_add_distrib]
+
+/-- Powers commute across the intertwiner. -/
+lemma stairW_mul_pow (j : ℕ) :
+    S.stairW * S.A ^ j = S.stairA ^ j * S.stairW := by
+  induction j with
+  | zero => simp
+  | succ j ih =>
+    calc S.stairW * S.A ^ (j + 1)
+        = (S.stairW * S.A ^ j) * S.A := by
+          rw [pow_succ, Matrix.mul_assoc]
+      _ = S.stairA ^ j * (S.stairW * S.A) := by
+          rw [ih, Matrix.mul_assoc]
+      _ = S.stairA ^ j * (S.stairA * S.stairW) := by
+          rw [← stairA_conj]
+      _ = S.stairA ^ (j + 1) * S.stairW := by
+          rw [pow_succ, Matrix.mul_assoc]
+
+/-- Left eigenvectors orthogonal to the noise kill each reachability
+term. -/
+lemma pair_reach_term {μ : ℂ} {φ : Fin S.rk1 → ℂ}
+    (hAφ : (complexify S.stairA.toBlocks₁₁)ᵀ *ᵥ φ = μ • φ)
+    (hGφ : (complexify S.stairG₁)ᵀ *ᵥ φ = 0)
+    (k : ℕ) (u : Fin m → ℝ) :
+    S.pairLM φ ((S.A ^ k * S.G) *ᵥ u) = 0 := by
+  show φ ⬝ᵥ (fun i =>
+    (S.staircaseBasis.repr ((S.A ^ k * S.G) *ᵥ u) (Sum.inl i) : ℂ)) = 0
+  rw [coordsC_eq]
+  have hm : S.stairW * (S.A ^ k * S.G) = S.stairA ^ k * S.stairG := by
+    rw [← Matrix.mul_assoc, stairW_mul_pow, Matrix.mul_assoc,
+      ← stairG_eq]
+  have h1 : complexify S.stairW *ᵥ complexifyVec ((S.A ^ k * S.G) *ᵥ u)
+      = complexify S.stairA ^ k
+          *ᵥ (complexify S.stairG *ᵥ complexifyVec u) := by
+    calc complexify S.stairW *ᵥ complexifyVec ((S.A ^ k * S.G) *ᵥ u)
+        = complexify S.stairW
+            *ᵥ (complexify (S.A ^ k * S.G) *ᵥ complexifyVec u) := by
+          conv_rhs => rw [complexify_mulVec]
+      _ = complexify (S.stairW * (S.A ^ k * S.G))
+            *ᵥ complexifyVec u := by
+          rw [Matrix.mulVec_mulVec, ← complexify_mul]
+      _ = complexify (S.stairA ^ k * S.stairG) *ᵥ complexifyVec u := by
+          rw [hm]
+      _ = complexify S.stairA ^ k
+            *ᵥ (complexify S.stairG *ᵥ complexifyVec u) := by
+          rw [complexify_mul, complexify_pow, Matrix.mulVec_mulVec]
+  simp only [h1]
+  obtain ⟨X, hX⟩ := S.stairA_c_pow_blocks k
+  simp only [hX, Matrix.fromBlocks_mulVec, Sum.elim_inl]
+  have hginr : ((complexify S.stairG *ᵥ complexifyVec u) ∘ Sum.inr)
+      = (0 : Fin S.rk2 → ℂ) :=
+    funext fun i => S.stairG_c_mulVec_inr _ i
+  have hginl : ((complexify S.stairG *ᵥ complexifyVec u) ∘ Sum.inl)
+      = complexify S.stairG₁ *ᵥ complexifyVec u :=
+    funext fun i => S.stairG_c_mulVec_inl _ i
+  simp only [hginr, hginl, Matrix.mulVec_zero, add_zero]
+  show φ ⬝ᵥ (complexify S.stairA.toBlocks₁₁ ^ k
+    *ᵥ (complexify S.stairG₁ *ᵥ complexifyVec u)) = 0
+  rw [dot_mulVec_transpose]
+  have he := aeval_mulVec_eigenvector hAφ (Polynomial.X ^ k)
+  rw [map_pow, Polynomial.aeval_X, Polynomial.eval_pow,
+    Polynomial.eval_X] at he
+  rw [Matrix.transpose_pow, he, smul_dotProduct,
+    dot_mulVec_transpose, hGφ, zero_dotProduct, smul_zero]
+
 end GeneralSystem
 
 end Estimation
