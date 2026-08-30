@@ -138,18 +138,32 @@ lint cleanup.
 
 ## Design decisions to confirm before/during S2
 
-- **D1 (`𝒳_{u,uc}` / C2's invariant form).** In staircase coordinates
-  the witness set of `lem:Sigma2-pd` is `{col(0, v₂)}`, i.e. a
-  *complement* of `V₁`, which is not itself A-invariant, and "the
-  uncontrollable subspace" is canonically a quotient, not a subspace.
-  Candidate definitions: (a) `𝒳_{u,uc} := V₁ᗮ` (dot-product
-  complement — matches the paper's *orthogonal* staircase framing and
-  makes `lem:Sigma2-pd` literal); (b) a quotient-free quadratic-form
-  phrasing of C2 directly. **Action: check Part I / the 2026a paper's
-  definition and match it**; if (a), the C2-transfer must be done in the
-  orthogonal-staircase stage (fine: define C2's coordinate form there,
-  before `T₂`, as the paper does). This is the one genuine design point
-  of the sprint — settle it first, in S2.
+- **D1 — SETTLED (from the 2026a paper).** The 2026a proof of
+  `lem:unibounded` defines the unstable, uncontrollable subspace as
+  `span E₂`, `E₂ = col(0, I_{n₂})`, *in the coordinates of the
+  orthogonal canonical form* `eq:contrb`. In original coordinates that
+  is the dot-product annihilator of the stabilizable subspace:
+  `𝒳_{u,uc} := {v | ∀ u ∈ V₁, u ⬝ᵥ v = 0}` with
+  `V₁ := reachableSubspace(A,G) ⊔ Xs(A)`, and
+  `C2 := ker Σ₀ ⊓ 𝒳_{u,uc} = ⊥`. Key computations validating the
+  non-orthogonal route: for any invertible `T₁` adapted to `V₁`,
+  `T₁⁻ᵀ (0 ⊕ ℝ^{n₂}) = 𝒳_{u,uc}` exactly (pairing
+  `⟨T₁⁻ᵀ(0,v₂), T₁(x₁,0)⟩ = (0,v₂)⬝(x₁,0) = 0`, plus surjectivity of
+  `T₁⁻ᵀ` for the reverse inclusion — no dimension theory), so
+  `lem:Sigma2-pd` and its converse transfer through the quadratic form
+  `v₂'Σ₂'v₂ = ξ'Σ₀ξ`, `ξ := T₁⁻ᵀ(0,v₂)`.
+- **D1a — proofs for S4's staircase properties, de-risked.** Both key
+  facts fall to polynomial calculus, no quotients/dimension counting:
+  (i) *`A₂` completely unstable*: a stable eigenvalue `μ` of `A₂` is a
+  stable root of `χ_{A'} = χ_{A₁}·χ_{A₂} = χ_A` (block-triangular
+  charpoly product via `det_fromBlocks_zero₂₁`; similarity invariance),
+  so `χs(μ) = 0`; then the second block of `Pa'y`, `y := (0,v₂)`, is
+  `u(μ)χs(μ)v₂ = 0` while `Ps'y` has second block `0`
+  (`range Ps ⊆ Xs ⊆ V₁`), forcing `v₂ = 0`.
+  (ii) *`(A₁,G₁)` stabilizable*: a left eigenvector `φ` of `A₁` with
+  `|μ| ≥ 1` and `φ ⊥ G₁` kills `R'` (`φ∘A₁^k G₁ = μ^k φ∘G₁ = 0`) and
+  kills `Xs'` (`0 = φ(χs(A₁)x₁) = χs(μ)φ(x₁)` with `χs(μ) ≠ 0` since
+  `|μ| ≥ 1`), hence kills `block1 = R' + Xs'`, so `φ = 0`.
 - **D2 (one `T` or two).** Two-stage (staircase, then congruence)
   mirrors the paper and keeps each transfer lemma simple; a single
   composed `T` halves the transfer boilerplate. Default: two-stage,
