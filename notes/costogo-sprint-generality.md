@@ -191,3 +191,62 @@ lint cleanup.
 Same as previous sessions: work independently, commit at each landed
 lemma-cluster, keep the scope note's status current. Estimated total:
 ~1500–2500 lines, 2–3 sessions; S4 carries the schedule risk.
+
+## Sprint outcome (2026-08-29) — COMPLETE
+
+All of S1–S7 landed; the general headline is proven and audited.
+
+- **S1** `Estimation/Instances.lean`: `exampleSystem : FIESystem 1 1 1 1`
+  and `exampleGeneralSystem : GeneralSystem 1 1 1` both compile — no
+  vacuous hypotheses in either class.
+- **S2** `Estimation/General.lean`: `GeneralSystem` (A, G, C, Σ₀, Qi, Ri;
+  only positivity hypotheses), single-block outer KKT (stationarity,
+  existence, uniqueness, gap), `value`, `optTerm`, `IsGAS`, `IsGES`, and
+  the invariant conditions `C1`, `C2` (via the annihilator `uucSub`),
+  `C3w`.
+- **S3** `LinearSystems/RealSplit.lean`: real spectral split via
+  conjugation-invariance of the complex Bezout projections
+  (`stabProj`/`antiProj`, `stableSub`).
+- **S4** `Estimation/Staircase.lean`: subspace invariance, adapted basis
+  (`prodEquivOfIsCompl`, repr-based membership), matrix intertwiner
+  `stairW`/`stairWinv`, block-triangularity, and the two D1a structural
+  facts: `stairA₂_antistable` (χa-annihilation transfer) and
+  `stair_stabilizable` (reachability pairing + stable-factor
+  annihilation). Also `lem:Sigma2-pd` both ways
+  (`C2_iff_stairSig₂_posDef`).
+- **S5/S6** `Estimation/Reduction.lean`: decoupling congruence `decT`,
+  composed transform `redT`, the `redSys : FIESystem` instance, Riccati
+  similarity, trajectory/cost/value/optimizer/terminal-error transfer
+  (under C2), GAS/GES transfer both directions, and the C1/C2/C3w
+  equivalences.
+- **Necessity replays** `Estimation/GeneralNecessity.lean`: C1-necessity
+  (unobservable-direction rollout) and C2-necessity (pinned kernel
+  direction `ξ = Wᵀ(0,w)`; window growth pulled back through the
+  prior-free `exists_window_ric_growth` added to `Coercive.lean` —
+  reduction-based window growth is legitimate here because the LQ layer
+  needs no penalty correspondence).
+- **S7** `Estimation/GeneralHeadline.lean`:
+  `GeneralSystem.gas_ges_dichotomy` —
+  `IsGAS ↔ C1 ∧ C2` and `IsGES ↔ C1 ∧ C2 ∧ C3w`, general coordinates.
+  `#print axioms`: `[propext, Classical.choice, Quot.sound]` only.
+  `lake build` green (the only repo sorry is the pre-existing
+  `Lyapunov/Defs.lean` one from the Lyapunov track).
+
+### Mapping table (paper label ↔ Lean name, generality layer)
+
+| Paper | Lean |
+|---|---|
+| `thm:gas-ges-fi` (general) | `GeneralSystem.gas_ges_dichotomy` |
+| GAS half | `GeneralSystem.isGAS_iff_C1_and_C2` |
+| GES half | `GeneralSystem.isGES_iff_C1_C2_C3w` |
+| C1 (invariant) | `GeneralSystem.C1` |
+| C2 = `ker Σ₀ ∩ 𝒳_{u,uc} = 0` | `GeneralSystem.C2` (`uucSub`) |
+| C3w (invariant Hautus form) | `GeneralSystem.C3w` |
+| `lem:Sigma2-pd` (both ways) | `GeneralSystem.C2_iff_stairSig₂_posDef` |
+| staircase `T₁` | `stairW`/`stairWinv` (+ `staircaseBasis`) |
+| decoupling `T₂` | `decK`/`decT`; composed: `redT` |
+| reduced-class member | `GeneralSystem.redSys : FIESystem` |
+| `(A₁,G₁)` stabilizable | `GeneralSystem.stair_stabilizable` |
+| `A₂` antistable | `GeneralSystem.stairA₂_antistable` |
+| C1-necessity (general) | `GeneralSystem.C1_of_isGAS` |
+| C2-necessity (general, patched) | `GeneralSystem.C2_of_isGAS` |
