@@ -296,4 +296,51 @@ theorem exists_real_split (A : Matrix (Fin d) (Fin d) ℝ) :
   · rw [hcplxSub, hPsC]
     exact hantiPac
 
+/-! ### The projections as definitions -/
+
+/-- The real stable spectral projection (chosen). -/
+noncomputable def stabProj (A : Matrix (Fin d) (Fin d) ℝ) :
+    Matrix (Fin d) (Fin d) ℝ :=
+  (exists_real_split A).choose
+
+/-- The real antistable spectral projection (chosen). -/
+noncomputable def antiProj (A : Matrix (Fin d) (Fin d) ℝ) :
+    Matrix (Fin d) (Fin d) ℝ :=
+  (exists_real_split A).choose_spec.choose
+
+lemma stabProj_add_antiProj (A : Matrix (Fin d) (Fin d) ℝ) :
+    stabProj A + antiProj A = 1 :=
+  (exists_real_split A).choose_spec.choose_spec.1
+
+lemma stabProj_comm (A : Matrix (Fin d) (Fin d) ℝ) :
+    A * stabProj A = stabProj A * A :=
+  (exists_real_split A).choose_spec.choose_spec.2.1
+
+lemma antiProj_comm (A : Matrix (Fin d) (Fin d) ℝ) :
+    A * antiProj A = antiProj A * A :=
+  (exists_real_split A).choose_spec.choose_spec.2.2.1
+
+lemma stabProj_idem (A : Matrix (Fin d) (Fin d) ℝ) :
+    stabProj A * stabProj A = stabProj A :=
+  (exists_real_split A).choose_spec.choose_spec.2.2.2.1
+
+lemma antiProj_idem (A : Matrix (Fin d) (Fin d) ℝ) :
+    antiProj A * antiProj A = antiProj A :=
+  (exists_real_split A).choose_spec.choose_spec.2.2.2.2.1
+
+lemma stabPoly_mul_stabProj (A : Matrix (Fin d) (Fin d) ℝ) :
+    Polynomial.aeval (complexify A) (stabPoly (complexify A))
+      * complexify (stabProj A) = 0 :=
+  (exists_real_split A).choose_spec.choose_spec.2.2.2.2.2.1
+
+lemma antiPoly_mul_antiProj (A : Matrix (Fin d) (Fin d) ℝ) :
+    Polynomial.aeval (complexify A) (antiPoly (complexify A))
+      * complexify (antiProj A) = 0 :=
+  (exists_real_split A).choose_spec.choose_spec.2.2.2.2.2.2
+
+/-- The real stable subspace. -/
+noncomputable def stableSub (A : Matrix (Fin d) (Fin d) ℝ) :
+    Submodule ℝ (Fin d → ℝ) :=
+  LinearMap.range ((stabProj A).mulVecLin)
+
 end LinearSystems

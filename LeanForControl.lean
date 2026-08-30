@@ -8,6 +8,7 @@ import LeanForControl.Estimation.Infhor
 import LeanForControl.Estimation.GAS
 import LeanForControl.Estimation.Instances
 import LeanForControl.Estimation.GES
+import LeanForControl.Estimation.General
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
