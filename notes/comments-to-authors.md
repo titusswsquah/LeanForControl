@@ -1,9 +1,11 @@
 # Comments to the authors — action items from the Lean verification
 
 Context in one line: every theorem-level claim of paper.tex is
-machine-verified, sorry-free, by the paper's own proof routes
-(`notes/leanverify-2026a-program.md` has the full mapping tables).
-Below is only what needs a change or a decision in the text.
+machine-verified, sorry-free, by the paper's own proof routes — except
+`prop:modQgas`, which is verified only under the restated hypotheses
+of item 3 below (`notes/leanverify-2026a-program.md` has the full
+mapping tables). Below is only what needs a change or a decision in
+the text.
 
 ## Must fix
 
@@ -27,15 +29,27 @@ Below is only what needs a change or a decision in the text.
    gas-lyap draft or RMD20) or absorb the argument — the pinv-free
    version is shorter on paper too.
 
-3. **`def:modQ`/`prop:modQgas` carry a hidden hypothesis.** The
-   `prop:modQgas` proof takes `Q(j|∞) := lim_k Q(j|k)` to exist "by
-   `prop:infhor` and continuity" — but that argument is specific to
-   the *constructed* Q of `prop:tvkfQuns`; an arbitrary function
-   satisfying only `eq:QunsInitUB`/`eq:QunsLBUB`/`eq:QunsDecrease`
-   need not converge along horizons. **Patch:** either add existence
-   of the horizon limits to `def:modQ`, or state `prop:modQgas` for
-   Q-functions with convergent horizon limits (the Lean version does
-   the latter; the constructed Q supplies the convergence).
+3. **`def:modQ`/`prop:modQgas` carry hidden hypotheses.** Three
+   leaks, all silent in the statement of `prop:modQgas`:
+   (a) *Horizon limits.* The proof takes `Q(j|∞) := lim_k Q(j|k)` to
+   exist "by `prop:infhor` and continuity" — but that argument is
+   specific to the *constructed* Q of `prop:tvkfQuns`; an arbitrary
+   function satisfying only `eq:QunsInitUB`/`eq:QunsLBUB`/
+   `eq:QunsDecrease` need not converge along horizons.
+   (b) *C1 ∧ C2.* The appeal to `prop:infhor` also imports that
+   proposition's standing hypotheses — `prop:infhor` is stated under
+   exactly C1 and C2, while `prop:modQgas` carries no hypotheses
+   beyond admitting a modified Q-function.
+   (c) *Index range.* The proof uses the decrease inequality at
+   indices `eq:QunsDecrease` does not cover: `eq:QunsDecrease`
+   restricts to `0 ≤ j ≤ k−1`, and the limit argument needs it for
+   all `j`.
+   **Patch:** restate the hypotheses of `prop:modQgas` (a convergence
+   clause alone is not enough): assume C1 ∧ C2, convergent horizon
+   limits, and decrease at all indices — or fold (a)/(c) into
+   `def:modQ`. The Lean version (`isGAS_of_modQ`) does exactly this,
+   and the constructed Q of `prop:tvkfQuns` supplies all three, so
+   the intended application is unaffected.
 
 ## Minor text fixes
 

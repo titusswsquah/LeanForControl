@@ -241,3 +241,22 @@ are none after `prop:infhor`.
 - The Lyapunov and ODE tracks.
 - Whether `costogo.tex` has been patched for the `prop:gas` defect
   reported in the earlier costogo-track audit.
+
+## Remediation (applied after the audit; the sections above are the
+frozen audit-time record)
+
+- **A1**: coverage claims softened in `pr-body-2026a-phase2.md` and
+  the opening of `comments-to-authors.md`; item 3 widened to all
+  three hidden hypotheses (horizon limits, C1 ∧ C2, index range).
+- **A2**: `README.md` corrected — it now discloses the one parked
+  Lyapunov-track `sorry`.
+- **A3**: `exists_red_window_growth` deleted; with it
+  `Coercive.lean::exists_window_ric_growth`, whose only consumer it
+  was. The `GeneralNecessity.lean` module docstring now describes the
+  live `eq:iosssum` route.
+- **A4**: footnote added to the program note (decision D5).
+- **§4 guard promoted**: the audit's `bad` system now lives in
+  `Estimation/Instances.lean` as `badSystem`, with
+  `badSystem_dre`/`badSystem_kfErrTrans`/`badSystem_C1`/
+  `badSystem_not_gas`/`badSystem_not_C2`; `#print axioms` on all five
+  reports `[propext, Classical.choice, Quot.sound]`.

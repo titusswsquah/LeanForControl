@@ -12,9 +12,14 @@ use it as a follow-up comment on the open PR.)
 
 Completes the program in `notes/leanverify-2026a-program.md`: every
 theorem-level claim of `rawlings_quah_mueller_2026a/paper.tex` is now
-machine-verified **by the paper's own proof route**, and the headline
-`prop:tvkf` is verified as the paper's literal sentence about the
-time-varying Kalman filter:
+machine-verified, **by the paper's own proof route** — with one
+disclosed exception: `prop:modQgas` is verified (`isGAS_of_modQ`)
+under restated hypotheses (C1 ∧ C2, existence of the horizon limits,
+and decrease at all indices), which the paper's own proof silently
+uses but its statement omits; see finding 3/8 and the audit note
+(`notes/leanverify-2026a-audit.md`, A1). The headline `prop:tvkf` is
+verified as the paper's literal sentence about the time-varying
+Kalman filter:
 
 ```lean
 theorem prop_tvkf : S.IsGASkf ↔ S.C1 ∧ S.C2

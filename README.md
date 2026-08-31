@@ -11,7 +11,11 @@ lake exe cache get          # download mathlib's prebuilt artifacts
 lake build                  # builds the project (~minutes the first time)
 ```
 
-`lake build` green is the source of truth. No `sorry`, `admit`, or `axiom`.
+`lake build` green is the source of truth. No `admit` or `axiom`, and one
+`sorry` in the whole tree: `contDiffOn_extension`
+(`LeanForControl/Lyapunov/Defs.lean`), a parked Lyapunov-track stub that
+nothing references — `#print axioms` on every headline theorem reports
+`[propext, Classical.choice, Quot.sound]`, no `sorryAx`.
 
 ## Three ways to look at the project
 

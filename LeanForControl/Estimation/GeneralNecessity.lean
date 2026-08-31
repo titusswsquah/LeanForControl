@@ -11,9 +11,10 @@ the reduction of `Estimation.Reduction`, because the correspondence of
 prior penalties itself requires C2. This file replays the two necessity
 arguments directly on a `GeneralSystem`: the unobservable-direction
 argument for C1, and the patched pinned-kernel argument for C2 (linear
-window growth against the sublinear GAS cap). The window growth is
-imported from the reduced system through the prior-free
-`exists_window_ric_growth`, which needs no penalty correspondence.
+window growth against the sublinear GAS cap). The growth is produced
+by the paper's `eq:iosssum` chain — the IOSS Lyapunov summation along
+the optimal trajectories, dominated by the optimal cost, against the
+antistable gramian — with no penalty correspondence needed.
 -/
 
 namespace Estimation
@@ -291,36 +292,6 @@ theorem value_le_sum_optTerm (a : Fin n → ℝ) : ∀ T : ℕ,
     have h1 := S.value_succ_le a T
     have h2 := value_le_sum_optTerm a T
     linarith
-
-/-! ### Window growth pulled back from the reduction -/
-
-/-- Linear window growth of the general value, weighted by the
-second-block staircase coordinates of the optimizer. -/
-theorem exists_red_window_growth (hC1 : S.C1) :
-    ∃ β : ℝ, 0 < β ∧ ∀ (a : Fin n → ℝ) (J T : ℕ), 1 ≤ J →
-      (S.rk1 + S.rk2) * J ≤ T →
-      β * J * ‖FIESystem.blk₂ (S.redT *ᵥ S.optInit a T)‖ ^ 2
-        ≤ S.value a T := by
-  obtain ⟨β, hβ, hg⟩ :=
-    S.redSys.exists_window_ric_growth (S.red_C1_iff.mpr hC1)
-  refine ⟨β, hβ, fun a J T hJ hJT => ?_⟩
-  have h1 := hg (S.redT *ᵥ S.optInit a T) J T hJ hJT
-  have h2 : quadForm (S.redSys.lq.ric T) (S.redT *ᵥ S.optInit a T)
-      = quadForm (S.glq.ric T) (S.optInit a T) := by
-    rw [quadForm_mulVec, red_ric]
-    congr 1
-    calc S.redTᵀ * (S.redTinvᵀ * S.glq.ric T * S.redTinv) * S.redT
-        = S.redTᵀ * (S.redTinvᵀ * (S.glq.ric T
-          * (S.redTinv * S.redT))) := by
-          simp only [Matrix.mul_assoc]
-      _ = S.glq.ric T := by
-          rw [redTinv_mul_redT, Matrix.mul_one, redTt_redTinvt_cancel]
-  have h3 : quadForm (S.glq.ric T) (S.optInit a T) ≤ S.value a T := by
-    have h4 := S.priorPen_nonneg a (S.optInit a T)
-    unfold value
-    linarith
-  rw [h2] at h1
-  linarith
 
 /-- Second-block coordinates through `redT` agree with the staircase
 coordinates. -/

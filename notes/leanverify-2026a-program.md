@@ -110,6 +110,10 @@ deviation device, infinite-horizon `tsum` cost, `detect_inj`, `lqr`,
   C2-free, by the paper's flat completing-of-squares (F1).
 - **D5 (Q-function).** `def:modQ` specialized to quadratic μ's;
   `prop:modQgas` proved in KL-product form `β(r,k) = r·α(k)`.
+  Footnote (audit A4): the product form does not require `α > 0`, so
+  strictly `β(·,k)` is not K∞ when `α(k) = 0`; harmless — any such
+  `α` can be bumped by a positive null sequence — but worth noting if
+  `def:GAS` fidelity is ever challenged.
 - **D6 (estimator object).** Phase 1 states theorems about the
   ℙ-optimizer (as in the costogo track); Phase 2 upgrades every
   statement to the Kalman filter via `lem:semiPT`, making `prop:tvkf`
