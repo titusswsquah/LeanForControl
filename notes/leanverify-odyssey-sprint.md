@@ -219,7 +219,70 @@ Read before each phase; these are where the chain most likely breaks.
 - End-of-sprint: adversarial self-audit of the Lean layer (the
   2026a-audit pattern), then PR body in `notes/`.
 
-## 8. Definition-of-done
+## 8. Phase 0 addendum — inventory results and decisions (2026-08-31)
+
+Inventory of §3, executed. Verdicts against the deck's needs:
+
+| Deck object | Verdict | Detail |
+|---|---|---|
+| `fact:no-decay` | **covers** | `SpectralGrowth.lean:343 no_decay` (blueprint-tagged) |
+| `fact:schur-decay` | **covers** | `Schur.lean`: `IsSchurStable.exists_pow_norm_le`, `exists_pow_mulVec_le`, iff versions |
+| `fact:uniexp` (⇐) | **covers** | `UniformExpStability.lean:224 transitionProd_norm_le_of_tendsto` (F→L Schur ⇒ uniform exp bound, uniform in start time; also `revProd` variant) |
+| `fact:gramian` (H = I) | **covers** | `SpectralGrowth.lean:319 gramian_growth` (quantitative: `c·T·‖v‖²`) |
+| `fact:gramian` (observable-injection form) | missing | needed by `lem:marginal`; build on `PolynomialSampling.sum_sq_norm_eval_ge` |
+| `fact:poly-growth` | partial | `pow_mulVec_le_poly` — exponent `n−1` not `m−1`, vector form; consumers only need "some polynomial rate", so this covers with a **recorded deviation** (sharp Jordan exponent not formalized; `thm:payoff`'s defective-case growth statement must be phrased against `n−1`) |
+| `fact:schur` (complement) | mathlib | `Matrix.PosDef.fromBlocks₂₂` (PosDef.lean:566); thin ℝ/ᵀ wrapper needed |
+| `fact:psd-bounds` | mathlib + `QuadForm.lean` | Löwner⇄quadForm bridge exists both directions |
+| `fact:update-kernel` | derive | from `measM_mul_key`/the completed-square in `KalmanFilter.lean:165` — inverse-free route available |
+| `eq:comparison` (a02-1) | **MISSING** | no Löwner monotonicity of any Riccati map anywhere in repo; build via Joseph-form gain minimization + `quadForm_le_quadForm_of_posSemidef_sub` bridge |
+| Joseph form, information form | missing | `KalmanFilter.lean` is deliberately inverse-free; add a Joseph layer (info form only if a consumer truly needs it) |
+| `eq:diff-id`/`eq:gap-ric` (a02-3) | missing | new; the resolvent identities at `KalmanFilter.lean:238–275` are the ingredients |
+| `eq:Jrec`/`eq:Jgram` (a02-2) | missing | new; needs inversion-antitone (below) |
+| Löwner inversion antitone | missing | mathlib has it only in CStar scoped-order form; prove directly in the repo's `quadForm`/`PosSemidef`-sub idiom |
+| Zero-seed Riccati convergence + Schur closed loop | **covers** (control form) | `StagedFacts.lqr_convergence` (stabilizable + Qs-detectable, seed 0); `RiccatiConvergence.lean` |
+| Arbitrary-seed convergence | missing | this is what the deck *proves*; not an import |
+| Two-block frame + reductions | **covers** | `FIESystem`, `Staircase.lean` (staircase basis, `C2_iff_stairSig₂_posDef`), `Reduction.lean` (`redSys`, transfer theorems) |
+| Three-block frame (marginal) | **MISSING** | no `n_m` anywhere; new structure needed |
+| Push-through/Woodbury | partial | mathlib `add_mul_mul_inv_eq_sub` unused; repo's inverse-free resolvents preferred |
+
+**Decisions:**
+
+- **D1 (Phase-1 carrier).** The a02 machinery layer is frame-free:
+  state it on `GeneralSystem` (its `dreStep`/`dre` are literally the
+  deck's `R`-map and `eq:cov-rec`). No new structure until Phase 2.
+- **D2 (three-block frame).** New structure for Phases 2+, index
+  `Fin n₁ ⊕ (Fin nₐ ⊕ Fin n_m)` (inner sum = the `e₂` block, so
+  `A₂ = A_a ⊕ A_m` reuses two-block lemmas at the outer level). The
+  C3w regime is `n_m = 0`. Working name `DareSystem`; module dir
+  `LeanForControl/Estimation/Dare/`.
+- **D3 (comparison route).** `eq:comparison` via the Joseph form:
+  define `josephForm K Σ := (1−KC)Σ(1−KC)ᵀ + K R Kᵀ`, prove
+  `U(Σ) = josephForm K*(Σ) Σ ⪯ josephForm K Σ` for all `K`
+  (completed square), then monotonicity by
+  `U(Σ₁) ⪯ josephForm K₂* Σ₁ ⪯ josephForm K₂* Σ₂ = U(Σ₂)`.
+- **D4 (R1 sharpened — pre-finding).** The conditional filter of
+  `lem:condfilter` is seeded at `P₀ = 0` (the slaved seed has zero
+  `e₁` block), so the needed import is **zero-seed** filtering-DRE
+  convergence for the reduced (A₁,C₁,G₁) system — monotone-in-horizon
+  + bounded + identification, the dual of `lqr_convergence` — NOT
+  arbitrary-seed convergence. Still a hole as *written* (the deck
+  cites `fact:dare-strong`, which carries no attraction statement);
+  the repair is to add the zero-seed convergence claim as a stated,
+  provable lemma. Goes to findings when Phase 4 confirms.
+- **D5 (deviation register).** (i) `fact:poly-growth` exponent `n−1`
+  in place of the Jordan-sharp `m−1`. (ii) `fact:uniexp` imported as
+  ⇐ only. Others as they arise.
+
+**Phase-1 worklist** (order of proof, each numeric-checked where
+nontrivial before writing the Lean):
+P1.1 pure-matrix layer: Schur-complement wrapper, inversion antitone,
+`fact:update-kernel`, update contraction `U(Σ) ⪯ Σ`.
+P1.2 Joseph form + `eq:comparison` (D3).
+P1.3 gap engine: `eq:diff-id`, `eq:diff-unroll`, `eq:gap-ric`.
+P1.4 observable-injection gramian (`fact:gramian` second form).
+P1.5 `eq:dare-cov` similarity covariance (a01-1).
+
+## 9. Definition-of-done
 
 - Every deck result has a Lean counterpart by the deck's own route, or
   a recorded, justified deviation.
