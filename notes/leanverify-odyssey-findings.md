@@ -121,3 +121,28 @@ Candidate repair: a gap-floor argument in the style of the repo's
 `GES.exists_gap_floor_of_not_C3w`. Also the parenthetical spectral
 route needs "exponential ⇒ ρ(F∞) < 1", likewise unestablished. To be
 resolved when 08 enters verification.
+
+## 8. `lem:marginal` statement — **optional, ADOPTED** (deck commit
+571c5a5): the verified proof gives strictly more than first repaired
+
+The Lean proof (`DareSystem.marg_block_norm_tendsto`) needs **no**
+hypothesis on the prior beyond PSD: no `Σ̄₀|₂₂ ≻ 0`, no comparison
+step, and only *forward* power-boundedness of `Aₘ`
+(`c_m = sup‖Aₘᵏ‖ < ∞`, `k ≥ 0`). Statement strengthened accordingly:
+"for **any** PSD prior directly". This supersedes the weakened
+hypothesis introduced by finding 6 — the corner-positivity hypothesis
+is gone entirely, not weakened.
+
+## 9. `lem:supremal` statement — **optional, ADOPTED** (deck commit
+2bd7323): the supremal seed needs no block positivity
+
+`Σ̄₀|₂₂ ≻ 0` in the statement was a stale leftover from the
+pre-repair `lem:marginal`; the verified proof
+(`DareSystem.supremal_tendsto`, `Dare/Supremal.lean`) runs from any
+PSD `Σ̄₀ ⪰ Σ∞`. Dropped, along with the stale parenthetical at the
+Marginal/cross step. `06-sufficiency` already cited the weaker form.
+Note for the record: the Lean takes `eq:Finf-spec` restricted to
+`e₁⊕a` as an explicit `IsSchurStable` hypothesis — the same imported
+status the display has in the deck (`lem:structure`-1's spectrum
+claim); if `eq:Finf-spec` is ever proven on-page, the hypothesis
+discharges.
