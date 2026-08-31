@@ -356,7 +356,23 @@ split), Gate-2 `check_marginal_route.py`. Price: semisimple
 (power-bounded) marginal modes; defective case OPEN in the deck,
 qualification propagated to 03/06/08/00. Finding 7 flagged OPEN in
 08 (the exponential⇒C3w converse needs a marginal-gap rate floor).
-Lean verification of the repaired route: OB.1 in progress.
+Lean verification of the repaired route: OB.1a landed
+(`Dare/Variational.lean`: the exact update decrease
+`qΣx − qU(Σ)x = qS⁻¹(CΣx)` + the Cauchy–Schwarz floor
+`updM_quadForm_le_sub` — shorter than the deck's rank-one Joseph
+square, a deck-polish candidate). **Next (OB.1b/c):** the generic
+Schur-kernel × ℓ²-input convergence lemma (unroll + midpoint split;
+no existing repo convolution lemma found — build fresh, possibly
+with the simpler null-sequence form since `Σe² < ∞ ⇒ e → 0`), then
+the frame assembly: `Y_T := Σ̄_T E₂ A₂^{-Tᵀ}`, the φ-telescope via
+`updM_quadForm_le_sub` + `eq:bounded`'s innovation cap, the
+`Y`-recursion identity from the `E₂`-column intertwinings (mirror
+`embA`/`embM` plumbing on the full `e₂` inclusion), and the
+power-bounded closing (`hMargPB` hypothesis: carry power-boundedness
+itself; semisimple ⇒ power-bounded is a separate import/fact).
+Then `lem:supremal` (OB.2), whose pieces (gap-ric, Finf-spec bundle
+field `eq:Finf-c3w`, marginal rows via `fact:schur`) are mostly in
+place.
 
 ## 10. Definition-of-done
 
