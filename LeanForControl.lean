@@ -24,6 +24,7 @@ import LeanForControl.Estimation.Dare.BlockInfo
 import LeanForControl.Estimation.Dare.System
 import LeanForControl.Estimation.Dare.Bounded
 import LeanForControl.Estimation.Dare.KernelInvariance
+import LeanForControl.Estimation.Dare.StrongSolution
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
