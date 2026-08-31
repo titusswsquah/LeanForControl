@@ -51,3 +51,31 @@ verbatim — against `ρ(F∞) ≤ 1`. **Patch (applied):** the heuristic
 sentence in `odyssey-src/01-structure.md` (both lemmas) is replaced
 by this three-step argument, thinning the reliance on the imported
 Fact 1; Gate-2 record `odyssey-src/scratch/check_kernel_invariance.py`.
+
+## 3. `lem:structure-marg`, correction kill — **soft-leaning, ADOPTED**
+(deck commit d631937): matrix series convergence + spectral
+factorization eliminated
+
+The `Δ|ₘₘ = 0` step asserted "partial sums nondecreasing and bounded
+above, so the series converges" — Löwner-order monotone convergence
+for matrices, true but uncited and nontrivial — then factored
+`Δ|ₘₘ` spectrally to run `fact:no-decay` per eigenvector. The
+verified route needs neither: the Stein unroll telescopes *exactly*
+in quadratic form, giving summable orbit energy outright, and a PSD
+Cauchy–Schwarz floor (`QuadForm.sq_dotProduct_mulVec_le`, proved by
+`discrim_le_zero`) reduces the kill to `fact:no-decay` on the single
+vector `Δ|ₘₘx`. Lean: `Dare/Marginal.lean::
+posSemidef_eq_zero_of_orbit_summable` + `strong_marg_correction_eq_zero`.
+
+## 4. `lem:structure-marg`, column kill — **soft, ADOPTED**
+(deck commit 45b0f6f): undeclared `NO(C,A) ⊆ stable` import removed
+
+The `Z = Σ∞|·ₘ = 0` conclusion invoked "detectability confines
+`NO(C,A)` to the stable subspace" — a standard fact absent from
+`app:facts` (an undeclared import), plus invariant-subspace spectral
+reasoning. The verified route: take the stabilizing injection `L`
+(`A−LC` Schur), then `CZ = 0` gives the intertwining
+`(A−LC)ᵏZ = ZAₘ^{-k'}` — geometric decay on the left against
+`fact:no-decay` on the rows kills `Z`, using only declared facts and
+with defective marginal Jordan blocks needing no special treatment.
+Lean: `Dare/Marginal.lean::strong_marg_extinct`.

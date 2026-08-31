@@ -330,11 +330,21 @@ shared core of `lem:structure`-1/-marg and the lever
 `strong_stein` — `eq:Sinf-gram` in relation form, series deferred
 to Phase B).
 
-**Phase-A remainder (next):** `lem:structure-marg`'s marginal
-extinction `Σ∞|·ₘ = 0` (Stein/no-decay + the unobservable-columns
-argument — the meatiest remaining piece, needed by `thm:necessity`'s
-marginal case and Phase B's `lem:supremal`); the `F∞` Schur-under-C3w
-bundle field lands with its first consumer. Then Phase B.
+**2026-08-31 (session 2, continued) — PHASE A COMPLETE.** OA.3
+landed: marginal extinction `Σ∞|·ₘ = 0` = `strong_marg_extinct`
+(`Dare/Marginal.lean`), via the exact Stein telescope + the generic
+orbit-kill lemma (PSD Cauchy–Schwarz floor, new
+`QuadForm.sq_dotProduct_mulVec_le`) for the correction, and the
+output-injection intertwining (`detect_inj` + `fact:schur-decay` vs
+`fact:no-decay` on the rows) for the columns. Two further findings
+(3: uncited matrix series convergence + spectral factorization;
+4: undeclared `NO(C,A) ⊆ stable` import) — both adopted into the
+deck with per-finding commits and a closing lean-sync. Every
+Phase-A label now resolves to a Lean declaration or a named import;
+the one remaining bundle field (`eq:Finf-c3w` / `F∞` Schur under
+C3w) lands with its first Phase-B consumer. **Next: Phase B** — the
+upper anchor (`lem:marginal`, risk R2: expect the hole protocol) and
+`lem:supremal`, then the lower anchor and assembly.
 
 ## 10. Definition-of-done
 
