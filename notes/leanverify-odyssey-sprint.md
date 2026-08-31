@@ -67,11 +67,11 @@ how the paper imports them:
   Anti-cheat rule: each theorem takes the *minimal* fields it uses, so
   the bundle cannot smuggle a conclusion (the 2026a audit's
   "definition correspondence" test applies).
-- `fact:filter-opt` enters only through `eq:bounded`
-  (`lem:structure`-2). Preferred: prove `eq:bounded` directly by
-  comparison against the fixed-gain Lyapunov recursion — the repo's
-  route in costogo (`StabilizableBound`, GES track) — sidestepping the
-  MMSE import entirely. Decide in Phase 2.
+- `fact:filter-opt` entered only through `eq:bounded`
+  (`lem:structure`-2). **Resolved (O2.3):** proved by the
+  predictor-form Joseph domination against the fixed-gain Lyapunov
+  recursion (`Dare/Bounded.lean`) — the MMSE import is eliminated
+  from the Lean layer entirely (findings entry 1).
 - Where a piece of an import is provable with existing repo machinery
   (e.g. existence of Σ∞ as a monotone Riccati limit on the C3w branch,
   `exists_ric_limit_of_bounded`), prove it and shrink the bundle.
@@ -83,56 +83,53 @@ how the paper imports them:
 | `eq:cov-rec`, U, R-map, gains | `Estimation/KalmanFilter.lean`: `dre`, `dreStep`, `measM`, `kfGain`, `errF`, `innovS` (+ `measM_mul_key`, pinv-free algebra) |
 | `fact:schur-decay` | `LinearSystems/Schur.lean`: `isSchurStable_iff_exists_pow_norm_le` etc. |
 | `fact:psd-bounds` | mathlib (`PosSemidef`, eigenvalue bounds) + `QuadForm.lean` |
-| `fact:no-decay`, `fact:gramian`, `fact:poly-growth` | `SpectralGrowth`/`SpectralDynamics`/`PolynomialSampling` + 2026a `gramian_growth` — inventory in Phase 0 |
+| `fact:no-decay`, `fact:gramian`, `fact:poly-growth` | `SpectralGrowth`/`SpectralDynamics`/`PolynomialSampling` + 2026a `gramian_growth` — verdicts in §8 |
 | `fact:update-kernel` | close kin of `measM_mul_key`; derive |
 | Detectability/stabilizability, PBH | `Detectability.lean`, `Hautus.lean` |
 | Riccati convergence, stabilizing closed loop | `RiccatiConvergence.lean` (`exists_ric_limit_of_bounded`, `acl_schur_of_fixed`), `Estimation/GES.lean` |
 | Frames/staircase reductions | costogo `FIESystem`, `Estimation/Reduction.lean`, `Staircase.lean` |
 | Uniform exp. stability of TV systems (`fact:uniexp` ⇐) | `UniformExpStability.lean` — check coverage |
 
-Phase 0 produces the exact inventory; expect the facts layer to be
-substantially cheaper than 2026a's was.
+The executed inventory with verdicts is §8; the facts layer was
+indeed substantially cheaper than 2026a's.
 
 ## 4. Phases
 
-Each phase lands as its own commit (or a few), builds green, and ends
-with `#print axioms` on the new heads. Naming: `O0`, `O1.1`, … in
-commit subjects.
+Three phases. Each work package lands as its own commit, builds green,
+and ends with `#print axioms` on the new heads. Commit prefixes: the
+Phase-A packages already landed carry the historic `O0`–`O2.x`
+numbering; new packages use `OA`/`OB`/`OC` per phase.
 
-- **Phase 0 — inventory + frame decision.** Map a00-facts onto the
-  repo; decide the Lean carrier for `eq:three-block` (extend the
-  costogo staircase machinery vs. a new three-block structure vs.
-  invariant subspace statements à la 2026a F2a). Decide module layout
-  (suggest `LeanForControl/Estimation/Dare/…`). Deliverable: a short
-  addendum to this note with the mapping table filled in.
-- **Phase 1 — machinery layer.** a00 facts not yet in the repo;
-  a01 (`eq:dare-cov` similarity covariance, `eq:prior-pos`); a02
-  (`eq:comparison` via the Joseph-form gain minimization, the
-  `eq:Jrec`/`eq:Jgram` A₂⁻¹-information recursion, gap engine
-  `eq:diff-id`/`eq:diff-unroll`/`eq:gap-ric`). These are the
-  most-reused nodes — verify first, exactly as proof-engineering
-  orders effort.
-- **Phase 2 — structure + criterion (01, 02).** `lem:structure`
-  (risk R3 below), `lem:structure-marg` (the Stein/no-decay extinction
-  argument), `eq:bounded` (import decision of §2), `lem:criterion-w`.
-- **Phase 3 — upper anchor (03).** `lem:marginal` (risk R2 — the
-  likeliest first hole), `lem:supremal`.
-- **Phase 4 — lower anchor (04, 05).** `lem:loading`,
-  `lem:condfilter` (risk R1 — undeclared convergence import),
-  `lem:jtransform` (risk R5), `lem:slaved-seed`, `lem:lowsqueeze`.
-- **Phase 5 — assembly (06–08).** `thm:sufficiency`, `thm:necessity`,
-  `thm:main`. Confinement gates: C3w must appear only in the
-  rate/Part-2 refinement; the GAS chain must never read it. The
-  "floor-free" claim is checked mechanically by Lean's hypothesis
-  tracking — a selling point of this verification.
-- **Phase 6 — payoff (09).** `thm:payoff` (risk R4), `cor:every-prior`.
-- **Phase 7 — Arc 1 (a03, a04), stretch.** `thm:formula` by the joint
-  induction (denominator nonsingularity + one Riccati step),
-  `cor:phi`, `lem:sysinterp` (deflating-subspace layer — the heaviest
-  import surface; hypothesis-bundle the Lancaster–Rodman
-  complementary-deflating-subspace input). Off the headline's critical
-  path; do last or drop to a follow-up sprint if Phases 1–6 consume
-  the budget.
+- **Phase A — Foundations** (former Phases 0–2: inventory, machinery,
+  frame, structure). *Largely landed.* Done: inventory + decisions
+  (§8), the a02 machinery layer (`eq:comparison`, gap engine,
+  `eq:Jrec`, inversion antitone, `fact:update-kernel`), the
+  `DareSystem` three-block frame with `lem:criterion-w`
+  (`eq:prior-pos`), `eq:A2-inv`, and `eq:bounded` (`lem:structure`-2,
+  `fact:filter-opt` eliminated). **Remaining:** the `StrongSolution`
+  hypothesis bundle (§2, risk R7), `lem:structure`-1/-3 (risk R3),
+  `lem:structure-marg` (the Stein/no-decay extinction argument), and
+  the deferred consumer-driven bits (observable-injection gramian for
+  the upper anchor; `eq:dare-cov` only if a transfer layer is built).
+- **Phase B — The squeeze** (former Phases 3–5: both anchors +
+  assembly). Upper anchor: `lem:marginal` (risk R2 — the likeliest
+  first hole), `lem:supremal`. Lower anchor: `lem:slaved-seed`,
+  `lem:loading`, `lem:condfilter` (risk R1 — undeclared convergence
+  import), `lem:jtransform` (risk R5), `lem:lowsqueeze`. Assembly:
+  `thm:sufficiency`, `thm:necessity`, `thm:main`. Confinement gates:
+  C3w must appear only in the rate/Part-2 refinement; the GAS chain
+  must never read it; the "floor-free" claim is checked mechanically
+  by Lean's hypothesis tracking — a selling point of this
+  verification. Most of the pre-registered risk mass lives here;
+  expect the hole protocol (§5) to fire in this phase.
+- **Phase C — Payoff + Arc 1** (former Phases 6–7). `thm:payoff`
+  (risk R4), `cor:every-prior`; then, as stretch, the closed-form arc:
+  `thm:formula` by the joint induction (denominator nonsingularity +
+  one Riccati step), `cor:phi`, `lem:sysinterp` (deflating-subspace
+  layer — the heaviest import surface; hypothesis-bundle the
+  Lancaster–Rodman complementary-deflating-subspace input). Arc 1 is
+  off the headline's critical path; drop it to a follow-up sprint if
+  Phases A–B consume the budget.
 
 Vacuity guards land with their phases (2026a lesson): a witness
 satisfying C1+C2+C3w, one satisfying C1+C2w¬C3w (marginal present),
@@ -219,7 +216,7 @@ Read before each phase; these are where the chain most likely breaks.
 - End-of-sprint: adversarial self-audit of the Lean layer (the
   2026a-audit pattern), then PR body in `notes/`.
 
-## 8. Phase 0 addendum — inventory results and decisions (2026-08-31)
+## 8. Inventory addendum — results and decisions (executed 2026-08-31, opening Phase A)
 
 Inventory of §3, executed. Verdicts against the deck's needs:
 
@@ -247,10 +244,11 @@ Inventory of §3, executed. Verdicts against the deck's needs:
 
 **Decisions:**
 
-- **D1 (Phase-1 carrier).** The a02 machinery layer is frame-free:
-  state it on `GeneralSystem` (its `dreStep`/`dre` are literally the
-  deck's `R`-map and `eq:cov-rec`). No new structure until Phase 2.
-- **D2 (three-block frame).** New structure for Phases 2+, index
+- **D1 (machinery carrier).** The a02 machinery layer is frame-free:
+  state it index-generically (as executed in `Dare/Update.lean` —
+  generic `ι`, not `GeneralSystem`); the frame structure comes only
+  with the `DareSystem` package (landed as O2.2).
+- **D2 (three-block frame).** New structure from the frame package on, index
   `Fin n₁ ⊕ (Fin nₐ ⊕ Fin n_m)` (inner sum = the `e₂` block, so
   `A₂ = A_a ⊕ A_m` reuses two-block lemmas at the outer level). The
   C3w regime is `n_m = 0`. Working name `DareSystem`; module dir
@@ -268,13 +266,13 @@ Inventory of §3, executed. Verdicts against the deck's needs:
   arbitrary-seed convergence. Still a hole as *written* (the deck
   cites `fact:dare-strong`, which carries no attraction statement);
   the repair is to add the zero-seed convergence claim as a stated,
-  provable lemma. Goes to findings when Phase 4 confirms.
+  provable lemma. Goes to findings when Phase B confirms.
 - **D5 (deviation register).** (i) `fact:poly-growth` exponent `n−1`
   in place of the Jordan-sharp `m−1`. (ii) `fact:uniexp` imported as
   ⇐ only. Others as they arise.
 
-**Phase-1 worklist** (order of proof, each numeric-checked where
-nontrivial before writing the Lean):
+**Machinery worklist** (executed in order, each numeric-checked where
+nontrivial before writing the Lean; P1.4–P1.5 deferred to consumers):
 P1.1 pure-matrix layer: Schur-complement wrapper, inversion antitone,
 `fact:update-kernel`, update contraction `U(Σ) ⪯ Σ`.
 P1.2 Joseph form + `eq:comparison` (D3).
@@ -295,22 +293,25 @@ the `DareSystem` frame + `lem:criterion-w` (`Dare/System.lean`:
 kernel-form C1/C2/C2w, `eq:prior-pos`(a)/(b), `eq:A2-inv`). All
 sorry-free, standard axioms; Gate-2 numeric checks in scratchpad
 preceded each algebra block. P1.4 (observable-injection gramian) and
-P1.5 (`eq:dare-cov`) deferred to their consumers (Phase 3 / transfer
+P1.5 (`eq:dare-cov`) deferred to their consumers (Phase B / transfer
 layer) by design.
 
-**Next package (O2.3, `eq:bounded` = `lem:structure`-2).** Design
-settled: avoid `fact:filter-opt` entirely — prove the *predictor-form*
-Joseph domination
-`R(Σ) ⪯ (A−LC)Σ(A−LC)ᵀ + LRLᵀ + Q_w` for **every** `L`
-(completed square about `L* = AΣCᵀS⁻¹`; note the update-form
-`joseph` only reaches gains `A·K`, the predictor form reaches all
-`L` — this is the algebraic replacement for the paper's MMSE import).
-Then a fixed Schur `L` from C1 (`detect_inj`; mind: `StagedFacts`'s
-version is Fin-bound, the frame index is a Sum type — either
-generalize `detect_inj` or transport along `finSumFinEquiv`), and the
-Lyapunov recursion unrolls against `IsSchurStable.exists_pow_norm_le`
-to the uniform bound. After that: the `StrongSolution` hypothesis
-bundle and `lem:structure`.
+**2026-08-31 (session 1, continued).** O2.3 landed
+(`Dare/Bounded.lean`): `eq:bounded` by the predictor-form Joseph
+domination — `R(Σ) ⪯ (A−LC)Σ(A−LC)ᵀ + LRLᵀ + Q_w` for **every** `L`,
+completed square about `L* = AΣCᵀS⁻¹` — plus the fixed-gain Lyapunov
+comparison and the unrolled uniform bound `exists_dare_bound`. The
+`detect_inj` transport caveat was moot: `StagedFacts.detect_inj` is
+already index-generic. `fact:filter-opt` is thereby eliminated from
+the Lean layer; recorded as findings entry 1
+(`notes/leanverify-odyssey-findings.md`, created).
+
+**Phase-A remainder (next up, commits `OA.x`):** the `StrongSolution`
+hypothesis bundle (minimal-fields discipline, risk R7), then
+`lem:structure`-1/-3 and `lem:structure-marg` (risk R3 is the crux:
+the kernel-direction/reflection step needs a real eigenvector
+construction). Phase B follows: both anchors and the assembly, where
+the hole protocol is expected to fire first (R2).
 
 ## 10. Definition-of-done
 
