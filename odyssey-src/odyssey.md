@@ -233,36 +233,37 @@ The from-above gap has a fixed contraction the from-below gap lacks: for $V\succ
 <!-- lem:marginal -->
 ### Lemma (lem:marginal) — Extinction of the marginal block
 
-Let C1 hold and let $\bar\Sigma_T := \mathcal R^T(\overline\Sigma_0)$ for a full-rank prior $\overline\Sigma_0 = \overline\Sigma_0' \succ 0$. The marginal block is driven to zero at a polynomial rate,
+Let C1 hold, let the marginal block be **power-bounded in both directions** — $c_m := \sup_{k\ge0}\max\{\|A_m^k\|,\|A_m^{-k}\|\} < \infty$; equivalently, the unit-circle marginal eigenvalues are semisimple — and let $\bar\Sigma_T := \mathcal R^T(\overline\Sigma_0)$ for any prior with positive-definite uncontrollable block, $\overline\Sigma_0\!\mid_{22} \succ 0$. The marginal block is driven to zero,
 
 <!-- eq:marg-zero -->
 $$ \bar\Sigma_T\!\mid_{mm} \;\longrightarrow\; 0 \qquad (T\to\infty), \tag{eq:marg-zero} $$
 
-and hence, by comparison, $\Sigma_T\!\mid_{mm}\to0$ for **every** prior $\Sigma_0$ (consistent with $\Sigma_\infty\!\mid_{mm}=0$, `eq:marg-extinct`).
+and hence, by comparison, $\Sigma_T\!\mid_{mm}\to0$ for **every** prior $\Sigma_0\preceq\overline\Sigma_0$ (consistent with $\Sigma_\infty\!\mid_{mm}=0$, `eq:marg-extinct`). No rate is claimed. **The defective-marginal case is OPEN**: the numerics support the same conclusion with Jordan-degraded rates, but no proof is currently on the page, and every downstream use carries the semisimple qualification.
 
-*Proof.* Since $\overline\Sigma_0\succ0$, $\bar\Sigma_T\succ0$ for all $T$ (the update and $GQG'$ preserve positive-definiteness), so $\bar\Sigma_T\!\mid_{22}\succ0$ and the $e_2$-information $J_T := (\bar\Sigma_T\!\mid_{22})^{-1}$ is defined. By `app:machinery`-2 it runs the backward $A_2^{-1}$-gramian (`eq:Jrec`/`eq:Jgram`, legal since $A_2 = A_a\oplus A_m$ is nonsingular, `eq:A2-inv`),
+*Proof.* The uncontrollable corner stays positive definite, $\bar\Sigma_T\!\mid_{22}\succ0$ for all $T$ (the `lem:structure`-3 mechanism on the whole $e_2$ block; full positive-definiteness of $\bar\Sigma_T$ need **not** persist when $\ker A'\cap\ker G'\ne\{0\}$, and is not used). Track the **backward-transported uncontrollable columns**
 
-<!-- eq:Jrec-marg -->
-$$ J_{T+1} = A_2^{-1\prime}\big(J_T + \widehat W_T\big)A_2^{-1}, \qquad \widehat W_T := (\mathcal U(\bar\Sigma_T)\!\mid_{22})^{-1} - (\bar\Sigma_T\!\mid_{22})^{-1} \succeq 0. \tag{eq:Jrec-marg} $$
+<!-- eq:Ydef -->
+$$ Y_T := \bar\Sigma_T\,E_2\,A_2^{-T\prime} \qquad (E_2 := \text{the } e_2\text{-inclusion}); \tag{eq:Ydef} $$
 
-The increment $\widehat W_T$ is the $e_2$-block information one measurement injects; being the $(2,2)$-block of the **full** update, it carries what reaches $e_2$ through the coupling to the observed $e_1$ block — not the isolated $(A_m,C_m)$ measurement.
+no information coordinates and no injected-information floor appear.
 
-**Marginal information diverges (uniform coercivity).** $A_2$ block-diagonal closes the $(m,m)$ recursion,
-$$ J_{T+1}^{mm} = A_m^{-1\prime}(J_T^{mm} + \widehat W_T^{mm})A_m^{-1} \;\Longrightarrow\; J_T^{mm} \succeq \sum_{j=0}^{T-1}\big(A_m^{-(T-1-j)}\big)'\,\widehat W_j^{mm}\,\big(A_m^{-(T-1-j)}\big). $$
-The marginal mode is $(A,C)$-**observable**: under C1 every $(A,C)$-unobservable mode is stable, but $|\lambda(A_m)|=1$, so PBH gives $\operatorname{rank}[\lambda I - A;\,C]=n$ at each $\lambda\in\operatorname{spec}(A_m)$. This makes the windowed injection **uniformly** coercive, iterate-independently:
+**(i) The output energy of $Y_T$ is summable.** For fixed $u$, the transported quadratic $\varphi_T(u) := (A_2^{-T\prime}u)'\,\bar\Sigma_T\!\mid_{22}\,(A_2^{-T\prime}u)$ steps by the $e_2$-block identity $\bar\Sigma_{T+1}\!\mid_{22} = A_2\,\mathcal U(\bar\Sigma_T)\!\mid_{22}\,A_2'$ (`app:machinery`-2) to $\varphi_{T+1}(u) = w'\,\mathcal U(\bar\Sigma_T)\!\mid_{22}\,w$ with $w := A_2^{-T\prime}u$. The variational form of the update — the Joseph square evaluated at the rank-one gain $K = \beta\,(E_2w)b'$ and minimized over $\beta$, cf. Part 2 of `lem:structure` — gives, for every output direction $b\ne0$,
+$$ \varphi_{T+1}(u) \;\le\; \varphi_T(u) \;-\; \frac{\big(b'\,C\,Y_T\,u\big)^2}{b'S_Tb}, \qquad S_T := C\bar\Sigma_TC'+R \preceq \bar S \ \ (\text{`eq:bounded`}), $$
+using $C\bar\Sigma_TE_2w = C\,Y_T\,u$. So $\varphi_T(u)$ is nonincreasing and, telescoping over $T$ and ranging $b,u$ over basis vectors,
+$$ \sum_{T\ge0} \|C\,Y_T\|^2 \;<\; \infty. $$
 
-<!-- eq:marg-coercive -->
-$$ \exists\,\nu, c>0:\quad \sum_{j=0}^{\nu-1}\big(A_m^{-j}\big)'\,\widehat W_T^{mm}\,\big(A_m^{-j}\big) \;\succeq\; c\,I \qquad\text{for all }T. \tag{eq:marg-coercive} $$
+**(ii) $Y_T$ rides the error map and dies.** The $e_2$-column identities ($A'E_2 = E_2A_2'$, $GQG'E_2 = 0$) give $\bar\Sigma_{T+1}E_2 = A\,\mathcal U(\bar\Sigma_T)E_2\,A_2'$, hence
+$$ Y_{T+1} \;=\; A\,Y_T \;-\; AK_T\,(C\,Y_T), \qquad K_T := \bar\Sigma_TC'S_T^{-1}\ \text{bounded (`eq:bounded`, } S_T^{-1}\preceq R^{-1}). $$
+Insert the stabilizing injection $L$ of C1 ($A-LC$ Schur, as in Part 2 of `lem:structure`): $Y_{T+1} = (A-LC)\,Y_T + E_T$ with $\|E_T\| \le c_E\,\|CY_T\|$ square-summable by (i). Unrolling against the geometric kernel of $A-LC$ (`fact:schur-decay`) and splitting each convolution at its midpoint (head: geometric decay against a bounded $\ell^2$-mass; tail: an $\ell^2$-tail against a summable kernel), $Y_T \to 0$.
 
-The innovation is bounded above, $S_T := C\bar\Sigma_T C' + R \preceq C\bar\Pi C' + R =: \bar S$ (`eq:bounded`), so $\widehat W_T^{mm}$ is bounded **below** by the marginal observability weighted by $\bar S^{-1}\succ0$: over a window the $A_m^{-1}$ rotation fills the missing directions (a scalar output makes each $\widehat W_T^{mm}$ rank-one, but the window is full-rank). Were `eq:marg-coercive` false, some marginal unit $v$ would have $\widehat W_T^{mm}A_m^{-j}v = 0$ for all $j$ — the measurement never reduces covariance along the $A_m$-orbit of $v$, i.e. $v$ is $(A,C)$-unobservable, contradicting C1. The bound uses only C1 and `eq:bounded`; **no appeal to the upper anchor's convergence** (this removes the injection-settling detour). Running the coercive window through the unit-circle $A_m^{-1}$-gramian (`fact:gramian`, `fact:poly-growth`) gives
-$$ \lambda_{\min}(J_T^{mm}) \longrightarrow \infty \quad\text{polynomially.} $$
+**(iii) Power-boundedness closes.** Since $A_2 = A_a\oplus A_m$, the marginal columns of $Y_T$ are $\bar\Sigma_T E_m A_m^{-T\prime}$, so $\bar\Sigma_T\!\mid_{mm} = \big(E_m'\,\bar\Sigma_T E_m A_m^{-T\prime}\big)A_m^{T\prime}$ and
+$$ \|\bar\Sigma_T\!\mid_{mm}\| \;\le\; \text{const}\cdot\|Y_T\|\cdot\|A_m^{T}\| \;\le\; \text{const}\cdot c_m\,\|Y_T\| \;\longrightarrow\; 0. $$
+For a general prior $\Sigma_0\preceq\overline\Sigma_0$, comparison (`eq:comparison`) gives $\Sigma_T\!\mid_{mm}\preceq\bar\Sigma_T\!\mid_{mm}\to0$, no inversion of a singular $\Sigma_0\!\mid_{mm}$ needed. ∎
 
-**Marginal covariance vanishes.** By the Schur-complement for the inverse,
-$$ \bar\Sigma_T\!\mid_{mm} = \big(J_T^{mm} - J_T^{ma}(J_T^{aa})^{-1}J_T^{am}\big)^{-1}. $$
-The antistable information $J_T^{aa}$ and cross $J_T^{ma}$ are bounded — the $e_2$-information runs the $A_a^{-1}$-gramian (`eq:Jgram`), convergent since $A_a^{-1}$ is Schur (`eq:A2-inv`), only boundedness used — so the subtracted term stays bounded while $J_T^{mm}\to\infty$; the inverse tends to $0$, which is `eq:marg-zero`, at the polynomial rate. For a general prior $\Sigma_0\preceq\overline\Sigma_0=cI$, comparison (`eq:comparison`) gives $\Sigma_T\!\mid_{mm}\preceq\bar\Sigma_T\!\mid_{mm}\to0$, no inversion of a singular $\Sigma_0\!\mid_{mm}$ needed. ∎
+**Remark (what changed and why).** An earlier version argued through the injected information: the $(m,m)$ block of `eq:Jrec` with a uniform windowed coercivity of the increments $\widehat W_T^{mm}$. That display windowed a *single* $\widehat W_T$ where the unrolled sum needs windows of *consecutive* increments, and its uniformity argument negated a uniform-in-$T$ bound into a single exact-zero vector — a hole (Lean verification finding 5). The present proof needs no information coordinates, no $\widehat W$-floor, and no `fact:gramian`/`fact:poly-growth`; the price is the power-bounded (semisimple) qualification, whose removal is the flagged open problem.
 
-<!-- verify: GATE-2. Uniform windowed coercivity eq:marg-coercive (BINDING C_m=0, marginal seen only via A_1m coupling): min over 80 trials x windows of lambda_min(sum_j (A_m^-j)' What_mm A_m^-j) = 8.8e-4 > 0 UNIFORMLY (check_marg_coercive_uniform.py) -- iterate-independent, from C1 + eq:bounded; riccastep's lem:supremal-2 injection-settling residual REMOVED. Sigma_T|mm -> 0 (mean 4.2e-2 @ T=400, decreasing). J_T^mm -> inf ~poly, J^aa/J^ma bounded, eq:marg-schur exact (riccastep check_marginv.py, 1e-14). Unobservable control (C_m=0 AND A1m=0): windowed gramian min eig 0.0 (NOT coercive), Sigma|mm stuck -- confirms eq:marg-coercive <=> observability. -->
-<!-- verify: deps — app:machinery-2 (e2 (2,2)-identity eq:Jrec/eq:Jgram), eq:A2-inv, eq:comparison, fact:gramian, fact:poly-growth, eq:bounded (uniform innovation bound -> uniform injection floor), C1 (PBH marginal observability), fact:schur. eq:marg-extinct (fixed-point Sigma_inf|mm=0) cited for consistency, not needed in-proof. NO forward ref to lem:supremal (residual removed). CONSUMER: lem:supremal (marginal half), thm:sufficiency (Sigma_inf|mm=0), 06/07 (poly rate). Confinement: MARGINAL branch, no C3w. -->
+<!-- verify: GATE-2 (scratch/check_marginal_route.py): phi_T(u) monotone nonincreasing EXACTLY (max violation 0.0); sum ||C Y_T||^2 converges (tail 1e-4/1e-6 at T=4000); ||Y_T|| -> 0; Sigma_T|mm -> 0 on both a semisimple rotation AND a defective Jordan block (numerics only for the latter — the proof covers power-bounded Am). Old-route checks (check_marg_coercive_uniform.py etc.) retired with the route. -->
+<!-- verify: deps — app:machinery-2 (e2 (2,2)-identity and column identities), eq:A2-inv, eq:comparison, eq:bounded (uniform innovation bound + K_T bounded), C1 (via the stabilizing injection, as in lem:structure-2), fact:schur-decay, the Joseph variational square (lem:structure-2 mechanism), lem:structure-3 mechanism (corner positivity). fact:gramian / fact:poly-growth NO LONGER consumed here. eq:marg-extinct cited for consistency, not needed in-proof. CONSUMER: lem:supremal (marginal half), thm:sufficiency, 08 (all now carrying the semisimple qualification on the marginal branch). Confinement: MARGINAL branch, no C3w. -->
 
 <!-- lem:supremal -->
 ### Lemma (lem:supremal) — The supremal upper bound converges to $\Sigma_\infty$
