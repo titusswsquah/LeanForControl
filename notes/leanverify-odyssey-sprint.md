@@ -282,7 +282,37 @@ P1.3 gap engine: `eq:diff-id`, `eq:diff-unroll`, `eq:gap-ric`.
 P1.4 observable-injection gramian (`fact:gramian` second form).
 P1.5 `eq:dare-cov` similarity covariance (a01-1).
 
-## 9. Definition-of-done
+## 9. Status log
+
+**2026-08-31 (session 1).** Landed: O1.1 update layer
+(`Dare/Update.lean`: Joseph form, `eq:comparison` = `dareIter_mono`,
+contraction, `fact:update-kernel`); O1.2 gap engine
+(`Dare/GapEngine.lean`: `eq:diff-id`/`eq:diff-unroll`/`eq:gap-ric`,
+via the gain identity `U(Σ)Cᵀ = K(Σ)R`); O1.3 inversion antitone
+(`QuadForm.lean`, completed-square proof); O2.1 block-information
+layer (`Dare/BlockInfo.lean`: `eq:Jrec`, block update-kernel); O2.2
+the `DareSystem` frame + `lem:criterion-w` (`Dare/System.lean`:
+kernel-form C1/C2/C2w, `eq:prior-pos`(a)/(b), `eq:A2-inv`). All
+sorry-free, standard axioms; Gate-2 numeric checks in scratchpad
+preceded each algebra block. P1.4 (observable-injection gramian) and
+P1.5 (`eq:dare-cov`) deferred to their consumers (Phase 3 / transfer
+layer) by design.
+
+**Next package (O2.3, `eq:bounded` = `lem:structure`-2).** Design
+settled: avoid `fact:filter-opt` entirely — prove the *predictor-form*
+Joseph domination
+`R(Σ) ⪯ (A−LC)Σ(A−LC)ᵀ + LRLᵀ + Q_w` for **every** `L`
+(completed square about `L* = AΣCᵀS⁻¹`; note the update-form
+`joseph` only reaches gains `A·K`, the predictor form reaches all
+`L` — this is the algebraic replacement for the paper's MMSE import).
+Then a fixed Schur `L` from C1 (`detect_inj`; mind: `StagedFacts`'s
+version is Fin-bound, the frame index is a Sum type — either
+generalize `detect_inj` or transport along `finSumFinEquiv`), and the
+Lyapunov recursion unrolls against `IsSchurStable.exists_pow_norm_le`
+to the uniform bound. After that: the `StrongSolution` hypothesis
+bundle and `lem:structure`.
+
+## 10. Definition-of-done
 
 - Every deck result has a Lean counterpart by the deck's own route, or
   a recorded, justified deviation.
