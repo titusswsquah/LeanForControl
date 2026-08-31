@@ -78,6 +78,95 @@ lemma mulVec_corner_eq_zero {ι ιa : Type*} [Fintype ι] [DecidableEq ι]
   refine hM.mulVec_eq_zero_of_quadForm_eq_zero ?_
   rw [quadForm_mulVec, quadForm, hx, dotProduct_zero]
 
+/-! ### Corner positivity along the recursion -/
+
+section Corner
+
+variable {ι κ ιa : Type*} [Fintype ι] [DecidableEq ι]
+  [Fintype κ] [DecidableEq κ] [Fintype ιa] [DecidableEq ιa]
+
+variable {C : Matrix κ ι ℝ} {R : Matrix κ κ ℝ} {Sg : Matrix ι ι ℝ}
+variable {E : Matrix ι ιa ℝ}
+
+/-- The update preserves corner positivity: `EᵀΣE ≻ 0 ⇒ EᵀU(Σ)E ≻ 0`
+(`fact:update-kernel`, corner form — fully generic in the
+embedding). -/
+lemma updM_corner_posDef (hR : R.PosDef) (hSg : Sg.PosSemidef)
+    (hc : (Eᵀ * Sg * E).PosDef) :
+    (Eᵀ * updM C R Sg * E).PosDef := by
+  have hU := updM_posSemidef (C := C) hR hSg
+  have hpsd : (Eᵀ * updM C R Sg * E).PosSemidef := by
+    have h := hU.conjTranspose_mul_mul_same E
+    rwa [show Eᴴ = Eᵀ from
+      Matrix.conjTranspose_eq_transpose_of_trivial _] at h
+  refine Matrix.PosDef.of_dotProduct_mulVec_pos hpsd.1 fun v hv => ?_
+  rcases lt_or_eq_of_le (hpsd.quadForm_nonneg v) with h | h
+  · exact h
+  · exfalso
+    have hker : (Eᵀ * updM C R Sg * E) *ᵥ v = 0 :=
+      hpsd.mulVec_eq_zero_of_quadForm_eq_zero h.symm
+    have hUker : updM C R Sg *ᵥ (E *ᵥ v) = 0 :=
+      mulVec_corner_eq_zero hU hker
+    have hSker : Sg *ᵥ (E *ᵥ v) = 0 :=
+      (updM_mulVec_eq_zero_iff hR hSg).mp hUker
+    have hq : quadForm (Eᵀ * Sg * E) v = 0 := by
+      rw [← quadForm_mulVec, quadForm, hSker, dotProduct_zero]
+    exact absurd hq (ne_of_gt (hc.quadForm_pos hv))
+
+variable {A Qw : Matrix ι ι ℝ} {Aa : Matrix ιa ιa ℝ}
+
+/-- The corner step identity: with the intertwining `AᵀE = EAaᵀ` and
+no noise reaching the corner (`EᵀQ_wE = 0`),
+`Eᵀ·R(Σ)·E = Aa·(EᵀU(Σ)E)·Aaᵀ`. -/
+lemma dareStep_corner_eq (hint : Aᵀ * E = E * Aaᵀ)
+    (hQE : Eᵀ * Qw * E = 0) :
+    Eᵀ * dareStep C R A Qw Sg * E
+      = Aa * (Eᵀ * updM C R Sg * E) * Aaᵀ := by
+  have hEA : Eᵀ * A = Aa * Eᵀ := by
+    have h := congrArg Matrix.transpose hint
+    rw [Matrix.transpose_mul, Matrix.transpose_mul,
+      Matrix.transpose_transpose, Matrix.transpose_transpose] at h
+    exact h
+  unfold dareStep
+  rw [Matrix.mul_add, Matrix.add_mul, hQE, add_zero]
+  calc Eᵀ * (A * updM C R Sg * Aᵀ) * E
+      = (Eᵀ * A) * updM C R Sg * (Aᵀ * E) := by
+        simp only [Matrix.mul_assoc]
+  _ = (Aa * Eᵀ) * updM C R Sg * (E * Aaᵀ) := by rw [hEA, hint]
+  _ = Aa * (Eᵀ * updM C R Sg * E) * Aaᵀ := by
+        simp only [Matrix.mul_assoc]
+
+/-- Corner positivity propagates through one covariance step
+(`lem:structure`-3, one step): `EᵀΣE ≻ 0`, `Aa` nonsingular give
+`Eᵀ·R(Σ)·E ≻ 0`. -/
+lemma dareStep_corner_posDef (hR : R.PosDef) (hSg : Sg.PosSemidef)
+    (hc : (Eᵀ * Sg * E).PosDef) (hint : Aᵀ * E = E * Aaᵀ)
+    (hQE : Eᵀ * Qw * E = 0) (hAa : IsUnit Aa.det) :
+    (Eᵀ * dareStep C R A Qw Sg * E).PosDef := by
+  rw [dareStep_corner_eq hint hQE]
+  have hU := updM_corner_posDef (C := C) hR hSg hc
+  have hherm : (Aa * (Eᵀ * updM C R Sg * E) * Aaᵀ).IsHermitian := by
+    have h := hU.posSemidef.mul_mul_conjTranspose_same Aa
+    rw [show Aaᴴ = Aaᵀ from
+      Matrix.conjTranspose_eq_transpose_of_trivial _] at h
+    exact h.1
+  refine Matrix.PosDef.of_dotProduct_mulVec_pos hherm fun v hv => ?_
+  have hAv : Aaᵀ *ᵥ v ≠ 0 := by
+    intro h0
+    apply hv
+    have h1 := congrArg (fun w => (Aaᵀ)⁻¹ *ᵥ w) h0
+    simp only [Matrix.mulVec_mulVec, Matrix.mulVec_zero] at h1
+    rwa [Matrix.nonsing_inv_mul _ (by rwa [Matrix.det_transpose]),
+      Matrix.one_mulVec] at h1
+  have hq : quadForm (Eᵀ * updM C R Sg * E) (Aaᵀ *ᵥ v)
+      = quadForm (Aa * (Eᵀ * updM C R Sg * E) * Aaᵀ) v := by
+    rw [quadForm_mulVec, Matrix.transpose_transpose]
+  show 0 < quadForm (Aa * (Eᵀ * updM C R Sg * E) * Aaᵀ) v
+  rw [← hq]
+  exact hU.quadForm_pos hAv
+
+end Corner
+
 /-! ### The corner-kernel spectrum theorem -/
 
 variable {ι κ κg ιa : Type*} [Fintype ι] [DecidableEq ι]

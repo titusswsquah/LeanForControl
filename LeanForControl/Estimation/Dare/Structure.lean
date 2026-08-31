@@ -123,6 +123,109 @@ theorem strong_toBlocks_posDef
   rw [← embA_corner_eq]
   exact S.strong_corner_posDef hS
 
+/-! ### Antistable positivity along the recursion (`lem:structure`-3) -/
+
+/-- No noise reaches the antistable corner. -/
+lemma embA_transpose_mul_fullG :
+    (embA n₁ na nm)ᵀ * S.fullG = 0 := by
+  ext i j
+  simp [embA, fullG, Matrix.mul_apply, Matrix.transpose_apply,
+    Fintype.sum_sum_type, Matrix.fromRows_apply_inl,
+    Matrix.fromRows_apply_inr, Matrix.one_apply]
+
+lemma embA_Qw_corner :
+    (embA n₁ na nm)ᵀ * S.Qw * (embA n₁ na nm) = 0 := by
+  unfold Qw
+  calc (embA n₁ na nm)ᵀ * (S.fullG * S.Q * S.fullGᵀ) * embA n₁ na nm
+      = ((embA n₁ na nm)ᵀ * S.fullG) * S.Q
+          * (S.fullGᵀ * embA n₁ na nm) := by
+        simp only [Matrix.mul_assoc]
+  _ = 0 := by
+      rw [S.embA_transpose_mul_fullG]
+      have h : S.fullGᵀ * embA n₁ na nm
+          = ((embA n₁ na nm)ᵀ * S.fullG)ᵀ := by
+        rw [Matrix.transpose_mul, Matrix.transpose_transpose]
+      rw [h, S.embA_transpose_mul_fullG]
+      simp
+
+/-- The antistable block is nonsingular. -/
+lemma isUnit_Aa_det : IsUnit S.Aa.det := by
+  rw [isUnit_iff_ne_zero]
+  refine LinearSystems.det_ne_zero_of_zero_notMem_spectrum fun h0 => ?_
+  have := S.hAnti 0 h0
+  rw [norm_zero] at this
+  linarith
+
+/-- **`lem:structure`-3** (seed-general): a positive-definite
+antistable corner propagates along the whole recursion. -/
+theorem dareFrom_corner_posDef
+    {L : Matrix (ix n₁ na nm) (ix n₁ na nm) ℝ} (hL : L.PosSemidef)
+    (hc : ((embA n₁ na nm)ᵀ * L * embA n₁ na nm).PosDef) :
+    ∀ T, ((embA n₁ na nm)ᵀ * S.dareFrom L T * embA n₁ na nm).PosDef
+  | 0 => hc
+  | T + 1 => by
+    have hpsd : (S.dareFrom L T).PosSemidef :=
+      dareIter_posSemidef S.hR S.Qw_posSemidef hL T
+    exact dareStep_corner_posDef S.hR hpsd
+      (dareFrom_corner_posDef hL hc T) S.fullA_transpose_mul_embA
+      S.embA_Qw_corner S.isUnit_Aa_det
+
+/-- **`lem:structure`-3 under C2w**: along the run from the prior, the
+antistable information `J_T = (Σ_T|ₐₐ)⁻¹` is well defined. -/
+theorem dare_corner_posDef (hC2w : S.C2w) :
+    ∀ T, ((embA n₁ na nm)ᵀ * S.dare T * embA n₁ na nm).PosDef := by
+  refine S.dareFrom_corner_posDef S.Sig0_posSemidef ?_
+  rw [embA_corner_eq]
+  exact S.criterion_w.mp hC2w
+
+/-! ### The fixed-point Stein relation (`eq:Sinf-gram`, relation form) -/
+
+/-- The corner fixed-point identity:
+`Σ∞|ₐₐ = Aa · U(Σ∞)|ₐₐ · Aaᵀ`. -/
+theorem strong_corner_fixed
+    {Sinf : Matrix (ix n₁ na nm) (ix n₁ na nm) ℝ}
+    (hS : S.IsStrongSolution Sinf) :
+    (embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm
+      = S.Aa * ((embA n₁ na nm)ᵀ
+          * updM S.fullC S.R Sinf * embA n₁ na nm) * S.Aaᵀ := by
+  conv_lhs => rw [← hS.fixed]
+  exact dareStep_corner_eq S.fullA_transpose_mul_embA S.embA_Qw_corner
+
+/-- **`eq:Sinf-gram`, relation form**: the antistable information of
+the strong solution satisfies the `Aa⁻¹`-Stein relation
+`J∞ = Aa⁻ᵀ·(U-corner)⁻¹·Aa⁻¹` with a PSD injection
+`(U-corner)⁻¹ − J∞ ⪰ 0`. (The unrolled gramian series is deferred to
+its Phase-B consumer.) -/
+theorem strong_stein
+    {Sinf : Matrix (ix n₁ na nm) (ix n₁ na nm) ℝ}
+    (hS : S.IsStrongSolution Sinf) :
+    ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹
+      = (S.Aa⁻¹)ᵀ * ((embA n₁ na nm)ᵀ
+          * updM S.fullC S.R Sinf * embA n₁ na nm)⁻¹ * S.Aa⁻¹
+    ∧ (((embA n₁ na nm)ᵀ
+          * updM S.fullC S.R Sinf * embA n₁ na nm)⁻¹
+        - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹).PosSemidef := by
+  have hUc : ((embA n₁ na nm)ᵀ
+      * updM S.fullC S.R Sinf * embA n₁ na nm).PosDef :=
+    updM_corner_posDef S.hR hS.posSemidef (S.strong_corner_posDef hS)
+  constructor
+  · rw [S.strong_corner_fixed hS, Matrix.mul_inv_rev, Matrix.mul_inv_rev,
+      Matrix.transpose_nonsing_inv]
+    simp only [Matrix.mul_assoc]
+  · have hcontr : ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm
+        - (embA n₁ na nm)ᵀ * updM S.fullC S.R Sinf * embA n₁ na nm).PosSemidef := by
+      have heq : (embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm
+          - (embA n₁ na nm)ᵀ * updM S.fullC S.R Sinf * embA n₁ na nm
+          = (embA n₁ na nm)ᵀ * (Sinf - updM S.fullC S.R Sinf)
+              * embA n₁ na nm := by
+        rw [Matrix.mul_sub, Matrix.sub_mul]
+      rw [heq]
+      have h := (sub_updM_posSemidef (C := S.fullC) S.hR
+        hS.posSemidef).conjTranspose_mul_mul_same (embA n₁ na nm)
+      rwa [show (embA n₁ na nm)ᴴ = (embA n₁ na nm)ᵀ from
+        Matrix.conjTranspose_eq_transpose_of_trivial _] at h
+    exact posSemidef_inv_sub_inv hUc (S.strong_corner_posDef hS) hcontr
+
 end DareSystem
 end Dare
 end Estimation
