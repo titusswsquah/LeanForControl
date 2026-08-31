@@ -346,6 +346,18 @@ C3w) lands with its first Phase-B consumer. **Next: Phase B** — the
 upper anchor (`lem:marginal`, risk R2: expect the hole protocol) and
 `lem:supremal`, then the lower anchor and assembly.
 
+**2026-08-31 (session 3) — Phase B opened, R2 confirmed as a hole
+and repaired.** `lem:marginal`: `eq:marg-coercive` mis-shaped (single
+`Ŵ_T` windowed where consecutive increments are needed) + missing
+uniformity step — findings 5 (hole) and 6 (soft PD parenthetical),
+repaired in the deck with the covariance-side `Y_T`-route (monotone
+transported quadratic, `Σ‖CY_T‖² < ∞`, error-map ride, injection
+split), Gate-2 `check_marginal_route.py`. Price: semisimple
+(power-bounded) marginal modes; defective case OPEN in the deck,
+qualification propagated to 03/06/08/00. Finding 7 flagged OPEN in
+08 (the exponential⇒C3w converse needs a marginal-gap rate floor).
+Lean verification of the repaired route: OB.1 in progress.
+
 ## 10. Definition-of-done
 
 - Every deck result has a Lean counterpart by the deck's own route, or

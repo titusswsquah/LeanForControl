@@ -79,3 +79,45 @@ reasoning. The verified route: take the stabilizing injection `L`
 `fact:no-decay` on the rows kills `Z`, using only declared facts and
 with defective marginal Jordan blocks needing no special treatment.
 Lean: `Dare/Marginal.lean::strong_marg_extinct`.
+
+## 5. `lem:marginal` — **HOLE, REPAIRED** (deck commits 3e11520 +
+041971b): `eq:marg-coercive` mis-shaped, uniformity argument absent
+
+Risk R2, confirmed as a Gate-1 hole. (a) `eq:marg-coercive` windowed
+a *single* `Ŵ_T` over rotations, while the unrolled `J`-sum needs
+windows of *consecutive, different* increments — the displayed
+inequality cannot plug into the recursion it feeds. (b) The
+uniformity argument negated a uniform-in-T bound into a single
+exact-zero vector with no compactness step, and `Ŵ_T` varies with T.
+**Repair** (covariance-side route, Gate-2
+`odyssey-src/scratch/check_marginal_route.py`): backward-transported
+columns `Y_T = Σ̄_T E₂ A₂^{-T'}`; the transported quadratic is
+monotone with per-step innovation decrease (Joseph square at a
+rank-one gain), giving `Σ‖CY_T‖² < ∞`; `Y` rides the error map and
+dies through the stabilizing injection (Schur kernel × ℓ² input);
+power-boundedness of `Aₘ` closes. **Price**: the marginal
+eigenvalues must be semisimple — the defective case is now
+explicitly OPEN in the deck, with the qualification propagated to
+`lem:supremal`, `thm:sufficiency`, `thm:main`-1, and the 00-problem
+dichotomy prose (which coheres with `thm:payoff`'s pre-existing
+semisimple qualification for RGAS).
+
+## 6. `lem:marginal` proof, PD parenthetical — **soft, REPAIRED**
+(same commit): "the update and `GQG'` preserve positive-definiteness"
+is false when `ker A' ∩ ker G' ≠ {0}`; only the `e₂`-corner
+positivity survives (the `lem:structure`-3 mechanism), which is what
+the argument uses. Statement hypothesis weakened to
+`Σ̄₀|₂₂ ≻ 0` accordingly.
+
+## 7. `thm:main`-2 converse — **OPEN** (flagged in 08's verify block,
+commit 041971b): "exponential ⇒ C3w" needs a marginal-gap rate
+*lower* bound
+
+The converse argues "with a marginal block, `Σ_T|mm → 0` only
+polynomially, contradicting the exponential rate" — but no result on
+the page provides a rate *floor* (the repaired `lem:marginal` gives
+decay with no rate; the retired route's polynomial claim is gone).
+Candidate repair: a gap-floor argument in the style of the repo's
+`GES.exists_gap_floor_of_not_C3w`. Also the parenthetical spectral
+route needs "exponential ⇒ ρ(F∞) < 1", likewise unestablished. To be
+resolved when 08 enters verification.
