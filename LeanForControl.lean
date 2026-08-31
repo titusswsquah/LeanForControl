@@ -28,6 +28,8 @@ import LeanForControl.Estimation.Dare.StrongSolution
 import LeanForControl.Estimation.Dare.Structure
 import LeanForControl.Estimation.Dare.Marginal
 import LeanForControl.Estimation.Dare.Variational
+import LeanForControl.Estimation.Dare.Convolution
+import LeanForControl.Estimation.Dare.MarginalUpper
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
