@@ -37,6 +37,10 @@ lemma toBlocks₂₂_posSemidef {M : Matrix (ι₁ ⊕ ι₂) (ι₁ ⊕ ι₂) 
     (hM : M.PosSemidef) : M.toBlocks₂₂.PosSemidef :=
   hM.submatrix Sum.inr
 
+lemma toBlocks₁₁_posSemidef {M : Matrix (ι₁ ⊕ ι₂) (ι₁ ⊕ ι₂) ℝ}
+    (hM : M.PosSemidef) : M.toBlocks₁₁.PosSemidef :=
+  hM.submatrix Sum.inl
+
 /-- The quadratic form of a zero-extended `e₂`-vector reads the
 `(2,2)` block. -/
 lemma quadForm_elim_zero (M : Matrix (ι₁ ⊕ ι₂) (ι₁ ⊕ ι₂) ℝ)
@@ -44,6 +48,14 @@ lemma quadForm_elim_zero (M : Matrix (ι₁ ⊕ ι₂) (ι₁ ⊕ ι₂) ℝ)
     quadForm M (Sum.elim (0 : ι₁ → ℝ) v) = quadForm M.toBlocks₂₂ v := by
   simp [quadForm, dotProduct, Matrix.mulVec, Fintype.sum_sum_type,
     Matrix.toBlocks₂₂]
+
+/-- The quadratic form of a zero-extended `e₁`-vector reads the
+`(1,1)` block. -/
+lemma quadForm_elim_zero' (M : Matrix (ι₁ ⊕ ι₂) (ι₁ ⊕ ι₂) ℝ)
+    (v : ι₁ → ℝ) :
+    quadForm M (Sum.elim v (0 : ι₂ → ℝ)) = quadForm M.toBlocks₁₁ v := by
+  simp [quadForm, dotProduct, Matrix.mulVec, Fintype.sum_sum_type,
+    Matrix.toBlocks₁₁]
 
 /-- The `(2,2)` block of the frame conjugation: with `A₂₁ = 0`,
 `(A·M·Aᵀ)|₂₂ = A₂·M|₂₂·A₂ᵀ`. -/

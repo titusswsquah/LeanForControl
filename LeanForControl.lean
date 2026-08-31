@@ -21,6 +21,7 @@ import LeanForControl.Estimation.Arrival
 import LeanForControl.Estimation.Dare.Update
 import LeanForControl.Estimation.Dare.GapEngine
 import LeanForControl.Estimation.Dare.BlockInfo
+import LeanForControl.Estimation.Dare.System
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
