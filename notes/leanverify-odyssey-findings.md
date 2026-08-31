@@ -30,8 +30,9 @@ Note the *update-form* Joseph square (gains `A·K`) does **not**
 suffice here when `A` is singular; the predictor form does. Worth a
 sentence if the proof is rewritten.
 
-## 2. `lem:structure`-1 / `lem:structure-marg` — **optional**: the
-antistable positivity needs only `ρ(F∞) ≤ 1`, not `eq:Finf-spec`
+## 2. `lem:structure`-1 / `lem:structure-marg` — **soft**: the
+positivity argument as written doesn't close (and needs only
+`ρ(F∞) ≤ 1`, not `eq:Finf-spec`)
 
 Both proofs argue `Σ∞|ₐₐ ≻ 0` by "a kernel direction is left
 unreflected and contributes `|λ| > 1`", citing the imported spectrum
@@ -48,4 +49,5 @@ which `F∞ᵀ` acts as `Aₐᵀ`, handing `F∞` an eigenvalue of `Aₐ`
 verbatim — against `ρ(F∞) ≤ 1`. **Patch:** replace the heuristic
 sentence with this three-step argument; it also thins the reliance on
 the imported Fact 1 (the spectrum split is then consumed only where
-the reflection itself is used).
+the reflection itself is used). Deck-side repair (`01-structure.md`)
+to be batched with the first hole-protocol pass on `odyssey-src/`.
