@@ -14,14 +14,14 @@ The from-above gap has a fixed contraction the from-below gap lacks: for $V\succ
 <!-- lem:marginal -->
 ### Lemma (lem:marginal) — Extinction of the marginal block
 
-Let C1 hold, let the marginal block be **power-bounded in both directions** — $c_m := \sup_{k\ge0}\max\{\|A_m^k\|,\|A_m^{-k}\|\} < \infty$; equivalently, the unit-circle marginal eigenvalues are semisimple — and let $\bar\Sigma_T := \mathcal R^T(\overline\Sigma_0)$ for any prior with positive-definite uncontrollable block, $\overline\Sigma_0\!\mid_{22} \succ 0$. The marginal block is driven to zero,
+Let C1 hold, let the marginal block be **forward power-bounded** — $c_m := \sup_{k\ge0}\|A_m^k\| < \infty$; in particular when the unit-circle marginal eigenvalues are semisimple — and let $\bar\Sigma_T := \mathcal R^T(\overline\Sigma_0)$ for **any** PSD prior $\overline\Sigma_0$. The marginal block is driven to zero,
 
 <!-- eq:marg-zero -->
 $$ \bar\Sigma_T\!\mid_{mm} \;\longrightarrow\; 0 \qquad (T\to\infty), \tag{eq:marg-zero} $$
 
-and hence, by comparison, $\Sigma_T\!\mid_{mm}\to0$ for **every** prior $\Sigma_0\preceq\overline\Sigma_0$ (consistent with $\Sigma_\infty\!\mid_{mm}=0$, `eq:marg-extinct`). No rate is claimed. **The defective-marginal case is OPEN**: the numerics support the same conclusion with Jordan-degraded rates, but no proof is currently on the page, and every downstream use carries the semisimple qualification.
+for every prior directly — no comparison step and no positivity of any block is needed (consistent with $\Sigma_\infty\!\mid_{mm}=0$, `eq:marg-extinct`). No rate is claimed. **The defective-marginal case is OPEN**: the numerics support the same conclusion with Jordan-degraded rates, but no proof is currently on the page, and every downstream use carries the semisimple qualification.
 
-*Proof.* The uncontrollable corner stays positive definite, $\bar\Sigma_T\!\mid_{22}\succ0$ for all $T$ (the `lem:structure`-3 mechanism on the whole $e_2$ block; full positive-definiteness of $\bar\Sigma_T$ need **not** persist when $\ker A'\cap\ker G'\ne\{0\}$, and is not used). Track the **backward-transported uncontrollable columns**
+*Proof.* No positivity is used anywhere (full positive-definiteness of $\bar\Sigma_T$ need **not** persist when $\ker A'\cap\ker G'\ne\{0\}$, and even the $e_2$-corner positivity is not needed). Track the **backward-transported uncontrollable columns**
 
 <!-- eq:Ydef -->
 $$ Y_T := \bar\Sigma_T\,E_2\,A_2^{-T\prime} \qquad (E_2 := \text{the } e_2\text{-inclusion}); \tag{eq:Ydef} $$
@@ -39,10 +39,11 @@ Insert the stabilizing injection $L$ of C1 ($A-LC$ Schur, as in Part 2 of `lem:s
 
 **(iii) Power-boundedness closes.** Since $A_2 = A_a\oplus A_m$, the marginal columns of $Y_T$ are $\bar\Sigma_T E_m A_m^{-T\prime}$, so $\bar\Sigma_T\!\mid_{mm} = \big(E_m'\,\bar\Sigma_T E_m A_m^{-T\prime}\big)A_m^{T\prime}$ and
 $$ \|\bar\Sigma_T\!\mid_{mm}\| \;\le\; \text{const}\cdot\|Y_T\|\cdot\|A_m^{T}\| \;\le\; \text{const}\cdot c_m\,\|Y_T\| \;\longrightarrow\; 0. $$
-For a general prior $\Sigma_0\preceq\overline\Sigma_0$, comparison (`eq:comparison`) gives $\Sigma_T\!\mid_{mm}\preceq\bar\Sigma_T\!\mid_{mm}\to0$, no inversion of a singular $\Sigma_0\!\mid_{mm}$ needed. ∎
+Only the *forward* powers of $A_m$ are ever bounded; the backward powers appear solely inside $Y_T$, which dies in norm regardless. ∎
 
 **Remark (what changed and why).** An earlier version argued through the injected information: the $(m,m)$ block of `eq:Jrec` with a uniform windowed coercivity of the increments $\widehat W_T^{mm}$. That display windowed a *single* $\widehat W_T$ where the unrolled sum needs windows of *consecutive* increments, and its uniformity argument negated a uniform-in-$T$ bound into a single exact-zero vector — a hole (Lean verification finding 5). The present proof needs no information coordinates, no $\widehat W$-floor, and no `fact:gramian`/`fact:poly-growth`; the price is the power-bounded (semisimple) qualification, whose removal is the flagged open problem.
 
+<!-- verify: LEAN (phase B): lem:marginal / eq:marg-zero = DareSystem.marg_block_norm_tendsto (Estimation/Dare/MarginalUpper.lean; engine: Variational.updM_quadForm_le_sub + Convolution.tendsto_zero_of_geometric_conv + margY_succ/margPhi_step/margY_output_entry_summable/margY_norm_tendsto). The Lean proved slightly MORE than first repaired (finding 8, adopted): any PSD prior, no corner positivity, no comparison step, forward power-boundedness only. Axioms clean. -->
 <!-- verify: GATE-2 (scratch/check_marginal_route.py): phi_T(u) monotone nonincreasing EXACTLY (max violation 0.0); sum ||C Y_T||^2 converges (tail 1e-4/1e-6 at T=4000); ||Y_T|| -> 0; Sigma_T|mm -> 0 on both a semisimple rotation AND a defective Jordan block (numerics only for the latter — the proof covers power-bounded Am). Old-route checks (check_marg_coercive_uniform.py etc.) retired with the route. -->
 <!-- verify: deps — app:machinery-2 (e2 (2,2)-identity and column identities), eq:A2-inv, eq:comparison, eq:bounded (uniform innovation bound + K_T bounded), C1 (via the stabilizing injection, as in lem:structure-2), fact:schur-decay, the Joseph variational square (lem:structure-2 mechanism), lem:structure-3 mechanism (corner positivity). fact:gramian / fact:poly-growth NO LONGER consumed here. eq:marg-extinct cited for consistency, not needed in-proof. CONSUMER: lem:supremal (marginal half), thm:sufficiency, 08 (all now carrying the semisimple qualification on the marginal branch). Confinement: MARGINAL branch, no C3w. -->
 
