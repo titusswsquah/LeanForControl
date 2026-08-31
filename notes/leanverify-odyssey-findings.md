@@ -29,3 +29,23 @@ that measurability detail — the algebraic route has no such detail).
 Note the *update-form* Joseph square (gains `A·K`) does **not**
 suffice here when `A` is singular; the predictor form does. Worth a
 sentence if the proof is rewritten.
+
+## 2. `lem:structure`-1 / `lem:structure-marg` — **optional**: the
+antistable positivity needs only `ρ(F∞) ≤ 1`, not `eq:Finf-spec`
+
+Both proofs argue `Σ∞|ₐₐ ≻ 0` by "a kernel direction is left
+unreflected and contributes `|λ| > 1`", citing the imported spectrum
+`eq:Finf-spec` (Fact 1). The Lean layer
+(`Dare/KernelInvariance.lean` + `Dare/StrongSolution.lean` +
+`Dare/Structure.lean::strong_corner_posDef`) shows the step needs
+only `ρ(F∞) ≤ 1` and closes by an elementary mechanism worth putting
+on the page, since the heuristic as written is not a proof (sprint
+risk R3): at the fixed point, `ker Σ∞` is `Aᵀ`-invariant and
+`Gᵀ`-annihilated, and **`F∞ᵀ = Aᵀ on `ker Σ∞`** (the filter does not
+act on directions it knows exactly — one line from the gain). So a
+nontrivial antistable corner kernel is an `F∞ᵀ`-invariant subspace on
+which `F∞ᵀ` acts as `Aₐᵀ`, handing `F∞` an eigenvalue of `Aₐ`
+verbatim — against `ρ(F∞) ≤ 1`. **Patch:** replace the heuristic
+sentence with this three-step argument; it also thins the reliance on
+the imported Fact 1 (the spectrum split is then consumed only where
+the reflection itself is used).

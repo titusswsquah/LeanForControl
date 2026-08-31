@@ -306,12 +306,28 @@ already index-generic. `fact:filter-opt` is thereby eliminated from
 the Lean layer; recorded as findings entry 1
 (`notes/leanverify-odyssey-findings.md`, created).
 
-**Phase-A remainder (next up, commits `OA.x`):** the `StrongSolution`
-hypothesis bundle (minimal-fields discipline, risk R7), then
-`lem:structure`-1/-3 and `lem:structure-marg` (risk R3 is the crux:
-the kernel-direction/reflection step needs a real eigenvector
-construction). Phase B follows: both anchors and the assembly, where
-the hole protocol is expected to fire first (R2).
+**2026-08-31 (session 2).** Phase-A remainder largely landed:
+OA.1a `Dare/KernelInvariance.lean` (kernel `Aᵀ`-invariance +
+`Gᵀ`-annihilation at the fixed point; `F∞ᵀ = Aᵀ` on `ker Σ∞`;
+Gate-2 `check_r3.py`); OA.1b `Dare/StrongSolution.lean` (the
+transport lemma real→ℂ, `mem_spectrum_transpose_iff`, and the
+generic corner-kernel spectrum theorem — **risk R3 resolved**, and
+the route consumes only `ρ(F∞) ≤ 1`, not `eq:Finf-spec` — findings
+entry 2); OA.1c `Dare/Structure.lean` (`IsStrongSolution` bundle
+with minimal fields per R7; `strong_corner_posDef` /
+`strong_toBlocks_posDef`: `Σ∞|ₐₐ ≻ 0` marginal-inclusive — the
+shared core of `lem:structure`-1/-marg and the lever
+`thm:necessity` needs); OA.2 (corner layer: `updM_corner_posDef`,
+`dareStep_corner_eq/_posDef`; `lem:structure`-3 as
+`dare_corner_posDef` under C2w; `strong_corner_fixed` and
+`strong_stein` — `eq:Sinf-gram` in relation form, series deferred
+to Phase B).
+
+**Phase-A remainder (next):** `lem:structure-marg`'s marginal
+extinction `Σ∞|·ₘ = 0` (Stein/no-decay + the unobservable-columns
+argument — the meatiest remaining piece, needed by `thm:necessity`'s
+marginal case and Phase B's `lem:supremal`); the `F∞` Schur-under-C3w
+bundle field lands with its first consumer. Then Phase B.
 
 ## 10. Definition-of-done
 
