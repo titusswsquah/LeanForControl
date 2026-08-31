@@ -101,7 +101,7 @@ The development culminates in the strong/stabilizing dichotomy `eq:dichotomy`, a
 <!-- eq:dichotomy -->
 $$ \text{C1} + \text{C2} + \text{C3w} \iff \Sigma_T \to \Sigma_\infty\ \text{exponentially}\ (\rho(F_\infty) < 1) \qquad\qquad \text{C1} + \text{C2w} \iff \Sigma_T \to \Sigma_\infty\ (\rho(F_\infty) \le 1) \tag{eq:dichotomy} $$
 
-The first line is the exponentially-attracting, **stabilizing** regime: with no uncontrollable unit-circle mode the reduced $e_1 \oplus e_a$ system is the whole state, $F_\infty$ is Schur, and the approach is geometric (the discrete-time counterpart of Callier, Winkin and Willems 1994). The second relaxes C2 + C3w to C2w alone: the marginal modes survive in the limit, $F_\infty$ sits on the unit circle, and the approach is polynomial — marginal uncontrollable modes slow the recursion but do not stop it (the discrete counterpart of the critical-mode phenomenon of Callier and Winkin 1995).
+The first line is the exponentially-attracting, **stabilizing** regime: with no uncontrollable unit-circle mode the reduced $e_1 \oplus e_a$ system is the whole state, $F_\infty$ is Schur, and the approach is geometric (the discrete-time counterpart of Callier, Winkin and Willems 1994). The second relaxes C2 + C3w to C2w alone: the marginal modes survive in the limit, $F_\infty$ sits on the unit circle, and the approach is slower — marginal uncontrollable modes slow the recursion but do not stop it (the discrete counterpart of the critical-mode phenomenon of Callier and Winkin 1995). The marginal branch currently carries `lem:marginal`'s standing qualification (semisimple marginal modes; defective case open), and its rate is observed ($\sim 1/T$) but not proved.
 
 **Remark (boundary cases).** If $(A, G)$ is controllable, $\mathcal{X}_{uc} = \{0\}$ and C2/C2w hold for every prior. If $(A, C)$ is observable, C1 is automatic. With the marginal block empty, `eq:three-block` is the two-block C3w form and `eq:dichotomy` reduces to its first line. Each such case is read by setting the corresponding block to be absent.
 <!-- END FILE: 00-problem.md -->
@@ -217,7 +217,7 @@ Equivalently, C2w is exactly the statement that the antistable information $J_0^
 <!-- END FILE: 02-criterion.md -->
 
 <!-- BEGIN FILE: 03-supremal.md -->
-<!-- 03-supremal — Charybdis, the upper anchor of the GAS squeeze. From any dominating prior the trajectory -->
+<!-- 03-supremal — Charybdis, the upper anchor of the GAS squeeze (marginal modes semisimple). From any dominating prior the trajectory -->
 <!-- dominates the run and converges to Sigma_inf, through the FIXED strong loop F_inf (the gap-Riccati -->
 <!-- eq:gap-ric in a02-machinery). Antistable reaches Sigma_inf|aa>0 exponentially (A_a^-1 Schur), marginal -->
 <!-- reaches 0 polynomially (lem:marginal). Discrete image of Callier-Winkin lem:supremal; the "smallest CW -->
@@ -268,22 +268,22 @@ For a general prior $\Sigma_0\preceq\overline\Sigma_0$, comparison (`eq:comparis
 <!-- lem:supremal -->
 ### Lemma (lem:supremal) — The supremal upper bound converges to $\Sigma_\infty$
 
-Let C1 hold and fix any $\overline\Sigma_0 \succeq \Sigma_\infty$ (e.g. $\overline\Sigma_0 = cI$, $c$ large). The **supremal** trajectory $\bar\Sigma_T := \mathcal R^T(\overline\Sigma_0)$ dominates every trajectory below it and converges to the strong solution:
+Let C1 hold, with semisimple marginal modes (`lem:marginal`), and fix any $\overline\Sigma_0 \succeq \Sigma_\infty$ with $\overline\Sigma_0\!\mid_{22}\succ0$ (e.g. $\overline\Sigma_0 = cI$, $c$ large). The **supremal** trajectory $\bar\Sigma_T := \mathcal R^T(\overline\Sigma_0)$ dominates every trajectory below it and converges to the strong solution:
 
 <!-- eq:above -->
 $$ \mathcal R^T(\Sigma_0) \preceq \bar\Sigma_T \ \ (\Sigma_0\preceq\overline\Sigma_0) \qquad\text{and}\qquad \bar\Sigma_T \;\longrightarrow\; \Sigma_\infty, \tag{eq:above} $$
 
-the antistable block reaching $\Sigma_\infty\!\mid_{aa}\succ0$ exponentially ($A_a^{-1}$ Schur, `eq:Sinf-gram`), the marginal block reaching $\Sigma_\infty\!\mid_{mm}=0$ polynomially (`lem:marginal`).
+the antistable block reaching $\Sigma_\infty\!\mid_{aa}\succ0$ exponentially ($A_a^{-1}$ Schur, `eq:Sinf-gram`), the marginal block reaching $\Sigma_\infty\!\mid_{mm}=0$ (`lem:marginal`; no rate claimed there).
 
 *Proof.* **Domination** is comparison (`eq:comparison`): $\Sigma_0\preceq\overline\Sigma_0 \Rightarrow \mathcal R^T(\Sigma_0)\preceq\mathcal R^T(\overline\Sigma_0)$.
 
 **Convergence.** Let $\Delta_T := \bar\Sigma_T - \Sigma_\infty\succeq0$ ($\overline\Sigma_0\succeq\Sigma_\infty$, $\Sigma_\infty$ a fixed point, comparison). By `eq:gap-ric`, $\Delta_{T+1}\preceq F_\infty\Delta_T F_\infty'$. In the frame `eq:three-block` the only unit-circle modes of $F_\infty$ are the marginal block; $F_\infty$ is Schur on $e_1\oplus a$ (`eq:Finf-spec`: $A_c$ and the reflected $A_a^{-1}$), $\rho(F_\infty\!\mid_{e_1\oplus a})<1$.
 
-*Marginal/cross.* $\Delta_T\!\mid_{mm} = \bar\Sigma_T\!\mid_{mm}\to0$ (`lem:marginal`, `eq:marg-zero`, the full-rank prior $\overline\Sigma_0$), and $\Delta_T\succeq0$ with `fact:schur` sends every marginal row/column to zero: $\|\Delta_T\!\mid_{m,\,e_1a}\|^2 \le \|\Delta_T\!\mid_{mm}\|\,\|\Delta_T\!\mid_{e_1a}\|\to0$ ($\Delta_T\!\mid_{e_1a}$ bounded, `eq:bounded`).
+*Marginal/cross.* $\Delta_T\!\mid_{mm} = \bar\Sigma_T\!\mid_{mm}\to0$ (`lem:marginal`, `eq:marg-zero`; $\overline\Sigma_0\!\mid_{22}\succ0$), and $\Delta_T\succeq0$ with `fact:schur` sends every marginal row/column to zero: $\|\Delta_T\!\mid_{m,\,e_1a}\|^2 \le \|\Delta_T\!\mid_{mm}\|\,\|\Delta_T\!\mid_{e_1a}\|\to0$ ($\Delta_T\!\mid_{e_1a}$ bounded, `eq:bounded`).
 
 *Stabilizable–antistable.* Restricting `eq:gap-ric` to $e_1\oplus a$, $\Delta_{T+1}\!\mid_{e_1a}\preceq F_\infty\!\mid_{e_1\oplus a}\Delta_T\!\mid_{e_1a}F_\infty\!\mid_{e_1\oplus a}' + \Xi_T$, where $\Xi_T$ collects the marginal-routed terms (each carrying $\Delta_T\!\mid_{m,\,e_1a}$ or $\Delta_T\!\mid_{mm}$), so $\|\Xi_T\|\to0$. The Stein operator $\delta\mapsto F_\infty\!\mid_{e_1\oplus a}\delta F_\infty\!\mid_{e_1\oplus a}'$ has spectral radius $\rho(F_\infty\!\mid_{e_1\oplus a})^2<1$, so $\|F_\infty\!\mid_{e_1\oplus a}^{\,k}\|\le c\gamma^k$, $\gamma<1$ (`fact:schur-decay`); iterating the Löwner inequality and taking norms, $\|\Delta_T\!\mid_{e_1a}\| \le c^2\gamma^{2T}\|\Delta_0\!\mid_{e_1a}\| + \sum_{k<T}c^2\gamma^{2(T-1-k)}\|\Xi_k\|\to0$ (geometric kernel against a null sequence), closing the boundedness used above.
 
-Both blocks vanish, so $\Delta_T\to0$, i.e. $\bar\Sigma_T\to\Sigma_\infty$: antistable exponentially (through the Schur $A_a^{-1}$, `eq:Sinf-gram`), marginal polynomially (`lem:marginal`). ∎
+Both blocks vanish, so $\Delta_T\to0$, i.e. $\bar\Sigma_T\to\Sigma_\infty$: antistable exponentially (through the Schur $A_a^{-1}$, `eq:Sinf-gram`), marginal by `lem:marginal`. ∎
 
 <!-- verify: GATE-2 (check_dsgg_upper.py, seed barSig0=Sig0+Sinf >= Sinf): domination barSig_T >= Sig_T held all T<=20000 (min eig >= -1e-9); barSig_T -> Sinf; marginal block (barSig-Sinf)_mm ~ 1/T polynomial (log-log slope -0.95), antistable exp -- the marginal paces. Gap eq:gap-ric Delta_{T+1} <= F_inf Delta_T F_inf' throughout (riccastep check_dom.py, min eig >= -2e-11). -->
 <!-- verify: deps — eq:comparison (domination), eq:gap-ric (from-above fixed-F_inf gap, a02-machinery), eq:Finf-spec (F_inf Schur on e1+a), fact:schur-decay (Stein rho^2<1), fact:schur (marginal rows via PSD), eq:bounded (Delta|e1a bounded), lem:marginal (eq:marg-zero), eq:Sinf-gram (antistable rate). CONSUMER: thm:sufficiency (eq:above, upper half of the squeeze). Confinement: does not read C3w (rho(F_inf)=1 with marginal present). PORT of riccastep 05-supremal-v3 Part 3; Parts 1-2 (eq:diff-id/eq:gap-ric) already in a02-machinery. -->
@@ -514,7 +514,7 @@ the last equality by marginal extinction $\Sigma_\infty\!\mid_{\cdot\,m}=0$ (`eq
 <!-- thm:sufficiency -->
 ### Theorem (thm:sufficiency) — Sufficiency of C2w
 
-Let C1 and C2w hold. Then the recursion is attracted to the strong solution from **every** prior $\Sigma_0$: $\Sigma_T \to \Sigma_\infty$, at a geometric rate when C3w also holds and a polynomial rate otherwise.
+Let C1 and C2w hold, with semisimple marginal modes when a marginal block is present (`lem:marginal`; the defective case is open). Then the recursion is attracted to the strong solution from **every** prior $\Sigma_0$: $\Sigma_T \to \Sigma_\infty$ — at a geometric rate when C3w also holds; no rate is claimed in the marginal case.
 
 *Proof.* A squeeze between two initial conditions, both attracted to $\Sigma_\infty$.
 
@@ -532,7 +532,7 @@ $$ \underline\Sigma_T \;\preceq\; \Sigma_T \;\preceq\; \overline\Sigma_T \qquad 
 
 **Squeeze.** Both bounds in `eq:squeeze` converge to the *same* fixed point $\Sigma_\infty$ — the unique strong solution (`fact:dare-strong`) — so $\Sigma_T\to\Sigma_\infty$. No separate limit identification is needed: each anchor converges *to $\Sigma_\infty$* by construction.
 
-**Rate.** Under C3w there is no marginal block: $F_\infty$ is Schur on all of $e_2$ ($A_c$ and $A_a^{-1}$, `eq:Finf-spec`), the from-above gap (`eq:gap-ric`) and the from-below anchor (`lem:jtransform`, rate $\max\{\rho(A_a^{-1})^2,\rho(L_\infty)\}$) both contract geometrically, and $\Sigma_T\to\Sigma_\infty$ at the geometric rate. Otherwise the marginal block is present; it converges only polynomially — $\bar\Sigma_T\!\mid_{mm}\to0$ at the unit-circle gramian rate (`lem:marginal`, `fact:gramian`, `fact:poly-growth`) — and, being the slower bound of the sandwich, it paces the whole, giving the polynomial rate. ∎
+**Rate.** Under C3w there is no marginal block: $F_\infty$ is Schur on all of $e_2$ ($A_c$ and $A_a^{-1}$, `eq:Finf-spec`), the from-above gap (`eq:gap-ric`) and the from-below anchor (`lem:jtransform`, rate $\max\{\rho(A_a^{-1})^2,\rho(L_\infty)\}$) both contract geometrically, and $\Sigma_T\to\Sigma_\infty$ at the geometric rate. Otherwise the marginal block is present and converges by `lem:marginal` with no rate claimed (the previously asserted polynomial rate rested on `lem:marginal`'s retired route; the numerics show $\sim 1/T$). ∎
 
 **Remark (the squeeze block by block).** The **antistable** block is held *above* collapse by the nondegenerate C2w seed forgotten through $A_a^{-1}$ (`lem:jtransform`, source-bounded by the conditional filter `lem:condfilter`, not by an assumed floor) and *below* $\Sigma_\infty\!\mid_{aa}$ by the upper trajectory's convergence from above (`eq:above`); the **marginal** block is driven to zero by unbounded observation information from above (`eq:marg-zero`) and rides the antistable from below (`lem:loading`); the **stabilizable** block follows the Schur closed loop $A_c$ from above and its conditional filter from below (`lem:condfilter`). C2w enters in exactly one place — making the antistable prior seed nondegenerate (`eq:Lc2w`) so the forgetting can take over. Drop C2w and the lower anchor loses its antistable seed; the run is no longer pinned from below, and indeed fails to converge (`thm:necessity`). This is cleaner than the marginal-zero route: because the lower anchor's marginal is *slaved* (`lem:lowsqueeze`), the squeeze needs no omega-limit and no reduction lemma.
 
@@ -593,6 +593,8 @@ Let C1 hold. By `lem:structure-marg` the strong error map $F_\infty$ has spectru
 <!-- eq:main-strong -->
 $$ \text{C1} + \text{C2w} \quad\iff\quad \Sigma_T \to \Sigma_\infty \quad\big(\rho(F_\infty)\le1\big). \tag{eq:main-strong} $$
 
+(The $\Leftarrow$ direction carries `lem:marginal`'s standing qualification: marginal modes semisimple; the defective case is open.)
+
 <!-- thm:main-2 -->
 **2. (Stabilizing/exponential refinement.)**
 
@@ -611,6 +613,7 @@ Conversely, suppose $\Sigma_T\to\Sigma_\infty$ exponentially. Then it converges,
 
 **Remark (the two regimes).** C2w is the exact frontier of attraction to the strong solution: it asks only that the prior inform every **antistable** uncontrollable direction (`lem:criterion-w`). Marginal uncontrollable directions need not be informed — their covariance is driven to zero by the unbounded information of a persistent observed mode (`lem:marginal`) — but they survive in $F_\infty$ on the unit circle and slow the approach to a polynomial rate. Removing them (C3w) collapses C2w to C2, reflects the entire uncontrollable-unstable spectrum strictly inside the disk, and restores the exponential, stabilizing regime. Both regimes are settled here, floor-free — the GAS branch (polynomial, marginal-inclusive) and the GES branch (exponential, C3w) — and both transfer to the estimator in `thm:payoff`.
 
+<!-- verify: OPEN (Lean verification finding 7): Part 2's converse (exponential => C3w) argues "Sigma_T|mm -> 0 only polynomially, contradicting the exponential rate" — this needs a rate LOWER bound on the marginal gap, which no result on the page provides (lem:marginal gives decay only, no floor; the retired route's poly-rate claim is gone). Candidate repair: a gap-floor argument in the style of the repo's GES exists_gap_floor_of_not_C3w. The parenthetical spectral route needs exponential => rho(F_inf)<1, likewise not established. To be resolved when 08 is verified. -->
 <!-- verify: assembles thm:sufficiency + thm:necessity (Part 1) and the rate + poly-rate contradiction (Part 2). Spectrum eq:Finf-spec from lem:structure-marg (F_inf Schur on e1+a, A_m on circle); riccastep check_Fspec.py: C3w rho(F+)=0.667, marginal rho(F+)=1.0. -->
 <!-- verify: deps — lem:structure-marg (eq:Finf-spec spectrum, Sigma_inf|aa>0, eq:marg-extinct), eq:Sinf-gram, eq:prior-pos (C2<=>C2w under C3w), thm:sufficiency (<= Part1 + rate), thm:necessity (=> Part1), lem:marginal + fact:gramian (poly rate, exponential=>C3w), fact:dare-strong/def:strong (rho(F_inf)<=1). CONSUMER: thm:payoff (estimator dichotomy). STANDALONE: Part 2 (GES) is self-contained (rate + poly-rate contradiction), not deferred; the full dichotomy lives here. PORT of riccastep 12-main-v4. -->
 <!-- END FILE: 08-main.md -->
