@@ -464,6 +464,22 @@ lemma _root_.Matrix.IsHermitian.transpose_eq_self {ι' : Type*}
   rw [← conjTranspose_eq_transpose_of_trivial]
   exact hM
 
+/-- **Cauchy–Schwarz for PSD forms**: `(yᵀDx)² ≤ (yᵀDy)(xᵀDx)`. -/
+lemma sq_dotProduct_mulVec_le {D : Matrix ι ι ℝ} (hD : D.PosSemidef)
+    (x y : ι → ℝ) :
+    (y ⬝ᵥ (D *ᵥ x)) ^ 2 ≤ quadForm D y * quadForm D x := by
+  have hquad : ∀ t : ℝ,
+      0 ≤ quadForm D x * (t * t) + (2 * (y ⬝ᵥ (D *ᵥ x))) * t
+        + quadForm D y := by
+    intro t
+    have h := hD.quadForm_nonneg (y + t • x)
+    rw [quadForm_add_of_isHermitian hD.1, quadForm_smul,
+      Matrix.mulVec_smul, dotProduct_smul, smul_eq_mul] at h
+    nlinarith [h]
+  have hdisc := discrim_le_zero hquad
+  rw [discrim] at hdisc
+  nlinarith [hdisc]
+
 section LoewnerInverse
 
 variable [DecidableEq ι]

@@ -200,15 +200,22 @@ lemma updM_isHermitian (hR : R.PosDef) (hSg : Sg.PosSemidef) :
     (updM C R Sg).IsHermitian :=
   (updM_posSemidef hR hSg).1
 
+/-- The measurement correction in closed form:
+`Σ − U(Σ) = ΣCᵀS⁻¹(CΣ)`. -/
+lemma sub_updM_eq :
+    Sg - updM C R Sg
+      = Sg * Cᵀ * (innov C R Sg)⁻¹ * (C * Sg) := by
+  unfold updM
+  abel
+
 /-- **The update contracts**: `Σ − U(Σ) = ΣCᵀS⁻¹CΣ ⪰ 0`. -/
 lemma sub_updM_posSemidef (hR : R.PosDef) (hSg : Sg.PosSemidef) :
     (Sg - updM C R Sg).PosSemidef := by
   have heq : Sg - updM C R Sg
       = Sg * Cᵀ * (innov C R Sg)⁻¹ * (Sg * Cᵀ)ᵀ := by
-    unfold updM
     rw [Matrix.transpose_mul, Matrix.transpose_transpose,
       hSg.1.transpose_eq_self]
-    abel
+    exact sub_updM_eq
   rw [heq]
   have h := ((innov_posDef (C := C) hR hSg).inv.posSemidef).mul_mul_conjTranspose_same
     (Sg * Cᵀ)

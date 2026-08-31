@@ -32,9 +32,10 @@ variable {ι κ : Type*} [Fintype ι] [DecidableEq ι] [Fintype κ] [DecidableEq
 variable {C : Matrix κ ι ℝ} {R : Matrix κ κ ℝ} {Sg : Matrix ι ι ℝ}
 
 /-- `L∞` operator norm of a transpose, up to the dimension factor
-(index-generic version of
+(index-generic, rectangular version of
 `LinearSystems.linfty_opNorm_transpose_le`). -/
-lemma linfty_opNorm_transpose_le' (M : Matrix ι ι ℝ) :
+lemma linfty_opNorm_transpose_le' {κ' : Type*} [Fintype κ']
+    (M : Matrix ι κ' ℝ) :
     ‖Mᵀ‖ ≤ (Fintype.card ι : ℝ) * ‖M‖ := by
   have hnn : ‖Mᵀ‖₊ ≤ (Fintype.card ι : ℕ) • ‖M‖₊ := by
     rw [Matrix.linfty_opNNNorm_def]
