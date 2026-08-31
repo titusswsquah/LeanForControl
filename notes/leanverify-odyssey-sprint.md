@@ -138,6 +138,13 @@ exercised, the analogue of `badSystem`.
 
 ## 5. The hole protocol (paper-side repair)
 
+**Governing document: `notes/verified-deck-convention.md`** — the
+general finding-taxonomy → deck-action rules (holes AND soft/optional
+findings trigger deck edits; `LEAN:` traceability lines; per-phase
+lean-sync commits). The working copy `odyssey-src/` was imported
+pristine at the first deck-affecting finding. The steps below remain
+as the hole-specific workflow.
+
 Trigger: a Lean attempt shows a step is false, circular, or needs an
 idea not on the page (Gate-1 hole) — not a mere slip that local work
 closes.

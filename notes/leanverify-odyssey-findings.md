@@ -7,8 +7,9 @@ tags: **hole** (Gate-1 defect, deck repair required), **soft**
 repair exists), **optional** (verified simplification, no correctness
 issue).
 
-## 1. `lem:structure`-2 (`eq:bounded`) — **optional**: the MMSE import
-is eliminable, and with it a latent filtered/predicted subtlety
+## 1. `lem:structure`-2 (`eq:bounded`) — **optional, ADOPTED**
+(deck commit 51920f7): the MMSE import is eliminable, and with it a
+latent filtered/predicted subtlety
 
 The deck proves `eq:bounded` by citing `fact:filter-opt` (Kalman =
 minimum-variance) to dominate `Σ_T` by a fixed-gain observer. The
@@ -30,9 +31,9 @@ Note the *update-form* Joseph square (gains `A·K`) does **not**
 suffice here when `A` is singular; the predictor form does. Worth a
 sentence if the proof is rewritten.
 
-## 2. `lem:structure`-1 / `lem:structure-marg` — **soft**: the
-positivity argument as written doesn't close (and needs only
-`ρ(F∞) ≤ 1`, not `eq:Finf-spec`)
+## 2. `lem:structure`-1 / `lem:structure-marg` — **soft, REPAIRED**
+(deck commit aaf4e2c): the positivity argument as written didn't
+close (and needs only `ρ(F∞) ≤ 1`, not `eq:Finf-spec`)
 
 Both proofs argue `Σ∞|ₐₐ ≻ 0` by "a kernel direction is left
 unreflected and contributes `|λ| > 1`", citing the imported spectrum
@@ -46,8 +47,7 @@ risk R3): at the fixed point, `ker Σ∞` is `Aᵀ`-invariant and
 act on directions it knows exactly — one line from the gain). So a
 nontrivial antistable corner kernel is an `F∞ᵀ`-invariant subspace on
 which `F∞ᵀ` acts as `Aₐᵀ`, handing `F∞` an eigenvalue of `Aₐ`
-verbatim — against `ρ(F∞) ≤ 1`. **Patch:** replace the heuristic
-sentence with this three-step argument; it also thins the reliance on
-the imported Fact 1 (the spectrum split is then consumed only where
-the reflection itself is used). Deck-side repair (`01-structure.md`)
-to be batched with the first hole-protocol pass on `odyssey-src/`.
+verbatim — against `ρ(F∞) ≤ 1`. **Patch (applied):** the heuristic
+sentence in `odyssey-src/01-structure.md` (both lemmas) is replaced
+by this three-step argument, thinning the reliance on the imported
+Fact 1; Gate-2 record `odyssey-src/scratch/check_kernel_invariance.py`.
