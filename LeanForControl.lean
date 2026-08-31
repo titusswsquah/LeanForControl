@@ -30,6 +30,7 @@ import LeanForControl.Estimation.Dare.Marginal
 import LeanForControl.Estimation.Dare.Variational
 import LeanForControl.Estimation.Dare.Convolution
 import LeanForControl.Estimation.Dare.MarginalUpper
+import LeanForControl.Estimation.Dare.Necessity
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
