@@ -282,13 +282,6 @@ def IsStationary (a e₀ : Fin n₁ ⊕ Fin n₂ → ℝ) (T : ℕ) : Prop :=
       + (symmPinv Sys.hSig₂.1 *ᵥ blk₂ (e₀ - a)) ⬝ᵥ blk₂ d
       + (Sys.lq.ric T *ᵥ e₀) ⬝ᵥ d = 0
 
-/-- `Mᵀ = M` for a real symmetric matrix (transposed form of
-`IsHermitian`). -/
-lemma _root_.Matrix.IsHermitian.transpose_eq_self {ι' : Type*}
-    {M : Matrix ι' ι' ℝ} (hM : M.IsHermitian) : Mᵀ = M := by
-  rw [← conjTranspose_eq_transpose_of_trivial]
-  exact hM
-
 lemma ric_transpose_eq (T : ℕ) : (Sys.lq.ric T)ᵀ = Sys.lq.ric T := by
   rw [← conjTranspose_eq_transpose_of_trivial]
   exact Sys.lq.ric_isHermitian T

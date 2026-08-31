@@ -457,4 +457,60 @@ lemma _root_.Matrix.PosSemidef.exists_sq_norm_mulVec_le {W : Matrix ι ι ℝ}
 
 end QuadSolve
 
+/-- `Mᵀ = M` for a real symmetric matrix (transposed form of
+`IsHermitian`). -/
+lemma _root_.Matrix.IsHermitian.transpose_eq_self {ι' : Type*}
+    {M : Matrix ι' ι' ℝ} (hM : M.IsHermitian) : Mᵀ = M := by
+  rw [← conjTranspose_eq_transpose_of_trivial]
+  exact hM
+
+section LoewnerInverse
+
+variable [DecidableEq ι]
+
+/-- **Löwner inversion is antitone**: `0 ≺ A ⪯ B ⇒ B⁻¹ ⪯ A⁻¹`.
+Proof by one completed square — no spectral theorem: with `u = A⁻¹v`,
+`w = B⁻¹v`,
+`0 ≤ (u−w)ᵀA(u−w) = vᵀA⁻¹v − 2vᵀw + wᵀAw ≤ vᵀA⁻¹v − vᵀB⁻¹v`. -/
+lemma posSemidef_inv_sub_inv {A B : Matrix ι ι ℝ}
+    (hA : A.PosDef) (hB : B.PosDef) (hAB : (B - A).PosSemidef) :
+    (A⁻¹ - B⁻¹).PosSemidef := by
+  refine posSemidef_sub_of_quadForm_le hB.inv.1 hA.inv.1 fun v => ?_
+  set u : ι → ℝ := A⁻¹ *ᵥ v with hu
+  set w : ι → ℝ := B⁻¹ *ᵥ v with hw
+  have hAu : A *ᵥ u = v := by
+    rw [hu, Matrix.mulVec_mulVec, Matrix.mul_nonsing_inv _
+      ((Matrix.isUnit_iff_isUnit_det _).mp hA.isUnit), Matrix.one_mulVec]
+  have hBw : B *ᵥ w = v := by
+    rw [hw, Matrix.mulVec_mulVec, Matrix.mul_nonsing_inv _
+      ((Matrix.isUnit_iff_isUnit_det _).mp hB.isUnit), Matrix.one_mulVec]
+  have hqA : quadForm A⁻¹ v = v ⬝ᵥ u := by rw [quadForm, ← hu]
+  have hqB : quadForm B⁻¹ v = v ⬝ᵥ w := by rw [quadForm, ← hw]
+  have hqAu : quadForm A u = v ⬝ᵥ u := by
+    rw [quadForm]
+    conv_lhs => rw [hAu]
+    rw [dotProduct_comm]
+  have hqBw : quadForm B w = v ⬝ᵥ w := by
+    rw [quadForm]
+    conv_lhs => rw [hBw]
+    rw [dotProduct_comm]
+  have hcrossAw : u ⬝ᵥ (A *ᵥ w) = v ⬝ᵥ w := by
+    rw [dotProduct_mulVec_eq, hA.1.transpose_eq_self, hAu]
+  have hexp : quadForm A (u - w)
+      = quadForm A u - 2 * (v ⬝ᵥ w) + quadForm A w := by
+    have h1 : u - w = u + (-1 : ℝ) • w := by module
+    rw [h1, quadForm_add_of_isHermitian hA.1, quadForm_smul,
+      Matrix.mulVec_smul, dotProduct_smul, hcrossAw]
+    push_cast
+    ring
+  have hAwB : quadForm A w ≤ quadForm B w :=
+    quadForm_le_quadForm_of_posSemidef_sub hAB w
+  have hsq : 0 ≤ quadForm A (u - w) := hA.posSemidef.quadForm_nonneg _
+  rw [hqA, hqB]
+  rw [hqBw] at hAwB
+  rw [hexp, hqAu] at hsq
+  linarith
+
+end LoewnerInverse
+
 end LinearSystems
