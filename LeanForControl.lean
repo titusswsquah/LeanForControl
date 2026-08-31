@@ -27,6 +27,7 @@ import LeanForControl.Estimation.Dare.KernelInvariance
 import LeanForControl.Estimation.Dare.StrongSolution
 import LeanForControl.Estimation.Dare.Structure
 import LeanForControl.Estimation.Dare.Marginal
+import LeanForControl.Estimation.Dare.Variational
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
