@@ -281,7 +281,7 @@ lemma slavedSeed_corner_posDef (hC2w : S.C2w) {δ : ℝ} (hδ : 0 < δ) :
   exact (S.criterion_w.mp hC2w).smul hδ
 
 /-- Left-multiplying by `embMᵀ` selects the marginal rows. -/
-lemma embM_transpose_mul {κ : Type*} [Fintype κ]
+lemma embM_transpose_mul {κ : Type*}
     (M : Matrix (ix n₁ na nm) κ ℝ) :
     (embM n₁ na nm)ᵀ * M
       = Matrix.of fun j k => M (Sum.inr (Sum.inr j)) k := by
@@ -292,7 +292,7 @@ lemma embM_transpose_mul {κ : Type*} [Fintype κ]
     Matrix.transpose_apply, Matrix.one_apply, Finset.sum_ite_eq']
 
 /-- Left-multiplying by `embAᵀ` selects the antistable rows. -/
-lemma embA_transpose_mul {κ : Type*} [Fintype κ]
+lemma embA_transpose_mul {κ : Type*}
     (M : Matrix (ix n₁ na nm) κ ℝ) :
     (embA n₁ na nm)ᵀ * M
       = Matrix.of fun i k => M (Sum.inr (Sum.inl i)) k := by
