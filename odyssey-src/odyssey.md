@@ -520,7 +520,7 @@ Let C1 and C2w hold, with semisimple marginal modes when a marginal block is pre
 
 *Proof.* A squeeze between two initial conditions, both attracted to $\Sigma_\infty$.
 
-**The two anchors.** Take $\overline\Sigma_0 = cI$ with $c$ large enough that $\overline\Sigma_0 \succeq \max(\Sigma_\infty, \Sigma_0)$, and let $\underline\Sigma_0$ be the slaved seed `eq:Ldef-slaved` (any $\delta\in(0,1]$). By `lem:slaved-seed`-1, $\underline\Sigma_0\preceq\Sigma_0$; by construction $\Sigma_0\preceq\overline\Sigma_0$; so the prior is framed,
+**The two anchors.** Take $\overline\Sigma_0 = \Sigma_0 + \Sigma_\infty$ — manifestly $\succeq \Sigma_0$ and $\succeq \Sigma_\infty$, with no threshold to choose — and let $\underline\Sigma_0$ be the slaved seed `eq:Ldef-slaved` (any $\delta\in(0,1]$). By `lem:slaved-seed`-1, $\underline\Sigma_0\preceq\Sigma_0$; by construction $\Sigma_0\preceq\overline\Sigma_0$; so the prior is framed,
 
 <!-- eq:framed -->
 $$ \underline\Sigma_0 \;\preceq\; \Sigma_0 \;\preceq\; \overline\Sigma_0. \tag{eq:framed} $$
