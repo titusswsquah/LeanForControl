@@ -512,7 +512,146 @@ theorem strong_Fs_schur (hC1 : S.C1) (hS : S.IsStrongSolution Sinf) :
         embSt_mul_embS, complexify_one, Matrix.one_mulVec]
     rw [hw, he0, Matrix.mulVec_zero]
 
+
+/-- The complexified marginal-row invariance:
+`embMᵀ·F∞ = Aₘ·embMᵀ` over `ℂ`. -/
+lemma complexify_embMt_mul_errMap (hC1 : S.C1)
+    (hS : S.IsStrongSolution Sinf) :
+    complexify ((embM n₁ na nm)ᵀ)
+        * complexify (errMap S.fullC S.R S.fullA Sinf)
+      = complexify S.Am * complexify ((embM n₁ na nm)ᵀ) := by
+  rw [← complexify_mul, ← complexify_mul, S.embMt_mul_errMap hC1 hS]
+
+set_option maxHeartbeats 800000 in
+/-- **`eq:Finf-spec`, the split**: the spectrum of the strong loop is
+exactly the spectrum of its `(e₁⊕a)`-compression together with the
+marginal spectrum — the block-triangular factorization, verified at
+the level of eigenvectors. -/
+theorem strong_spec_split (hC1 : S.C1) (hS : S.IsStrongSolution Sinf) :
+    spectrum ℂ (complexify (errMap S.fullC S.R S.fullA Sinf))
+      = spectrum ℂ (complexify ((embS n₁ na nm)ᵀ
+            * errMap S.fullC S.R S.fullA Sinf * embS n₁ na nm))
+        ∪ spectrum ℂ (complexify S.Am) := by
+  ext μ
+  constructor
+  · -- a right eigenvector of `F∞` is marginal or `embS`-supported
+    intro hμ
+    obtain ⟨v, hvne, hveq⟩ := exists_eigenvector_of_mem_spectrum hμ
+    by_cases hm : complexify ((embM n₁ na nm)ᵀ) *ᵥ v = 0
+    · -- `embS`-supported: compress the eigenpair
+      left
+      have hv : v = complexify (embS n₁ na nm)
+          *ᵥ (complexify ((embS n₁ na nm)ᵀ) *ᵥ v) := by
+        calc v = complexify
+              (1 : Matrix (ix n₁ na nm) (ix n₁ na nm) ℝ) *ᵥ v := by
+              rw [complexify_one, Matrix.one_mulVec]
+        _ = complexify (embS n₁ na nm * (embS n₁ na nm)ᵀ
+              + embM n₁ na nm * (embM n₁ na nm)ᵀ) *ᵥ v := by
+              rw [embS_embM_partition]
+        _ = complexify (embS n₁ na nm)
+              *ᵥ (complexify ((embS n₁ na nm)ᵀ) *ᵥ v)
+            + complexify (embM n₁ na nm)
+              *ᵥ (complexify ((embM n₁ na nm)ᵀ) *ᵥ v) := by
+              rw [complexify_add, Matrix.add_mulVec, complexify_mul,
+                complexify_mul, ← Matrix.mulVec_mulVec,
+                ← Matrix.mulVec_mulVec]
+        _ = _ := by rw [hm, Matrix.mulVec_zero, add_zero]
+      have hsne : complexify ((embS n₁ na nm)ᵀ) *ᵥ v ≠ 0 := by
+        intro h0
+        apply hvne
+        rw [hv, h0, Matrix.mulVec_zero]
+      refine mem_spectrum_of_mulVec_eq_smul hsne ?_
+      -- `Fs (embSᵀv) = embSᵀ F∞ v = μ embSᵀ v` via the invariance
+      have hFv : complexify (errMap S.fullC S.R S.fullA Sinf)
+          *ᵥ (complexify (embS n₁ na nm)
+            *ᵥ (complexify ((embS n₁ na nm)ᵀ) *ᵥ v))
+          = complexify (embS n₁ na nm)
+            *ᵥ (complexify ((embS n₁ na nm)ᵀ
+                * errMap S.fullC S.R S.fullA Sinf * embS n₁ na nm)
+              *ᵥ (complexify ((embS n₁ na nm)ᵀ) *ᵥ v)) := by
+        rw [Matrix.mulVec_mulVec, ← complexify_mul,
+          S.errMap_mul_embS hC1 hS, complexify_mul,
+          ← Matrix.mulVec_mulVec]
+      rw [← hv, hveq] at hFv
+      have h1 := congrArg
+        (fun x => complexify ((embS n₁ na nm)ᵀ) *ᵥ x) hFv
+      simp only [Matrix.mulVec_smul] at h1
+      rw [Matrix.mulVec_mulVec, ← complexify_mul, embSt_mul_embS,
+        complexify_one, Matrix.one_mulVec] at h1
+      exact h1.symm
+    · -- marginal content: project the eigenpair to `Aₘ`
+      right
+      refine mem_spectrum_of_mulVec_eq_smul hm ?_
+      have h1 : complexify ((embM n₁ na nm)ᵀ)
+          *ᵥ (complexify (errMap S.fullC S.R S.fullA Sinf) *ᵥ v)
+          = complexify S.Am
+            *ᵥ (complexify ((embM n₁ na nm)ᵀ) *ᵥ v) := by
+        rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec,
+          S.complexify_embMt_mul_errMap hC1 hS]
+      rw [hveq, Matrix.mulVec_smul] at h1
+      exact h1.symm
+  · -- both parts embed back into `spec(F∞)`
+    intro hμ
+    rcases hμ with hμ | hμ
+    · obtain ⟨v, hvne, hveq⟩ := exists_eigenvector_of_mem_spectrum hμ
+      have hlift : complexify (errMap S.fullC S.R S.fullA Sinf)
+          *ᵥ (complexify (embS n₁ na nm) *ᵥ v)
+          = μ • (complexify (embS n₁ na nm) *ᵥ v) := by
+        rw [Matrix.mulVec_mulVec, ← complexify_mul,
+          S.errMap_mul_embS hC1 hS, complexify_mul,
+          ← Matrix.mulVec_mulVec, hveq, Matrix.mulVec_smul]
+      have hne : complexify (embS n₁ na nm) *ᵥ v ≠ 0 := by
+        intro h0
+        apply hvne
+        have h1 : complexify ((embS n₁ na nm)ᵀ)
+            *ᵥ (complexify (embS n₁ na nm) *ᵥ v) = v := by
+          rw [Matrix.mulVec_mulVec, ← complexify_mul, embSt_mul_embS,
+            complexify_one, Matrix.one_mulVec]
+        rw [h0, Matrix.mulVec_zero] at h1
+        exact h1.symm
+      exact mem_spectrum_of_mulVec_eq_smul hne hlift
+    · -- transpose-lift the marginal eigenvalue
+      have hμt : μ ∈ spectrum ℂ (complexify (S.Amᵀ)) := by
+        rw [complexify_transpose]
+        exact mem_spectrum_transpose_iff.mpr hμ
+      obtain ⟨v, hvne, hveq⟩ := exists_eigenvector_of_mem_spectrum hμt
+      have hlift : complexify ((errMap S.fullC S.R S.fullA Sinf)ᵀ)
+          *ᵥ (complexify (embM n₁ na nm) *ᵥ v)
+          = μ • (complexify (embM n₁ na nm) *ᵥ v) := by
+        rw [Matrix.mulVec_mulVec, ← complexify_mul,
+          S.errMap_transpose_mul_embM hC1 hS, complexify_mul,
+          ← Matrix.mulVec_mulVec, hveq, Matrix.mulVec_smul]
+      have hne : complexify (embM n₁ na nm) *ᵥ v ≠ 0 := by
+        intro h0
+        apply hvne
+        have h1 : complexify ((embM n₁ na nm)ᵀ)
+            *ᵥ (complexify (embM n₁ na nm) *ᵥ v) = v := by
+          rw [Matrix.mulVec_mulVec, ← complexify_mul, embMt_mul_embM,
+            complexify_one, Matrix.one_mulVec]
+        rw [h0, Matrix.mulVec_zero] at h1
+        exact h1.symm
+      refine mem_spectrum_transpose_iff.mp ?_
+      rw [← complexify_transpose]
+      exact mem_spectrum_of_mulVec_eq_smul hne hlift
+
+/-- **`ρ(F∞) = 1` with a marginal block**: the strong loop carries a
+unit-modulus eigenvalue (together with the bundle's `specLe`, the
+spectral radius is exactly one). -/
+theorem strong_exists_unit_eigenvalue (hC1 : S.C1)
+    (hS : S.IsStrongSolution Sinf) (hnm : Nonempty (Fin nm)) :
+    ∃ μ ∈ spectrum ℂ (complexify (errMap S.fullC S.R S.fullA Sinf)),
+      ‖μ‖ = 1 := by
+  obtain ⟨μ, hμ⟩ := Module.End.exists_eigenvalue
+    (Matrix.toLin' (complexify S.Am))
+  have hμAm : μ ∈ spectrum ℂ (complexify S.Am) := by
+    rw [← Matrix.spectrum_toLin']
+    exact Module.End.hasEigenvalue_iff_mem_spectrum.mp hμ
+  refine ⟨μ, ?_, S.hMarg μ hμAm⟩
+  rw [S.strong_spec_split hC1 hS]
+  exact Set.mem_union_right _ hμAm
+
 end DareSystem
+
 
 end Dare
 end Estimation
