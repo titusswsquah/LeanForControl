@@ -109,18 +109,30 @@ positivity survives (the `lem:structure`-3 mechanism), which is what
 the argument uses. Statement hypothesis weakened to
 `Σ̄₀|₂₂ ≻ 0` accordingly.
 
-## 7. `thm:main`-2 converse — **OPEN** (flagged in 08's verify block,
-commit 041971b): "exponential ⇒ C3w" needs a marginal-gap rate
-*lower* bound
+## 7. `thm:main`-2 converse — **HOLE (false as stated), REPAIRED &
+core VERIFIED** (Phase C)
 
-The converse argues "with a marginal block, `Σ_T|mm → 0` only
-polynomially, contradicting the exponential rate" — but no result on
-the page provides a rate *floor* (the repaired `lem:marginal` gives
-decay with no rate; the retired route's polynomial claim is gone).
-Candidate repair: a gap-floor argument in the style of the repo's
-`GES.exists_gap_floor_of_not_C3w`. Also the parenthetical spectral
-route needs "exponential ⇒ ρ(F∞) < 1", likewise unestablished. To be
-resolved when 08 enters verification.
+Escalated from OPEN: the per-prior converse of `eq:main-stab`
+("Σ_T → Σ∞ exponentially ⇒ C3w") is **false**, not merely unproven.
+Counterexample: any prior with *exactly known* marginal block
+(zero marginal rows). The recursion preserves zero marginal rows
+(verified: `marg_rows_stay_zero`), so the run coincides with the
+marginal-free `e₁⊕a` subsystem's run and converges exponentially
+despite `nm > 0`. **Repair** (deck commit "repair thm:main Part 2"):
+`eq:main-stab` now reads `C1: C3w ⟺ (exponential attraction from
+every C2 prior)`, with the counterexample recorded in a remark. The
+repaired converse is proved by a new argument — no polynomial floor:
+along the *exact* `eq:gap-ric` recursion, the transported marginal
+energy `φ_T = ⟨y_T, Δ_T y_T⟩` (transport legitimate because
+`Eₘᵀ F∞ = Aₘ Eₘᵀ`, the gain vanishing on the extinct marginal) loses
+at most `c‖Δ_T‖φ_T` per step; assuming the `ε = 1` run exponential,
+an `ε`-scaled seed keeps `φ_T ≥ ε/2` forever while comparison forces
+`φ_T → 0`. **Lean**: `DareSystem.marg_not_exponential`
+(`Dare/RateFloor.lean`), axioms clean. The forward rate (C3w ⇒
+geometric) remains deck-level. Note: the deck's own candidate repair
+(the value-level harmonic floor `exists_gap_floor_of_not_C3w`) exists
+verified in the repo's arc1 layer; the new covariance-level argument
+avoids needing any floor.
 
 ## 8. `lem:marginal` statement — **optional, ADOPTED** (deck commit
 571c5a5): the verified proof gives strictly more than first repaired
@@ -177,3 +189,42 @@ accepts any PSD seed `⪰ Σ∞`).
   `eq:marg-extinct`), and the fixed-point identities are read off
   chart extraction (`strong_chart_fixed`) — same content as the deck's
   uniqueness prose, no uniqueness argument needed.
+
+## 11. `thm:payoff` Part 2, RGAS half — **HOLE (misstatement),
+REPAIRED** (Phase C): the error frontier is C2, not C2w
+
+"C1+C2w ⟺ RGAS" conflated the covariance frontier with the error
+frontier. An *uninformed* marginal error direction is never corrected
+(the optimal gain is zero along it; it rotates undamped), so GAS
+fails under C2w-only; informed (C2), the filter learns it and GAS
+holds — with or without C3w, semisimple or not. This is the repo's
+**verified** arc1 result (`FIESystem.isGAS_iff_C1_and_C2`,
+`gas_ges_dichotomy`, and the FIE↔TVKF bridge `isGASkf_iff_isGAS`).
+The deck's own wording ("undamped ripples") conceded
+non-convergence under the standard σ/KL definition. Repaired:
+`eq:payoff-dich` states GES ⟺ C1+C2+C3w and GAS ⟺ C1+C2, plus the
+"two frontiers" remark (covariance: C2w; error: C2).
+
+## 12. `thm:payoff` Part 2, RGAS mechanism — **soft (invalid
+inference), REPAIRED** (same commit)
+
+"F∞ power-bounded ⇒ Φ(T,k) uniformly bounded" is a non sequitur:
+products of time-varying maps converging to a power-bounded limit
+need not be bounded (Levinson-type conditions need summable
+perturbations, unavailable without C3w). The arc1 route is
+variational and never touches transition products; the proof now
+cites it. The semisimple/defective distinction re-scoped: it governs
+the *limit* map's powers `‖F∞^k‖` (frozen-gain ripples), not the
+optimal filter's error. The GATE-2 numerics
+(`check_defective_marginal.py`) measured `‖F∞^k‖` — consistent with
+the re-scoped claim, silent on the filter products.
+
+## 13. `cor:every-prior` — **soft (wrong side), REPAIRED**
+(same commit)
+
+Every-prior "RGAS ⟺ 𝒳ₐ,uc = 0" characterized the *covariance* side.
+Corrected: covariance attraction for every prior ⟺ 𝒳ₐ,uc = {0};
+error GAS for every prior ⟺ 𝒳u,uc = {0} ⟺ (A,G) stabilizable — and
+under the universal quantifier GAS and GES *coincide* (stabilizability
+already entails C3w). The interesting antistable-only characterization
+survives on the covariance side.
