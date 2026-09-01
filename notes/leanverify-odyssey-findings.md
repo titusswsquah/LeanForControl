@@ -283,3 +283,26 @@ route and flags the surviving $e_1|a$ coupling; 06's rate remark and
 09's Part-1 proof cite the verified split vs. the imported reciprocal
 identification correctly. The false identification was decorative
 (no proof consumed it), hence soft.
+
+## 16. `lem:sysinterp` orbit collapse — the `L⁻/L^≥` split is
+eliminable (simplification, deck simplified)
+
+The deck's kernel-identity `⊆` direction (a04) collapsed the backward
+`e₁`-orbit ($a_k = A_1'a_{k+1}$, $G_1'a_k = 0$, $a_k \to 0$) by
+splitting $e_1 = L^-(A_1') \oplus L^{\ge}(A_1')$, contracting the
+stable component, inverting $A_1'$ on the unstable-or-critical part
+($(A_1'|_{L^\ge})^{-1}$ — the one partial inverse in the file), and
+invoking "inverse-related maps share invariant subspaces" plus the
+stabilizability placement $NO(G_1',A_1') \subseteq L^-(A_1')$. All of
+this is eliminable: since $G_1'a_{k+1} = 0$ for every $k \ge 0$, one
+stabilizing output injection $L_{\mathrm{inj}}$ (from stabilizability
+of $(A_1,G_1)$, i.e. detectability of the dual pair — Lean:
+`detect_inj S.A₁ᵀ S.G₁ᵀ S.hStab`) rewrites the recursion as
+$a_k = (A_1' - L_{\mathrm{inj}}G_1')a_{k+1}$ with a Schur matrix, and
+$a_j = (A_1'-L_{\mathrm{inj}}G_1')^m a_{j+m} \to 0$ kills the orbit in
+one line — no spectral splitting, no partial inverse, no
+invariant-subspace transfer. Verified as `kernel_sub`
+(Estimation/Dare/Subspace.lean); deck proof paragraph replaced and the
+`A^{-1}`-hygiene line updated (the $(A_1'|_{L\ge})^{-1}$ entry is
+retired). The deck's original argument was correct — this is a
+simplification finding, not an error.
