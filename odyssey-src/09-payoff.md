@@ -28,7 +28,7 @@ both in the standard sense for the noise-free error ($\|e^\star(T)\| \le \sigma(
 
 **The two frontiers.** Note the deliberate asymmetry with `thm:main`: the *covariance* forgets its prior iff **C2w** (marginal uncontrollable directions need not be informed — their covariance is extinguished by observation), but the *error* forgets its initial condition iff **C2**: an *uninformed* marginal error direction is never corrected — the optimal gain is zero along it, and the error rotates undamped on the unit circle, so GAS fails. Informing it (C2) is enough: the filter then learns the marginal component exactly (its covariance $\to0$, `eq:marg-extinct`) and the error converges — without C3w only non-uniformly and non-exponentially.
 
-*Proof.* Part 1 is `eq:Finf-spec` (`lem:structure-marg`).
+*Proof.* Part 1: the split and the Schur compression are `lem:structure-marg` (verified); the per-eigenvalue reciprocal identification is `fact:dare-strong`'s pencil statement (Arc 1).
 
 Part 2, **GES.** This is the exponential dichotomy of the companion development, proved variationally on the lumped two-block frame ($e_2 = $ all uncontrollable modes with $|\lambda|\ge1$): under C1+C2+C3w the full-information value converges geometrically and the optimizer error is GES; conversely GES forces C2 (an uninformed unstable-uncontrollable direction leaves a persistent error) and C3w — a unit-circle uncontrollable mode keeps a *harmonic* floor $c/(1+T)$ of the value budget out of reach at every horizon, contradicting a geometric rate. Robustness under GES: a perturbed run (prior, gain, or additive disturbance in the error recursion) is carried by the same uniformly exponentially bounded transition (`eq:diff-unroll`), giving the displayed ISS bound.
 

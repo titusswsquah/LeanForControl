@@ -262,3 +262,24 @@ no longer hypothesize `eq:Finf-spec` (`supremal_tendsto` keeps it as
 a general-lemma hypothesis, discharged at every consumer).
 GATE-2: scratch/check_spectrum_split.py (split exact, max|spec Fs| =
 0.63, unit eigenvectors m-supported).
+
+## 15. `A_c` identification — **soft (false as stated), REPAIRED**
+
+The deck defined $A_c$ as "the $e_1$-diagonal block of $F_\infty$"
+(00-problem) and 08 asserted $F_\infty$ "block upper-triangular in
+the frame". Both are false: the antistable rows of $F_\infty$ couple
+back into $e_1$ through the gain ($F_\infty\!\mid_{a,e_1} =
+-A_aK_aC_1 \ne 0$), so $F_\infty$ is *not* $(e_1|a)$-triangular and
+the $e_1$-diagonal block is not a spectral part. GATE-2 refutation
+(scratch/check_Ac_identification.py): $\|F_{a,e_1}\| = 1.17$;
+$\operatorname{spec}((F_\infty)_{11}) = \{0.039, 0.482^2\}$ is not
+inside $\operatorname{spec}(F_\infty)$, while the reduced
+$(A_1,G_1,C_1)$ stabilizing loop's spectrum $\{0.062, 0.130^2\}$ is
+— exactly. The only structural triangularity is $(e_1\oplus a\,|\,m)$,
+and it comes from **extinction** (the marginal gain rows vanish), not
+from the frame. Repairs: $A_c$ redefined as the reduced stabilizing
+loop (00-problem); 08's Spectrum paragraph states the extinction
+route and flags the surviving $e_1|a$ coupling; 06's rate remark and
+09's Part-1 proof cite the verified split vs. the imported reciprocal
+identification correctly. The false identification was decorative
+(no proof consumed it), hence soft.

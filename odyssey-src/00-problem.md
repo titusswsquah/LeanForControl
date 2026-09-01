@@ -67,7 +67,7 @@ $$ A = \begin{bmatrix} A_1 & A_{1a} & A_{1m} \\ 0 & A_a & 0 \\ 0 & 0 & A_m \end{
 
 with
 
-- $(A_1, G_1)$ stabilizable and $(A_1, C_1)$ detectable (C1); its closed loop under the strong-solution gain, $A_c$ (the $e_1$-diagonal block of $F_\infty$), is Schur, $\rho_c := \rho(A_c) < 1$ (`eq:Finf-spec`) — the block that converges **forward**, needing no reversal;
+- $(A_1, G_1)$ stabilizable and $(A_1, C_1)$ detectable (C1); its closed loop under the strong-solution gain, $A_c$ (the stabilizing closed loop of the reduced $(A_1,G_1,C_1)$ filter — **not** the $e_1$-diagonal block of $F_\infty$, which is not a spectral part: the antistable rows couple back through the gain), is Schur, $\rho_c := \rho(A_c) < 1$ (`eq:Finf-spec`) — the block that converges **forward**, needing no reversal;
 - $A_a$ antistable, $|\lambda(A_a)| > 1$, with $A_a^{-1}$ Schur, $\rho_a := \rho(A_a^{-1}) < 1$ — the **antistable** block;
 - $A_m$ on the unit circle, $|\lambda(A_m)| = 1$ — the **marginal** block ($A_m^{-1}$ exists but is **not** Schur); **absent under C3w**;
 - $\Sigma_1 \succeq 0$ the stabilizable prior block, $\Sigma_2 = \big[\begin{smallmatrix} \Sigma_{aa} & \Sigma_{am} \\ \Sigma_{am}' & \Sigma_{mm} \end{smallmatrix}\big] \succeq 0$ the lumped uncontrollable prior block.

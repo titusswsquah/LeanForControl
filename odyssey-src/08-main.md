@@ -6,7 +6,7 @@
 <!-- thm:main -->
 ### Theorem (thm:main) — The strong/stabilizing dichotomy
 
-Let C1 hold. By `lem:structure-marg` the strong error map $F_\infty$ has spectrum `eq:Finf-spec` — $\operatorname{spec}(A_c)$ (Schur), the antistable spectrum reflected inside the disk $\{\lambda^{-1}:\lambda\in\operatorname{spec}(A_a)\}$, and the marginal spectrum $\operatorname{spec}(A_m)$ on the unit circle. Consequently:
+Let C1 hold. By `lem:structure-marg` the strong error map $F_\infty$ has spectrum `eq:Finf-spec` — Schur on the $e_1\oplus a$ compression, and the marginal spectrum $\operatorname{spec}(A_m)$ unmoved on the unit circle (classically the Schur part is $\operatorname{spec}(A_c)$ together with the reflected antistable spectrum $\{\lambda^{-1}:\lambda\in\operatorname{spec}(A_a)\}$ — `fact:dare-strong`'s pencil statement). Consequently:
 
 <!-- thm:main-1 -->
 **1. (Strong attraction.)**
@@ -26,7 +26,7 @@ The quantifier over priors is essential and cannot be dropped: for a **fixed** p
 
 *Proof.*
 
-**Spectrum.** $F_\infty = A(I - \Sigma_\infty C'(C\Sigma_\infty C'+R)^{-1}C)$ is block upper-triangular in the frame `eq:three-block` (the $e_2$-rows of $A$ are $[\,0\ A_2\,]$, $G=\operatorname{col}(G_1,0,0)$). Its $e_1$-diagonal block is the stabilizable closed loop $A_c$, Schur; on the antistable block $\Sigma_\infty\!\mid_{aa}\succ0$ with information the $A_a^{-1}$-gramian (`eq:Sinf-gram`), and the whole $e_1\oplus a$ compression of $F_\infty$ is Schur by the one-step PBH–Stein argument of `lem:structure-marg` (at $|\mu| = 1$ the transported Stein identity forces a left eigenvector of $A$ unexcited by $G$, killed by stabilizability and antistability; $|\mu| > 1$ embeds through the block-triangular invariance against $\rho(F_\infty)\le1$); on the marginal block $\Sigma_\infty\!\mid_{mm}=0$ (`eq:marg-extinct`), the mode is estimated exactly, the gain is zero, and $F_\infty$ leaves it as $A_m$ on the unit circle. Hence `eq:Finf-spec`, and $\rho(F_\infty)<1$ iff there is no marginal block, i.e. iff C3w.
+**Spectrum.** $F_\infty = A(I - \Sigma_\infty C'(C\Sigma_\infty C'+R)^{-1}C)$ is block upper-triangular for the $(e_1\oplus a\,|\,m)$ split — not by the frame alone but by **extinction**: $\Sigma_\infty\!\mid_{m\,\cdot}=0$ zeroes the marginal rows of the gain, so the $m$-rows of $F_\infty$ are $[\,0\ 0\ A_m\,]$ (the $e_1\,|\,a$ coupling, by contrast, survives — the antistable rows couple back through the gain, which is why the $e_1$-diagonal block of $F_\infty$ is *not* a spectral part). On the antistable block $\Sigma_\infty\!\mid_{aa}\succ0$ with information the $A_a^{-1}$-gramian (`eq:Sinf-gram`), and the whole $e_1\oplus a$ compression of $F_\infty$ is Schur by the one-step PBH–Stein argument of `lem:structure-marg` (at $|\mu| = 1$ the transported Stein identity forces a left eigenvector of $A$ unexcited by $G$, killed by stabilizability and antistability; $|\mu| > 1$ embeds through the block-triangular invariance against $\rho(F_\infty)\le1$); on the marginal block $\Sigma_\infty\!\mid_{mm}=0$ (`eq:marg-extinct`), the mode is estimated exactly, the gain is zero, and $F_\infty$ leaves it as $A_m$ on the unit circle. Hence `eq:Finf-spec`, and $\rho(F_\infty)<1$ iff there is no marginal block, i.e. iff C3w.
 
 **Part 1.** ($\Leftarrow$) is `thm:sufficiency`; ($\Rightarrow$) is `thm:necessity`. By `fact:dare-strong`/`def:strong`, $\rho(F_\infty)\le1$.
 
