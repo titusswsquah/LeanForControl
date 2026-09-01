@@ -212,3 +212,62 @@ D before E because every rate proof wants the discharged spectrum
 the payoff's ISS needs E3's rate and F1's Part 1 needs D1. Inside
 each phase, Gate-2 checks precede Lean, Lean precedes deck edits,
 deck edits precede lean-sync — as in sprint 1.
+
+---
+
+## Phase D — CLOSED (2026-09-01)
+
+All four items landed; the exit criterion is met and exceeded:
+`main_strong_attraction` (Dare/Main.lean) states `thm:main` Part 1
+with **existence internal** — hypotheses are C1 + power-bounded
+marginal only.
+
+- **D0**: GATE-2 numerics (scratch/check_spectrum_split.py,
+  check_Ac_identification.py): split exact, Fs Schur, unit
+  eigenvectors m-supported, products bounded, chart assembly matches,
+  J ≻ 0; plus the finding-15 refutation.
+- **D1** (`Dare/Spectrum.lean`): `strong_Fs_schur` — the one-step
+  PBH–Stein kill (no power induction: the rotation cancels in
+  re²+im², the marginal drift dies inside the Σ∞-energy by
+  extinction); `strong_spec_split`;
+  `strong_exists_unit_eigenvalue`. `hFs` discharged in
+  sufficiency/thm:main (supremal keeps it as a general-lemma
+  hypothesis). **Findings 14** (the "inside representative"
+  parenthetical was a hand-wave; verified route in deck) **and 15**
+  (`A_c` was NOT the e₁-diagonal block of F∞ — numerically refuted;
+  redefined as the reduced stabilizing loop; F∞ is (e₁⊕a|m)
+  triangular by *extinction*, not by the frame).
+- **D2** (`Dare/Reduced.lean`): `monotone_psd_tendsto` (polarization
+  limit), `exists_stabilizing_solution` (zero-seed monotone +
+  eq:bounded; fixed point via dareStep_diff Lipschitz-ness — no
+  inverse continuity needed), **`fixed_point_schur`** (every PSD
+  fixed point has a Schur loop from stabilizability alone — the
+  key alignment lemma), `stabilizing_fixed_unique`.
+- **D3** (`Dare/ReducedFacts.lean`): gain/loop continuity
+  (resolvent + R-floor), `redP_tendsto_infP` (infP Σ∞ is a fixed
+  point by strong_chart_fixed, Schur-looped, so uniqueness
+  identifies), `redProdF_geometric` (fact:uniexp consumed — feeds
+  E2), `reducedImport_holds`. `himp` dropped from
+  sufficiency/thm:main.
+- **D4** (`Dare/Sylvester.lean`, `Dare/Existence.lean`,
+  `Dare/Main.lean`): Sylvester fixed points with Schur factors;
+  `gramian_fixed_posDef` (kernel eigenvector lifts through the
+  loading identity to an undetectable antistable mode);
+  `assembled_lam_fixed`/`assembled_Saa_fixed` (chart_dareStep read
+  backwards, uhat_inv_eq); `fixed_specLe` (strict one-step
+  over-balance at |μ|>1 puts the eigenvector in ker Σ AND unexcited;
+  corner-PD kills a, marginal can't exceed the circle);
+  **`exists_strong_solution` under C1 alone**;
+  `strong_solution_unique` (supremal seeded at Σ+Σ');
+  `existsUnique_strong_solution`; `strong_isSchurStable_iff_C3w`
+  (eq:Finf-c3w verified); the two assembled `main_*` heads.
+
+Remaining imports anywhere in the main line: the power-bounded
+marginal (semisimple qualification — F4 target), and among a00's
+facts only maximality (unconsumed) and the reciprocal-pairing fine
+form (Arc-1). Deck synced (findings 14–15 + three sync commits);
+sorry-free; all heads axiom-clean; build green (2989 jobs).
+
+Next: Phase E (rates + Arc 1), starting E1 (the rate-carrying
+convolution) — note `redProdF_geometric` already gives the geometric
+product bound E2 needs.
