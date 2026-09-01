@@ -450,3 +450,8 @@ OPEN (on record): defective-marginal `lem:marginal`; formalized rates
 (incl. Part 2 forward); concrete instantiation of the import bundles;
 upstream port of odyssey-src (user's manual step); convention →
 proof-engineering skill (deferred by user).
+
+## → Continued
+
+Full-completion follow-on (everything to tier 1, deck = lean):
+`notes/leanverify-odyssey-sprint2.md` (Phases D/E/F).
