@@ -723,6 +723,300 @@ theorem chart_updM (c : CondChart Sg) :
   rw [← hdec] at htb
   exact htb
 
+/-- **The chart prediction** (`lem:condfilter` prediction half +
+`eq:cf-rec` + `eq:loading-rec` + the `(a,a)`-identity): one full DARE
+step maps the chart
+`(P, Λ₁ₐ, Λₘₐ, Σₐₐ) ↦ (R₁(P), Λ₁ₐ⁺, AₘΛₘₐAₐ⁻¹, Aₐ·Û·Aₐᵀ)`. -/
+theorem chart_dareStep (c : CondChart Sg) :
+    dareStep S.fullC S.R S.fullA S.Qw Sg
+      = emb1 n₁ na nm
+          * dareStep S.C₁ S.R S.A₁ (S.G₁ * S.Q * S.G₁ᵀ) c.P
+          * (emb1 n₁ na nm)ᵀ
+        + condV (S.lamNext c.P c.Λ1a c.Λma) (S.Am * c.Λma * S.Aa⁻¹)
+          * (S.Aa * S.uhatOf c.P c.Λ1a c.Λma c.Saa * S.Aaᵀ)
+          * (condV (S.lamNext c.P c.Λ1a c.Λma)
+              (S.Am * c.Λma * S.Aa⁻¹))ᵀ := by
+  have hupd := S.chart_updM c
+  have hcancel : ∀ {k : Type} (X : Matrix k (Fin na) ℝ),
+      X * S.Aa⁻¹ * S.Aa = X := by
+    intro k X
+    rw [Matrix.mul_assoc, Matrix.nonsing_inv_mul _ S.isUnit_Aa_det,
+      Matrix.mul_one]
+  -- A·V̂ = V⁺·Aₐ
+  have hAV : S.fullA * condV (S.lamHat c.P c.Λ1a c.Λma) c.Λma
+      = condV (S.lamNext c.P c.Λ1a c.Λma) (S.Am * c.Λma * S.Aa⁻¹)
+          * S.Aa := by
+    rw [S.fullA_mul_condV]
+    conv_rhs => rw [show condV (S.lamNext c.P c.Λ1a c.Λma)
+        (S.Am * c.Λma * S.Aa⁻¹)
+      = emb1 n₁ na nm * S.lamNext c.P c.Λ1a c.Λma + embA n₁ na nm
+        + embM n₁ na nm * (S.Am * c.Λma * S.Aa⁻¹) from rfl]
+    rw [Matrix.add_mul, Matrix.add_mul]
+    have h1 : emb1 n₁ na nm * S.lamNext c.P c.Λ1a c.Λma * S.Aa
+        = emb1 n₁ na nm * (S.A₁ * S.lamHat c.P c.Λ1a c.Λma
+            + S.A₁₂ * ea2 na nm + S.A₁₂ * em2 na nm * c.Λma) := by
+      rw [Matrix.mul_assoc]
+      congr 1
+      unfold lamNext
+      exact hcancel _
+    have h2 : embM n₁ na nm * (S.Am * c.Λma * S.Aa⁻¹) * S.Aa
+        = embM n₁ na nm * (S.Am * c.Λma) := by
+      rw [Matrix.mul_assoc]
+      congr 1
+      exact hcancel _
+    rw [h1, h2]
+  have hAVt : (condV (S.lamHat c.P c.Λ1a c.Λma) c.Λma)ᵀ * S.fullAᵀ
+      = S.Aaᵀ * (condV (S.lamNext c.P c.Λ1a c.Λma)
+          (S.Am * c.Λma * S.Aa⁻¹))ᵀ := by
+    rw [← Matrix.transpose_mul, hAV, Matrix.transpose_mul]
+  have hAe1t : (emb1 n₁ na nm)ᵀ * S.fullAᵀ
+      = S.A₁ᵀ * (emb1 n₁ na nm)ᵀ := by
+    rw [← Matrix.transpose_mul, S.fullA_mul_emb1, Matrix.transpose_mul]
+  show S.fullA * updM S.fullC S.R Sg * S.fullAᵀ + S.Qw = _
+  rw [hupd, Matrix.mul_add S.fullA, Matrix.add_mul]
+  have h1 : S.fullA * (emb1 n₁ na nm * updM S.C₁ S.R c.P
+        * (emb1 n₁ na nm)ᵀ) * S.fullAᵀ
+      = emb1 n₁ na nm * (S.A₁ * updM S.C₁ S.R c.P * S.A₁ᵀ)
+          * (emb1 n₁ na nm)ᵀ := by
+    calc S.fullA * (emb1 n₁ na nm * updM S.C₁ S.R c.P
+          * (emb1 n₁ na nm)ᵀ) * S.fullAᵀ
+        = S.fullA * emb1 n₁ na nm * updM S.C₁ S.R c.P
+            * ((emb1 n₁ na nm)ᵀ * S.fullAᵀ) := by
+          simp only [Matrix.mul_assoc]
+    _ = emb1 n₁ na nm * S.A₁ * updM S.C₁ S.R c.P
+          * (S.A₁ᵀ * (emb1 n₁ na nm)ᵀ) := by
+        rw [S.fullA_mul_emb1, hAe1t]
+    _ = emb1 n₁ na nm * (S.A₁ * updM S.C₁ S.R c.P * S.A₁ᵀ)
+          * (emb1 n₁ na nm)ᵀ := by
+        simp only [Matrix.mul_assoc]
+  have h2 : S.fullA * (condV (S.lamHat c.P c.Λ1a c.Λma) c.Λma
+        * S.uhatOf c.P c.Λ1a c.Λma c.Saa
+        * (condV (S.lamHat c.P c.Λ1a c.Λma) c.Λma)ᵀ) * S.fullAᵀ
+      = condV (S.lamNext c.P c.Λ1a c.Λma) (S.Am * c.Λma * S.Aa⁻¹)
+          * (S.Aa * S.uhatOf c.P c.Λ1a c.Λma c.Saa * S.Aaᵀ)
+          * (condV (S.lamNext c.P c.Λ1a c.Λma)
+              (S.Am * c.Λma * S.Aa⁻¹))ᵀ := by
+    calc S.fullA * (condV (S.lamHat c.P c.Λ1a c.Λma) c.Λma
+          * S.uhatOf c.P c.Λ1a c.Λma c.Saa
+          * (condV (S.lamHat c.P c.Λ1a c.Λma) c.Λma)ᵀ) * S.fullAᵀ
+        = S.fullA * condV (S.lamHat c.P c.Λ1a c.Λma) c.Λma
+            * S.uhatOf c.P c.Λ1a c.Λma c.Saa
+            * ((condV (S.lamHat c.P c.Λ1a c.Λma) c.Λma)ᵀ
+                * S.fullAᵀ) := by
+          simp only [Matrix.mul_assoc]
+    _ = condV (S.lamNext c.P c.Λ1a c.Λma) (S.Am * c.Λma * S.Aa⁻¹)
+          * S.Aa * S.uhatOf c.P c.Λ1a c.Λma c.Saa
+          * (S.Aaᵀ * (condV (S.lamNext c.P c.Λ1a c.Λma)
+              (S.Am * c.Λma * S.Aa⁻¹))ᵀ) := by
+        rw [hAV, hAVt]
+    _ = condV (S.lamNext c.P c.Λ1a c.Λma) (S.Am * c.Λma * S.Aa⁻¹)
+          * (S.Aa * S.uhatOf c.P c.Λ1a c.Λma c.Saa * S.Aaᵀ)
+          * (condV (S.lamNext c.P c.Λ1a c.Λma)
+              (S.Am * c.Λma * S.Aa⁻¹))ᵀ := by
+        simp only [Matrix.mul_assoc]
+  have hQw : S.Qw
+      = emb1 n₁ na nm * (S.G₁ * S.Q * S.G₁ᵀ) * (emb1 n₁ na nm)ᵀ := by
+    unfold Qw
+    rw [S.fullG_eq, Matrix.transpose_mul]
+    simp only [Matrix.mul_assoc]
+  rw [h1, h2, hQw]
+  have h3 : dareStep S.C₁ S.R S.A₁ (S.G₁ * S.Q * S.G₁ᵀ) c.P
+      = S.A₁ * updM S.C₁ S.R c.P * S.A₁ᵀ + S.G₁ * S.Q * S.G₁ᵀ := rfl
+  rw [h3, Matrix.mul_add (emb1 n₁ na nm), Matrix.add_mul]
+  abel
+
+/-! ### The chart along the lower trajectory
+(`lem:condfilter`, `lem:jtransform` recursions, explicit data) -/
+
+/-- The reduced (conditional) Riccati trajectory from the zero seed
+(`eq:condric`): the `e₁` filter, in which `Σₐₐ` never appears. -/
+noncomputable def redP : ℕ → Matrix (Fin n₁) (Fin n₁) ℝ :=
+  dareIter S.C₁ S.R S.A₁ (S.G₁ * S.Q * S.G₁ᵀ) 0
+
+lemma redQ_posSemidef : (S.G₁ * S.Q * S.G₁ᵀ).PosSemidef := by
+  have h := S.hQ.posSemidef.mul_mul_conjTranspose_same S.G₁
+  rwa [Matrix.conjTranspose_eq_transpose_of_trivial] at h
+
+lemma redP_posSemidef (T : ℕ) : (S.redP T).PosSemidef :=
+  dareIter_posSemidef S.hR S.redQ_posSemidef Matrix.PosSemidef.zero T
+
+/-- The marginal loading along the run (`eq:loading-rec` closed
+form). -/
+noncomputable def lowLamma (T : ℕ) : Matrix (Fin nm) (Fin na) ℝ :=
+  S.Am ^ T * S.lam0 * (S.Aa⁻¹) ^ T
+
+/-- The conditional-filter loading along the run (`eq:cf-rec`). -/
+noncomputable def lowLam1a : ℕ → Matrix (Fin n₁) (Fin na) ℝ
+  | 0 => 0
+  | T + 1 => S.lamNext (S.redP T) (lowLam1a T) (S.lowLamma T)
+
+/-- The antistable block along the run (`lem:jtransform`'s
+`(a,a)`-identity). -/
+noncomputable def lowSaa (δ : ℝ) : ℕ → Matrix (Fin na) (Fin na) ℝ
+  | 0 => δ • S.Siga
+  | T + 1 => S.Aa * S.uhatOf (S.redP T) (S.lowLam1a T) (S.lowLamma T)
+      (lowSaa δ T) * S.Aaᵀ
+
+lemma Aa_vecMul_injective : Function.Injective S.Aa.vecMul := by
+  intro x y hxy
+  have h := congrArg (fun v => v ᵥ* S.Aa⁻¹) hxy
+  simpa [Matrix.vecMul_vecMul,
+    Matrix.mul_nonsing_inv _ S.isUnit_Aa_det] using h
+
+lemma lowSaa_posDef (hSa : S.Siga.PosDef) {δ : ℝ} (hδ : 0 < δ) :
+    ∀ T, (S.lowSaa δ T).PosDef
+  | 0 => hSa.smul hδ
+  | T + 1 => by
+    have hU := S.uhatOf_posDef (S.redP_posSemidef T) (S.lowLam1a T)
+      (S.lowLamma T) (lowSaa_posDef hSa hδ T)
+    have h := hU.mul_mul_conjTranspose_same (B := S.Aa)
+      S.Aa_vecMul_injective
+    rwa [Matrix.conjTranspose_eq_transpose_of_trivial] at h
+
+set_option linter.unusedSimpArgs false in
+/-- The blocks of the seed decomposition. -/
+lemma emb_blocks_eq (X : Matrix (Fin na) (Fin na) ℝ)
+    (Y : Matrix (Fin na) (Fin nm) ℝ) (Z : Matrix (Fin nm) (Fin na) ℝ)
+    (W : Matrix (Fin nm) (Fin nm) ℝ) :
+    embA n₁ na nm * X * (embA n₁ na nm)ᵀ
+      + embA n₁ na nm * Y * (embM n₁ na nm)ᵀ
+      + embM n₁ na nm * Z * (embA n₁ na nm)ᵀ
+      + embM n₁ na nm * W * (embM n₁ na nm)ᵀ
+      = Matrix.fromBlocks 0 0 0 (Matrix.fromBlocks X Y Z W) := by
+  ext i j
+  rcases i with i₁ | ia | im <;> rcases j with j₁ | ja | jm <;>
+    simp [embA, embM, Matrix.fromBlocks, Matrix.mul_apply,
+      Matrix.add_apply, Fintype.sum_sum_type,
+      Matrix.fromRows_apply_inl, Matrix.fromRows_apply_inr,
+      Matrix.transpose_apply, Matrix.one_apply, mul_ite, ite_mul,
+      Finset.sum_ite_eq, Finset.sum_ite_eq']
+
+/-- The slaved seed in chart form:
+`Σ̲₀ = e₁·0·e₁ᵀ + [0-loading chart]·(δΣₐ)·[…]ᵀ`. -/
+lemma slavedSeed_decomp (hSa : S.Siga.PosDef) (δ : ℝ) :
+    S.slavedSeed δ
+      = emb1 n₁ na nm * (0 : Matrix (Fin n₁) (Fin n₁) ℝ)
+          * (emb1 n₁ na nm)ᵀ
+        + condV 0 S.lam0 * (δ • S.Siga) * (condV 0 S.lam0)ᵀ := by
+  have hV0 : condV (0 : Matrix (Fin n₁) (Fin na) ℝ) S.lam0
+      = embA n₁ na nm + embM n₁ na nm * S.lam0 := by
+    unfold condV
+    rw [Matrix.mul_zero, zero_add]
+  rw [hV0, Matrix.mul_zero, Matrix.zero_mul, zero_add]
+  have hsmul : (embA n₁ na nm + embM n₁ na nm * S.lam0) * (δ • S.Siga)
+        * (embA n₁ na nm + embM n₁ na nm * S.lam0)ᵀ
+      = δ • ((embA n₁ na nm + embM n₁ na nm * S.lam0) * S.Siga
+        * (embA n₁ na nm + embM n₁ na nm * S.lam0)ᵀ) := by
+    rw [Matrix.mul_smul, Matrix.smul_mul]
+  rw [hsmul]
+  have htb21lam : S.Sig₂.toBlocks₂₁ * S.lam0ᵀ
+      = S.lam0 * S.Sig₂.toBlocks₁₂ := by
+    rw [← S.lam0_mul_Siga hSa, Matrix.mul_assoc, S.Siga_mul_lam0t hSa]
+  have hcore : (embA n₁ na nm + embM n₁ na nm * S.lam0) * S.Siga
+        * (embA n₁ na nm + embM n₁ na nm * S.lam0)ᵀ
+      = Matrix.fromBlocks 0 0 0 S.sig2a := by
+    simp only [Matrix.transpose_add, Matrix.transpose_mul,
+      Matrix.add_mul, Matrix.mul_add]
+    have t1 : embA n₁ na nm * S.Siga * (S.lam0ᵀ * (embM n₁ na nm)ᵀ)
+        = embA n₁ na nm * S.Sig₂.toBlocks₁₂ * (embM n₁ na nm)ᵀ := by
+      rw [← Matrix.mul_assoc, Matrix.mul_assoc (embA n₁ na nm) S.Siga
+        S.lam0ᵀ, S.Siga_mul_lam0t hSa]
+    have t2 : embM n₁ na nm * S.lam0 * S.Siga
+        = embM n₁ na nm * S.Sig₂.toBlocks₂₁ := by
+      rw [Matrix.mul_assoc, S.lam0_mul_Siga hSa]
+    have t3 : embM n₁ na nm * S.Sig₂.toBlocks₂₁
+          * (S.lam0ᵀ * (embM n₁ na nm)ᵀ)
+        = embM n₁ na nm * (S.lam0 * S.Sig₂.toBlocks₁₂)
+          * (embM n₁ na nm)ᵀ := by
+      rw [← Matrix.mul_assoc, Matrix.mul_assoc (embM n₁ na nm)
+        S.Sig₂.toBlocks₂₁ S.lam0ᵀ, htb21lam]
+    rw [t2, t1, t3]
+    have h5 : Matrix.fromBlocks (0 : Matrix (Fin n₁) (Fin n₁) ℝ) 0 0
+        S.sig2a
+      = embA n₁ na nm * S.Siga * (embA n₁ na nm)ᵀ
+        + embA n₁ na nm * S.Sig₂.toBlocks₁₂ * (embM n₁ na nm)ᵀ
+        + embM n₁ na nm * S.Sig₂.toBlocks₂₁ * (embA n₁ na nm)ᵀ
+        + embM n₁ na nm * (S.lam0 * S.Sig₂.toBlocks₁₂)
+          * (embM n₁ na nm)ᵀ :=
+      (emb_blocks_eq (n₁ := n₁) S.Siga S.Sig₂.toBlocks₁₂
+        S.Sig₂.toBlocks₂₁ (S.lam0 * S.Sig₂.toBlocks₁₂)).symm
+    rw [h5]
+    abel
+  rw [hcore]
+  unfold slavedSeed
+  ext i j
+  rcases i with i₁ | i₂ <;> rcases j with j₁ | j₂ <;>
+    simp [Matrix.fromBlocks, Matrix.smul_apply]
+
+/-- **The lower trajectory rides the chart**: explicit chart data at
+every horizon (`lem:condfilter`-1,2 and `lem:loading` along the run,
+assembled). -/
+theorem lowTraj_decomp (hSa : S.Siga.PosDef) {δ : ℝ} (hδ : 0 < δ) :
+    ∀ T, S.dareFrom (S.slavedSeed δ) T
+      = emb1 n₁ na nm * S.redP T * (emb1 n₁ na nm)ᵀ
+        + condV (S.lowLam1a T) (S.lowLamma T) * S.lowSaa δ T
+          * (condV (S.lowLam1a T) (S.lowLamma T))ᵀ := by
+  intro T
+  induction T with
+  | zero =>
+    show S.slavedSeed δ = _
+    have h0 : S.lowLamma 0 = S.lam0 := by
+      unfold lowLamma
+      rw [pow_zero, pow_zero, Matrix.one_mul, Matrix.mul_one]
+    rw [h0]
+    exact S.slavedSeed_decomp hSa δ
+  | succ T ih =>
+    have hstep := S.chart_dareStep
+      (Sg := S.dareFrom (S.slavedSeed δ) T)
+      ⟨S.redP T, S.lowLam1a T, S.lowLamma T, S.lowSaa δ T,
+        S.redP_posSemidef T, S.lowSaa_posDef hSa hδ T, ih⟩
+    dsimp only at hstep
+    have hLm : S.Am * S.lowLamma T * S.Aa⁻¹ = S.lowLamma (T + 1) := by
+      unfold lowLamma
+      rw [pow_succ' S.Am T, pow_succ (S.Aa⁻¹) T]
+      simp only [Matrix.mul_assoc]
+    have hP1 : S.redP (T + 1)
+        = dareStep S.C₁ S.R S.A₁ (S.G₁ * S.Q * S.G₁ᵀ) (S.redP T) :=
+      rfl
+    have hL1 : S.lowLam1a (T + 1)
+        = S.lamNext (S.redP T) (S.lowLam1a T) (S.lowLamma T) := rfl
+    have hS1 : S.lowSaa δ (T + 1)
+        = S.Aa * S.uhatOf (S.redP T) (S.lowLam1a T) (S.lowLamma T)
+            (S.lowSaa δ T) * S.Aaᵀ := rfl
+    show dareStep S.fullC S.R S.fullA S.Qw
+        (S.dareFrom (S.slavedSeed δ) T) = _
+    rw [hP1, hL1, hS1, ← hLm]
+    exact hstep
+
+/-- **`eq:J1-rec`, verified**: the antistable information along the
+lower trajectory rides the fixed `Aₐ⁻¹`-Stein recursion with source
+`Ξ_T = C_effᵀ·S̃⁻¹·C_eff`. -/
+theorem lowJ_rec (hSa : S.Siga.PosDef) {δ : ℝ} (hδ : 0 < δ) (T : ℕ) :
+    (S.lowSaa δ (T + 1))⁻¹
+      = (S.Aaᵀ)⁻¹ * ((S.lowSaa δ T)⁻¹
+          + (S.ceff (S.lowLam1a T) (S.lowLamma T))ᵀ
+            * (innov S.C₁ S.R (S.redP T))⁻¹
+            * S.ceff (S.lowLam1a T) (S.lowLamma T)) * S.Aa⁻¹ := by
+  have hSf := S.sfullOf_posDef (S.redP_posSemidef T) (S.lowLam1a T)
+    (S.lowLamma T) (S.lowSaa_posDef hSa hδ T).posSemidef
+  have hUinv : (S.uhatOf (S.redP T) (S.lowLam1a T) (S.lowLamma T)
+        (S.lowSaa δ T))⁻¹
+      = (S.lowSaa δ T)⁻¹
+        + (S.ceff (S.lowLam1a T) (S.lowLamma T))ᵀ
+          * (innov S.C₁ S.R (S.redP T))⁻¹
+          * S.ceff (S.lowLam1a T) (S.lowLamma T) :=
+    uhat_inv_eq rfl
+      ((Matrix.isUnit_iff_isUnit_det _).mp hSf.isUnit)
+      ((Matrix.isUnit_iff_isUnit_det _).mp
+        (innov_posDef (C := S.C₁) S.hR (S.redP_posSemidef T)).isUnit)
+      ((Matrix.isUnit_iff_isUnit_det _).mp
+        (S.lowSaa_posDef hSa hδ T).isUnit)
+  have hstep : S.lowSaa δ (T + 1)
+      = S.Aa * S.uhatOf (S.redP T) (S.lowLam1a T) (S.lowLamma T)
+          (S.lowSaa δ T) * S.Aaᵀ := rfl
+  rw [hstep, Matrix.mul_inv_rev, Matrix.mul_inv_rev, hUinv,
+    ← Matrix.mul_assoc]
+
 end DareSystem
 
 end Dare
