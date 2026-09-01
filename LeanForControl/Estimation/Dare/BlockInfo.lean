@@ -160,5 +160,44 @@ theorem jRec_increment_posSemidef (hR : R.PosDef) (hSg : Sg.PosSemidef)
     exact toBlocks₂₂_posSemidef (sub_updM_posSemidef hR hSg)
   exact posSemidef_inv_sub_inv hU22 h22 hcontr
 
+/-- **`eq:Jgram`**: the information recursion `J_{T+1} = Mᵀ J_T M + W_T`
+(with `M = A₂⁻¹`, `hrec` supplied by `jRec` along a C2 run) unrolls into
+the backward gramian
+`J_{T₀+k} = (Mᵏ)ᵀ J_{T₀} Mᵏ + ∑_{j<k} (M^{k-1-j})ᵀ W_{T₀+j} M^{k-1-j}`. -/
+theorem jGram {ι₂ : Type*} [Fintype ι₂] [DecidableEq ι₂]
+    (M : Matrix ι₂ ι₂ ℝ) (J W : ℕ → Matrix ι₂ ι₂ ℝ)
+    (hrec : ∀ T, J (T + 1) = Mᵀ * J T * M + W T) (T₀ : ℕ) :
+    ∀ k : ℕ, J (T₀ + k) = (M ^ k)ᵀ * J T₀ * M ^ k
+      + ∑ j ∈ Finset.range k,
+          (M ^ (k - 1 - j))ᵀ * W (T₀ + j) * M ^ (k - 1 - j) := by
+  intro k
+  induction k with
+  | zero => simp
+  | succ k ih =>
+    have h1 : T₀ + (k + 1) = (T₀ + k) + 1 := by omega
+    rw [h1, hrec, ih, Matrix.mul_add, Matrix.add_mul]
+    have h2 : Mᵀ * ((M ^ k)ᵀ * J T₀ * M ^ k) * M
+        = (M ^ (k + 1))ᵀ * J T₀ * M ^ (k + 1) := by
+      rw [pow_succ, Matrix.transpose_mul]
+      simp only [Matrix.mul_assoc]
+    have h3 : Mᵀ * (∑ j ∈ Finset.range k,
+          (M ^ (k - 1 - j))ᵀ * W (T₀ + j) * M ^ (k - 1 - j)) * M
+        = ∑ j ∈ Finset.range k,
+            (M ^ (k + 1 - 1 - j))ᵀ * W (T₀ + j) * M ^ (k + 1 - 1 - j) := by
+      rw [Finset.mul_sum, Finset.sum_mul]
+      refine Finset.sum_congr rfl fun j hj => ?_
+      have hjk : j < k := Finset.mem_range.mp hj
+      have h4 : k + 1 - 1 - j = (k - 1 - j) + 1 := by omega
+      rw [h4, pow_succ, Matrix.transpose_mul]
+      simp only [Matrix.mul_assoc]
+    rw [h2, h3, Finset.sum_range_succ]
+    have h5 : (M ^ (k + 1 - 1 - k))ᵀ * W (T₀ + k) * M ^ (k + 1 - 1 - k)
+        = W (T₀ + k) := by
+      have h6 : k + 1 - 1 - k = 0 := by omega
+      rw [h6, pow_zero, Matrix.transpose_one, Matrix.one_mul,
+        Matrix.mul_one]
+    rw [h5]
+    abel
+
 end Dare
 end Estimation
