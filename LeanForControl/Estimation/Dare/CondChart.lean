@@ -511,5 +511,219 @@ lemma twoblock_update {ι n' : Type*} [Fintype ι] [Fintype n']
 
 end PushThrough
 
+namespace DareSystem
+
+variable {n₁ na nm m p : ℕ} (S : DareSystem n₁ na nm m p)
+
+variable {Sg : Matrix (ix n₁ na nm) (ix n₁ na nm) ℝ}
+
+/-! ### The chart step -/
+
+/-- The innovation of a charted covariance decomposes:
+`S = S̃ + C_eff·Σₐₐ·C_effᵀ` (`lem:condfilter`-1's split). -/
+lemma chart_innov_eq (c : CondChart Sg) :
+    innov S.fullC S.R Sg
+      = innov S.C₁ S.R c.P
+        + S.ceff c.Λ1a c.Λma * c.Saa * (S.ceff c.Λ1a c.Λma)ᵀ := by
+  obtain ⟨P, Λ1a, Λma, Saa, hP, hSaa, hdec⟩ := c
+  dsimp only
+  have hCe1 : (emb1 n₁ na nm)ᵀ * S.fullCᵀ = S.C₁ᵀ := by
+    rw [← Matrix.transpose_mul, S.fullC_mul_emb1]
+  have hCV : (condV Λ1a Λma)ᵀ * S.fullCᵀ
+      = (S.ceff Λ1a Λma)ᵀ := by
+    rw [← Matrix.transpose_mul, S.fullC_mul_condV]
+  unfold innov
+  rw [hdec, Matrix.mul_add S.fullC, Matrix.add_mul]
+  have h1 : S.fullC * (emb1 n₁ na nm * P * (emb1 n₁ na nm)ᵀ)
+        * S.fullCᵀ
+      = S.C₁ * P * S.C₁ᵀ := by
+    calc S.fullC * (emb1 n₁ na nm * P * (emb1 n₁ na nm)ᵀ)
+          * S.fullCᵀ
+        = S.fullC * emb1 n₁ na nm * P
+            * ((emb1 n₁ na nm)ᵀ * S.fullCᵀ) := by
+          simp only [Matrix.mul_assoc]
+    _ = S.C₁ * P * S.C₁ᵀ := by rw [S.fullC_mul_emb1, hCe1]
+  have h2 : S.fullC * (condV Λ1a Λma * Saa
+        * (condV Λ1a Λma)ᵀ) * S.fullCᵀ
+      = S.ceff Λ1a Λma * Saa * (S.ceff Λ1a Λma)ᵀ := by
+    calc S.fullC * (condV Λ1a Λma * Saa
+          * (condV Λ1a Λma)ᵀ) * S.fullCᵀ
+        = S.fullC * condV Λ1a Λma * Saa
+            * ((condV Λ1a Λma)ᵀ * S.fullCᵀ) := by
+          simp only [Matrix.mul_assoc]
+    _ = S.ceff Λ1a Λma * Saa * (S.ceff Λ1a Λma)ᵀ := by
+        rw [S.fullC_mul_condV, hCV]
+  rw [h1, h2]
+  abel
+
+/-- The post-update loading (`lem:condfilter`-2,
+`Λ̂₁ₐ = Λ₁ₐ − K·C_eff`). -/
+noncomputable def lamHat (P : Matrix (Fin n₁) (Fin n₁) ℝ)
+    (Λ1a : Matrix (Fin n₁) (Fin na) ℝ)
+    (Λma : Matrix (Fin nm) (Fin na) ℝ) :
+    Matrix (Fin n₁) (Fin na) ℝ :=
+  Λ1a - P * S.C₁ᵀ * (innov S.C₁ S.R P)⁻¹ * S.ceff Λ1a Λma
+
+/-- The full innovation, data-intrinsically. -/
+noncomputable def sfullOf (P : Matrix (Fin n₁) (Fin n₁) ℝ)
+    (Λ1a : Matrix (Fin n₁) (Fin na) ℝ)
+    (Λma : Matrix (Fin nm) (Fin na) ℝ)
+    (Saa : Matrix (Fin na) (Fin na) ℝ) : Matrix (Fin p) (Fin p) ℝ :=
+  innov S.C₁ S.R P + S.ceff Λ1a Λma * Saa * (S.ceff Λ1a Λma)ᵀ
+
+/-- The contracted antistable block. -/
+noncomputable def uhatOf (P : Matrix (Fin n₁) (Fin n₁) ℝ)
+    (Λ1a : Matrix (Fin n₁) (Fin na) ℝ)
+    (Λma : Matrix (Fin nm) (Fin na) ℝ)
+    (Saa : Matrix (Fin na) (Fin na) ℝ) : Matrix (Fin na) (Fin na) ℝ :=
+  Saa - Saa * (S.ceff Λ1a Λma)ᵀ * (S.sfullOf P Λ1a Λma Saa)⁻¹
+    * (S.ceff Λ1a Λma * Saa)
+
+/-- The predicted loading (`eq:cf-rec` in one piece:
+`Λ₁ₐ⁺ = (A₁·Λ̂₁ₐ + A₁ₐ + A₁ₘ·Λₘₐ)·Aₐ⁻¹`). -/
+noncomputable def lamNext (P : Matrix (Fin n₁) (Fin n₁) ℝ)
+    (Λ1a : Matrix (Fin n₁) (Fin na) ℝ)
+    (Λma : Matrix (Fin nm) (Fin na) ℝ) :
+    Matrix (Fin n₁) (Fin na) ℝ :=
+  (S.A₁ * S.lamHat P Λ1a Λma + S.A₁₂ * ea2 na nm
+    + S.A₁₂ * em2 na nm * Λma) * S.Aa⁻¹
+
+lemma sfullOf_posDef {P : Matrix (Fin n₁) (Fin n₁) ℝ}
+    (hP : P.PosSemidef) (Λ1a : Matrix (Fin n₁) (Fin na) ℝ)
+    (Λma : Matrix (Fin nm) (Fin na) ℝ)
+    {Saa : Matrix (Fin na) (Fin na) ℝ} (hSaa : Saa.PosSemidef) :
+    (S.sfullOf P Λ1a Λma Saa).PosDef := by
+  unfold sfullOf
+  refine Matrix.PosDef.add_posSemidef (innov_posDef S.hR hP) ?_
+  have h := hSaa.mul_mul_conjTranspose_same (S.ceff Λ1a Λma)
+  rwa [Matrix.conjTranspose_eq_transpose_of_trivial] at h
+
+/-- The contracted antistable block stays positive definite
+(`lem:structure`-3 on the chart, information form). -/
+lemma uhatOf_posDef {P : Matrix (Fin n₁) (Fin n₁) ℝ}
+    (hP : P.PosSemidef) (Λ1a : Matrix (Fin n₁) (Fin na) ℝ)
+    (Λma : Matrix (Fin nm) (Fin na) ℝ)
+    {Saa : Matrix (Fin na) (Fin na) ℝ} (hSaa : Saa.PosDef) :
+    (S.uhatOf P Λ1a Λma Saa).PosDef := by
+  have hSf := S.sfullOf_posDef hP Λ1a Λma hSaa.posSemidef
+  have hSfu : IsUnit (S.sfullOf P Λ1a Λma Saa).det :=
+    (Matrix.isUnit_iff_isUnit_det _).mp hSf.isUnit
+  have hStu : IsUnit (innov S.C₁ S.R P).det :=
+    (Matrix.isUnit_iff_isUnit_det _).mp
+      (innov_posDef (C := S.C₁) S.hR hP).isUnit
+  have hSau : IsUnit Saa.det :=
+    (Matrix.isUnit_iff_isUnit_det _).mp hSaa.isUnit
+  have hform := uhat_mul_inv_form (Ceff := S.ceff Λ1a Λma)
+    (Saa := Saa) (Sfull := S.sfullOf P Λ1a Λma Saa)
+    (Stil := innov S.C₁ S.R P) rfl hSfu hStu hSau
+  have hsum : (Saa⁻¹ + (S.ceff Λ1a Λma)ᵀ
+      * (innov S.C₁ S.R P)⁻¹ * S.ceff Λ1a Λma).PosDef := by
+    refine Matrix.PosDef.add_posSemidef hSaa.inv ?_
+    have h := (innov_posDef (C := S.C₁)
+      S.hR hP).inv.posSemidef.mul_mul_conjTranspose_same
+      (S.ceff Λ1a Λma)ᵀ
+    rwa [Matrix.conjTranspose_eq_transpose_of_trivial,
+      Matrix.transpose_transpose] at h
+  have hinv : S.uhatOf P Λ1a Λma Saa
+      = (Saa⁻¹ + (S.ceff Λ1a Λma)ᵀ
+          * (innov S.C₁ S.R P)⁻¹ * S.ceff Λ1a Λma)⁻¹ := by
+    have h4 := Matrix.inv_eq_right_inv hform
+    have h5 : IsUnit (Saa - Saa * (S.ceff Λ1a Λma)ᵀ
+        * (S.sfullOf P Λ1a Λma Saa)⁻¹ * (S.ceff Λ1a Λma * Saa)).det :=
+      Matrix.isUnit_det_of_right_inverse hform
+    rw [← h4, Matrix.nonsing_inv_nonsing_inv _ h5]
+    rfl
+  rw [hinv]
+  exact hsum.inv
+
+/-- **The chart update** (`lem:condfilter`-1,2, update half): the
+measurement update maps the chart
+`(P, Λ₁ₐ, Λₘₐ, Σₐₐ) ↦ (U₁(P), Λ̂₁ₐ, Λₘₐ, Û)`. -/
+theorem chart_updM (c : CondChart Sg) :
+    updM S.fullC S.R Sg
+      = emb1 n₁ na nm * updM S.C₁ S.R c.P * (emb1 n₁ na nm)ᵀ
+        + condV (S.lamHat c.P c.Λ1a c.Λma) c.Λma
+          * S.uhatOf c.P c.Λ1a c.Λma c.Saa
+          * (condV (S.lamHat c.P c.Λ1a c.Λma) c.Λma)ᵀ := by
+  have hpsdSg := c.posSemidef
+  have hSfeq : innov S.fullC S.R Sg
+      = innov S.C₁ S.R c.P
+        + S.ceff c.Λ1a c.Λma * c.Saa * (S.ceff c.Λ1a c.Λma)ᵀ :=
+    S.chart_innov_eq c
+  obtain ⟨P, Λ1a, Λma, Saa, hP, hSaa, hdec⟩ := c
+  dsimp only at hSfeq ⊢
+  have hSf : IsUnit (innov S.fullC S.R Sg).det :=
+    (Matrix.isUnit_iff_isUnit_det _).mp
+      (innov_posDef S.hR hpsdSg).isUnit
+  have hSt : IsUnit (innov S.C₁ S.R P).det :=
+    (Matrix.isUnit_iff_isUnit_det _).mp
+      (innov_posDef (C := S.C₁) S.hR hP).isUnit
+  have hPsym : Pᵀ = P := hP.1.transpose_eq_self
+  have hSaaSym : Saaᵀ = Saa := hSaa.posSemidef.1.transpose_eq_self
+  have hSfSym : (innov S.fullC S.R Sg)ᵀ = innov S.fullC S.R Sg :=
+    innov_transpose S.hR hpsdSg
+  have hStSym : (innov S.C₁ S.R P)ᵀ = innov S.C₁ S.R P :=
+    innov_transpose (C := S.C₁) S.hR hP
+  -- rows and columns of the charted covariance against C
+  have hCe1 : (emb1 n₁ na nm)ᵀ * S.fullCᵀ = S.C₁ᵀ := by
+    rw [← Matrix.transpose_mul, S.fullC_mul_emb1]
+  have hCV : (condV Λ1a Λma)ᵀ * S.fullCᵀ
+      = (S.ceff Λ1a Λma)ᵀ := by
+    rw [← Matrix.transpose_mul, S.fullC_mul_condV]
+  have hSgC : Sg * S.fullCᵀ
+      = emb1 n₁ na nm * (P * S.C₁ᵀ)
+        + condV Λ1a Λma * (Saa * (S.ceff Λ1a Λma)ᵀ) := by
+    rw [hdec, Matrix.add_mul]
+    congr 1
+    · calc emb1 n₁ na nm * P * (emb1 n₁ na nm)ᵀ * S.fullCᵀ
+          = emb1 n₁ na nm * (P * ((emb1 n₁ na nm)ᵀ * S.fullCᵀ)) := by
+            simp only [Matrix.mul_assoc]
+      _ = emb1 n₁ na nm * (P * S.C₁ᵀ) := by rw [hCe1]
+    · calc condV Λ1a Λma * Saa * (condV Λ1a Λma)ᵀ * S.fullCᵀ
+          = condV Λ1a Λma * (Saa
+              * ((condV Λ1a Λma)ᵀ * S.fullCᵀ)) := by
+            simp only [Matrix.mul_assoc]
+      _ = condV Λ1a Λma * (Saa * (S.ceff Λ1a Λma)ᵀ) := by rw [hCV]
+  have hCSg : S.fullC * Sg
+      = S.C₁ * P * (emb1 n₁ na nm)ᵀ
+        + S.ceff Λ1a Λma * Saa * (condV Λ1a Λma)ᵀ := by
+    rw [hdec, Matrix.mul_add]
+    congr 1
+    · calc S.fullC * (emb1 n₁ na nm * P * (emb1 n₁ na nm)ᵀ)
+          = S.fullC * emb1 n₁ na nm * P * (emb1 n₁ na nm)ᵀ := by
+            simp only [Matrix.mul_assoc]
+      _ = S.C₁ * P * (emb1 n₁ na nm)ᵀ := by rw [S.fullC_mul_emb1]
+    · calc S.fullC * (condV Λ1a Λma * Saa * (condV Λ1a Λma)ᵀ)
+          = S.fullC * condV Λ1a Λma * Saa * (condV Λ1a Λma)ᵀ := by
+            simp only [Matrix.mul_assoc]
+      _ = S.ceff Λ1a Λma * Saa * (condV Λ1a Λma)ᵀ := by
+          rw [S.fullC_mul_condV]
+  -- assemble via the generic two-block update
+  have htb := twoblock_update (Sfull := innov S.fullC S.R Sg)
+    (Stil := innov S.C₁ S.R P) (Ceff := S.ceff Λ1a Λma)
+    (Saa := Saa) (emb1 n₁ na nm) (condV Λ1a Λma)
+    (P := P) (C1 := S.C₁) hSfeq hSf hSt hPsym hSaaSym hSfSym hStSym
+  show Sg - Sg * S.fullCᵀ * (innov S.fullC S.R Sg)⁻¹ * (S.fullC * Sg)
+      = _
+  rw [hSgC, hCSg]
+  unfold lamHat uhatOf
+  rw [show (S.sfullOf P Λ1a Λma Saa)⁻¹
+      = (innov S.fullC S.R Sg)⁻¹ by unfold sfullOf; rw [hSfeq]]
+  have hVhat : condV (Λ1a - P * S.C₁ᵀ * (innov S.C₁ S.R P)⁻¹
+        * S.ceff Λ1a Λma) Λma
+      = condV Λ1a Λma - emb1 n₁ na nm
+          * (P * S.C₁ᵀ * (innov S.C₁ S.R P)⁻¹ * S.ceff Λ1a Λma) := by
+    unfold condV
+    rw [Matrix.mul_sub]
+    abel
+  have hupdred : updM S.C₁ S.R P
+      = P - P * S.C₁ᵀ * (innov S.C₁ S.R P)⁻¹ * (S.C₁ * P) :=
+    rfl
+  rw [hVhat, hupdred]
+  rw [← hdec] at htb
+  exact htb
+
+end DareSystem
+
 end Dare
 end Estimation
