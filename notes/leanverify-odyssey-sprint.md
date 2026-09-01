@@ -385,3 +385,33 @@ place.
   through the seed.
 - Every repaired hole: one pristine-copy commit (once), one commit per
   fix, one findings entry.
+
+## Status log (Phase B close-out, 2026-09-01)
+
+Phase B is CLOSED. All deck-proven results of the squeeze are verified
+in Lean, sorry-free, axioms `[propext, Classical.choice, Quot.sound]`:
+
+- OB.1 `lem:marginal` (repaired route) = `marg_block_norm_tendsto`.
+- OB.2 `thm:necessity` = `DareSystem.necessity` (Necessity.lean).
+- OB.3 `lem:supremal` = `supremal_tendsto` (Supremal.lean; engine
+  `tendsto_zero_of_loewner_schur`).
+- OB.4 `lem:slaved-seed` (SlavedSeed.lean) + `lem:loading`
+  (Loading.lean).
+- OB.5 `lem:condfilter`-1,2 + `eq:J1-rec` — the conditional-chart
+  machinery (CondChart.lean: twoblock_update push-throughs,
+  chart_updM/chart_dareStep, lowTraj_decomp, lowJ_rec).
+- OB.6 `lem:condfilter`-3 + `lem:jtransform` + `lem:lowsqueeze`
+  (LowSqueeze.lean: strong chart + fixed points, continuity chains,
+  unrolls, convolutions).
+- OB.7 `thm:sufficiency` + `thm:main` Part 1
+  (`strong_attraction_iff_C2w`, Sufficiency.lean).
+
+Declared imports (hypotheses, per the deck's own DAG): power-bounded
+marginal (`hPB`, semisimple qualification), `eq:Finf-spec` restricted
+(`IsSchurStable`), `ReducedImport` (reduced `fact:dare-strong` +
+product bound). OPEN: `thm:main` Part 2 (finding 7), defective
+marginal case (deck-flagged).
+
+Findings through 10; deck lean-synced (01, 03, 04, 05, 06, 07, 08 +
+a00–a02 status lines). Remaining for Phase C: thm:payoff,
+cor:every-prior, Arc 1 stretch, adversarial self-audit, PR body.

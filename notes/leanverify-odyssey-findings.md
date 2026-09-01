@@ -146,3 +146,34 @@ Note for the record: the Lean takes `eq:Finf-spec` restricted to
 status the display has in the deck (`lem:structure`-1's spectrum
 claim); if `eq:Finf-spec` is ever proven on-page, the hypothesis
 discharges.
+
+## 10. `thm:sufficiency`, upper-anchor seed — **optional, ADOPTED**
+(deck commit for finding 10): `Σ̄₀ = Σ₀ + Σ∞` replaces `cI`
+
+"Take `Σ̄₀ = cI` with `c` large enough that `cI ⪰ max(Σ∞, Σ₀)`"
+leaves the existence of such a `c` unproven (standard —
+`c ≥ λmax` — but off the page). The seed `Σ₀ + Σ∞` is manifestly
+above both, threshold-free, and is what the Lean verifies
+(`sufficiency_tendsto`). Enabled by finding 9 (`lem:supremal`
+accepts any PSD seed `⪰ Σ∞`).
+
+## Phase B scope notes (not findings)
+
+- The one analytic import in the lower anchor is the `ReducedImport`
+  bundle: the reduced-system `fact:dare-strong` (`P_T → P∞` from the
+  zero seed) plus the `fact:schur-decay` closed-loop product bound —
+  exactly the deck's own citations in `lem:condfilter`-1. Likewise
+  `eq:Finf-spec` (restricted to `e₁⊕a`) enters `lem:supremal` /
+  `thm:sufficiency` as an `IsSchurStable` hypothesis, matching its
+  imported status.
+- Exponential-rate qualifiers in `lem:jtransform` / `lem:lowsqueeze` /
+  `thm:sufficiency`'s C3w branch are not formalized: the Lean proves
+  convergence (the geometric bounds are visible in the displayed
+  inequalities but no rate is extracted). Consistent with the deck,
+  which claims no rate in the marginal case.
+- Limit identification (`lem:jtransform`'s "coefficients match those
+  at the fixed point") is implemented constructively: `Σ∞` carries its
+  own conditional chart (`strong_decomp`, zero marginal loading by
+  `eq:marg-extinct`), and the fixed-point identities are read off
+  chart extraction (`strong_chart_fixed`) — same content as the deck's
+  uniqueness prose, no uniqueness argument needed.
