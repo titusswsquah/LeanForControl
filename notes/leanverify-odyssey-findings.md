@@ -228,3 +228,37 @@ error GAS for every prior ⟺ 𝒳u,uc = {0} ⟺ (A,G) stabilizable — and
 under the universal quantifier GAS and GES *coincide* (stabilizability
 already entails C3w). The interesting antistable-only characterization
 survives on the covariance side.
+
+## 14. 08's Spectrum paragraph / `eq:Finf-spec` — **soft (hand-wave),
+REPAIRED & VERIFIED** (phase D)
+
+The deck's only argument for "$F_\infty\!\mid_{e_1\oplus a}$ Schur"
+was the parenthetical "the $\rho(F_\infty)\le1$ property of the
+strong solution realized on each reciprocal pair by the inside
+representative" — an appeal to the symplectic reciprocal pairing
+that was never derived (and would drag in pencil theory). Verified
+replacement, consuming only the `IsStrongSolution` bundle
+($\rho\le1$) plus extinction: (i) extinction kills the marginal rows
+of the gain, so $F_\infty$ is block upper-triangular for the
+$(e_1\oplus a\,|\,m)$ split and the spectrum splits
+(`strong_spec_split`); (ii) the compression $F_s$ is Schur by a
+**one-step PBH–Stein argument** (`strong_Fs_schur`): $|\mu|>1$
+embeds through the invariance $F_\infty E_s = E_s F_s$ against
+$\rho\le1$; at $|\mu|=1$ one step of the predictor-Joseph fixed
+point (`strong_predictor_stein`) transported along a left
+quasi-eigenvector balances exactly (the rotation cancels in
+$\mathrm{re}^2{+}\mathrm{im}^2$; the marginal drift is annihilated
+by extinction inside the energy — no power induction), forcing
+$(AL_\infty)'e = 0$, $G'e = 0$, whence PBH stabilizability kills
+$e_1$, antistability kills $a$; (iii) the marginal part supplies the
+unit-modulus witness (`strong_exists_unit_eigenvalue`), so
+$\rho(F_\infty) = 1$ exactly. Deck repaired: `lem:structure-marg`
+states the verified split (the reciprocal identification
+$\Lambda_{\mathrm{in}}\sqcup\{\lambda^{-1}\}$ demoted to
+`fact:dare-strong`'s pencil statement, an Arc-1 consumer), proof
+paragraph added; 08's parenthetical replaced. **The `hFs` import is
+discharged**: `sufficiency_tendsto` and `strong_attraction_iff_C2w`
+no longer hypothesize `eq:Finf-spec` (`supremal_tendsto` keeps it as
+a general-lemma hypothesis, discharged at every consumer).
+GATE-2: scratch/check_spectrum_split.py (split exact, max|spec Fs| =
+0.63, unit eigenvectors m-supported).
