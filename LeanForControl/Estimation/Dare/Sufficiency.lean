@@ -1,4 +1,4 @@
-import LeanForControl.Estimation.Dare.Spectrum
+import LeanForControl.Estimation.Dare.ReducedFacts
 import Architect
 
 /-!
@@ -89,17 +89,17 @@ variable {n₁ na nm m p : ℕ} (S : DareSystem n₁ na nm m p)
 variable {Sinf : Matrix (ix n₁ na nm) (ix n₁ na nm) ℝ}
 
 set_option maxHeartbeats 1000000 in
-/-- **`thm:sufficiency`, verified**: under C1 and C2w (with the deck's
-remaining imports: power-bounded marginal and the reduced
-`fact:dare-strong`; `eq:Finf-spec` is discharged by
-`strong_Fs_schur`), the run from the prior is attracted to the strong
-solution — the Löwner squeeze between the verified anchors. -/
+/-- **`thm:sufficiency`, verified**: under C1 and C2w — with the one
+remaining import, the power-bounded marginal (`eq:Finf-spec` is
+discharged by `strong_Fs_schur`, the reduced `fact:dare-strong` by
+`reducedImport_holds`) — the run from the prior is attracted to the
+strong solution: the Löwner squeeze between the verified anchors. -/
 theorem sufficiency_tendsto (hC1 : S.C1) (hC2w : S.C2w)
     (hS : S.IsStrongSolution Sinf)
-    {cm : ℝ} (hcm : 0 ≤ cm) (hPB : ∀ k : ℕ, ‖S.Am ^ k‖ ≤ cm)
-    (himp : S.ReducedImport Sinf) :
+    {cm : ℝ} (hcm : 0 ≤ cm) (hPB : ∀ k : ℕ, ‖S.Am ^ k‖ ≤ cm) :
     Tendsto (fun T => ‖S.dare T - Sinf‖) atTop (nhds 0) := by
   have hFs := S.strong_Fs_schur hC1 hS
+  have himp := S.reducedImport_holds hC1 hS
   have hSa : S.Siga.PosDef := S.criterion_w.mp hC2w
   -- the two anchors converge
   have hdomU : (S.Sig0 + Sinf - Sinf).PosSemidef := by
@@ -188,17 +188,16 @@ theorem sufficiency_tendsto (hC1 : S.C1) (hC2w : S.C2w)
   simpa [mul_assoc] using h
 
 /-- **`thm:main`, Part 1, verified** (the strong-attraction
-dichotomy's GAS half): under C1 — with the deck's remaining imports
-(power-bounded marginal, reduced `fact:dare-strong`;
-`eq:Finf-spec` is a theorem, `strong_Fs_schur`) — the run from the
-prior is attracted to the strong solution **iff** C2w. -/
+dichotomy's GAS half): under C1 — with the power-bounded marginal as
+the one remaining import (`eq:Finf-spec` and the reduced
+`fact:dare-strong` are theorems) — the run from the prior is
+attracted to the strong solution **iff** C2w. -/
 theorem strong_attraction_iff_C2w (hC1 : S.C1)
     (hS : S.IsStrongSolution Sinf)
-    {cm : ℝ} (hcm : 0 ≤ cm) (hPB : ∀ k : ℕ, ‖S.Am ^ k‖ ≤ cm)
-    (himp : S.ReducedImport Sinf) :
+    {cm : ℝ} (hcm : 0 ≤ cm) (hPB : ∀ k : ℕ, ‖S.Am ^ k‖ ≤ cm) :
     Tendsto (fun T => ‖S.dare T - Sinf‖) atTop (nhds 0) ↔ S.C2w :=
   ⟨fun hconv => S.necessity hS hconv,
-    fun hC2w => S.sufficiency_tendsto hC1 hC2w hS hcm hPB himp⟩
+    fun hC2w => S.sufficiency_tendsto hC1 hC2w hS hcm hPB⟩
 
 end DareSystem
 

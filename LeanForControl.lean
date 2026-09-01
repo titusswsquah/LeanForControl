@@ -40,6 +40,7 @@ import LeanForControl.Estimation.Dare.Sufficiency
 import LeanForControl.Estimation.Dare.RateFloor
 import LeanForControl.Estimation.Dare.Spectrum
 import LeanForControl.Estimation.Dare.Reduced
+import LeanForControl.Estimation.Dare.ReducedFacts
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability

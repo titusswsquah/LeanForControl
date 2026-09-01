@@ -1,4 +1,4 @@
-import LeanForControl.Estimation.Dare.RateFloor
+import LeanForControl.Estimation.Dare.Spectrum
 import Architect
 
 /-!
