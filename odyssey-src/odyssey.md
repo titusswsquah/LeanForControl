@@ -634,10 +634,11 @@ The quantifier over priors is essential and cannot be dropped: for a **fixed** p
 <!-- BEGIN FILE: 09-payoff.md -->
 <!-- 09-payoff — the estimator payoff (headline). The covariance dichotomy thm:main transfers to the two -->
 <!-- estimators that share the filtering Riccati: the Full-Information Estimator (FIE) and the Time-Varying -->
-<!-- Kalman Filter (TVKF), which coincide for the linear-Gaussian model. RGES iff C1+C2+C3w, RGAS iff C1+C2w; -->
-<!-- robustness (ISS to bounded disturbances) folds in here via the error-map difference identity eq:diff-unroll -->
-<!-- (no standalone lem:robust). Port + estimator-side extension of riccastep 13-payoff-v2. STANDALONE: the full -->
-<!-- dichotomy and both estimators live here (this development subsumes the earlier exponential-only treatment). -->
+<!-- Kalman Filter (TVKF), which coincide for the linear-Gaussian model. GES iff C1+C2+C3w, GAS iff C1+C2 -->
+<!-- (the error frontier is C2; C2w is the covariance frontier — the deliberate asymmetry with thm:main); -->
+<!-- robustness (ISS under GES) via the error-map difference identity eq:diff-unroll (no standalone lem:robust). -->
+<!-- Port + estimator-side extension of riccastep 13-payoff-v2; the error-side dichotomy core is the repo's -->
+<!-- verified arc1 layer (GES/GAS/Arrival), cited rather than subsumed. -->
 <!-- sec:payoff — main text -->
 ### The estimators and their common covariance
 
