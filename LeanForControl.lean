@@ -43,6 +43,7 @@ import LeanForControl.Estimation.Dare.Reduced
 import LeanForControl.Estimation.Dare.ReducedFacts
 import LeanForControl.Estimation.Dare.Sylvester
 import LeanForControl.Estimation.Dare.Existence
+import LeanForControl.Estimation.Dare.Main
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
