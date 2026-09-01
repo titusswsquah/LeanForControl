@@ -38,6 +38,8 @@ import LeanForControl.Estimation.Dare.CondChart
 import LeanForControl.Estimation.Dare.LowSqueeze
 import LeanForControl.Estimation.Dare.Sufficiency
 import LeanForControl.Estimation.Dare.RateFloor
+import LeanForControl.Estimation.Dare.Spectrum
+import LeanForControl.Estimation.Dare.Reduced
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
