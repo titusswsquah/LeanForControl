@@ -271,3 +271,59 @@ sorry-free; all heads axiom-clean; build green (2989 jobs).
 Next: Phase E (rates + Arc 1), starting E1 (the rate-carrying
 convolution) — note `redProdF_geometric` already gives the geometric
 product bound E2 needs.
+
+## Phase E — CLOSED (2026-09-01)
+
+Every rate/spectrum claim in 04–08 and every displayed equation in
+a03/a04 now has a Lean head; the exit criterion holds. All heads
+sorry-free, axioms = [propext, Classical.choice, Quot.sound], build
+green (2994 jobs).
+
+- **E1 (rate engine, RateEngine.lean).** `geom_conv_le` (widened
+  geometric convolution: two rates below ρ' convolve to Cρ'^T),
+  `rate_of_unroll_bound` (an unrolled affine bound with geometric
+  kernel forces a geometric rate — midpoint-rate extraction), and
+  the Lipschitz stack `innovInv/kGain/errMap_diff_norm_le`.
+- **E2 (lower-anchor rates, LowRate.lean).** `GeoDecay` + closure
+  combinators; per-datum rates `redP_geometric`,
+  `lowLam1a_geometric`, `ceff_geometric`, `lowXi_geometric`,
+  `lowJ_geometric`, `lowSaa_geometric`; assembled
+  `lowsqueeze_geometric` — the slaved anchor converges
+  exponentially, floor-free.
+- **E3 (thm:main Part 2 forward, MainRate.lean).**
+  `supremal_geometric` (Loewner-monotone iterates + psd-norm
+  squeeze), `dare_sandwich_norm` (polarization sandwich),
+  `sufficiency_geometric` (C1+C2w+C3w ⇒ ‖Σ_T−Σ∞‖ ≤ Cρ^T from any
+  PSD prior), `main_stab_forward` (with existence: C1+C2 alone).
+  Both directions of thm:main-2 closed (converse was Phase D's
+  `main_marg_not_exponential`).
+- **E4a (thm:formula + cor:phi, Formula.lean).** `formula` — the
+  deck's joint induction verified verbatim (N_T det-unit AND the
+  closed form), inversion-free, exact at det A = 0; pencil
+  identities `pencil_block_M/L`, `strong_id1/2`, Ω-identities;
+  `fwdGram_posSemidef/eq_sylvIter/tendsto_stein`; `formula_rate`;
+  cor:phi = `errProd_closed`/`errProd_eq` via `slide_swap`.
+  `gapRic`/`oneSubKC_add` hypotheses generalized to PSD sums.
+- **E4b (lem:sysinterp, Subspace.lean).** `structure DeflatingPair`
+  is the ONE Lancaster–Rodman import (Xm/Ym/Em Schur, pencil rows,
+  frame surjectivity); verified on top: `intertwine/sylv/link`
+  (Sylvester uniqueness replaces every telescoping series),
+  `perstep`, `lagrangian` (Stein K=E'KE ⇒ K=0), `energy_fix`,
+  `kernel_sub` (finding 16: output injection replaces the L⁻/L^≥
+  split), `transversal`, `info_fix`, `sysinterp_nonsingular` (C2 ⇒
+  M∞ unit) and `sysinterp_singular` (¬C2w ⇒ kernel vector — the
+  necessity half at the kernel level, un-flagging cor:necessity).
+- **E5 (slaved seed, general form, SlavedSeed.lean).**
+  `exists_loading_of_posSemidef` (kernel-inclusion + rank–nullity:
+  ∃Z, AZ = B for PSD blocks — no pseudoinverse),
+  `exists_loading`, and the general seed `slavedSeedOf` with all
+  three lemma parts C2w-free (`slavedSeedOf_le_Sig0/corner/slaved`)
+  plus the C2w specialization `slavedSeedOf_lam0`.
+
+Findings this phase: 16 (a04 orbit collapse simplification,
+deck repaired). Deck synced: 04/05/06/08 (E2/E3 commits),
+a03 + 05 (E4a/E5), a04 (E4b/finding 16); odyssey.md re-stitched
+each time.
+
+Next: Phase F — F1 (payoff frame transfer), F2 (ISS display),
+F3 (cor:every-prior), then sprint close.
