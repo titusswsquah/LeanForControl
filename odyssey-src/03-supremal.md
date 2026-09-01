@@ -19,7 +19,7 @@ Let C1 hold, let the marginal block be **forward power-bounded** — $c_m := \su
 <!-- eq:marg-zero -->
 $$ \bar\Sigma_T\!\mid_{mm} \;\longrightarrow\; 0 \qquad (T\to\infty), \tag{eq:marg-zero} $$
 
-for every prior directly — no comparison step and no positivity of any block is needed (consistent with $\Sigma_\infty\!\mid_{mm}=0$, `eq:marg-extinct`). No rate is claimed. **The defective-marginal case is OPEN**: the numerics support the same conclusion with Jordan-degraded rates, but no proof is currently on the page, and every downstream use carries the semisimple qualification.
+for every prior directly — no comparison step and no positivity of any block is needed (consistent with $\Sigma_\infty\!\mid_{mm}=0$, `eq:marg-extinct`). No rate is claimed. **The defective-marginal case is OPEN**: the numerics support the same conclusion with Jordan-degraded rates, but no proof is currently on the page, and every downstream use carries the semisimple qualification. (The qualification is itself a verified sufficient condition: semisimple ⇒ both power bounds, `marg_powers_bounded`; the identified tool for the defective case is the verified linear Gramian floor `fact:gramian` — in-frame `marg_gramian_growth` — which supplies a lower bound where no power bound exists.)
 
 *Proof.* No positivity is used anywhere (full positive-definiteness of $\bar\Sigma_T$ need **not** persist when $\ker A'\cap\ker G'\ne\{0\}$, and even the $e_2$-corner positivity is not needed). Track the **backward-transported uncontrollable columns**
 

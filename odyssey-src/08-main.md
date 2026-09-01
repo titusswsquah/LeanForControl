@@ -14,7 +14,7 @@ Let C1 hold. By `lem:structure-marg` the strong error map $F_\infty$ has spectru
 <!-- eq:main-strong -->
 $$ \text{C1} + \text{C2w} \quad\iff\quad \Sigma_T \to \Sigma_\infty \quad\big(\rho(F_\infty)\le1\big). \tag{eq:main-strong} $$
 
-(The $\Leftarrow$ direction carries `lem:marginal`'s standing qualification: marginal modes semisimple; the defective case is open.)
+(The $\Leftarrow$ direction carries `lem:marginal`'s standing qualification: marginal modes semisimple; the defective case is open. The qualification is verified as sufficient — semisimple ⇒ power-bounded, `marg_powers_bounded` — so the theorem also lands with this wording: `main_strong_attraction_semisimple`, `main_marg_not_exponential_semisimple`.)
 
 <!-- thm:main-2 -->
 **2. (Stabilizing/exponential refinement.)** Under C1,
