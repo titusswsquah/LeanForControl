@@ -28,28 +28,28 @@ open Matrix Filter
 
 open scoped Matrix.Norms.Operator
 
-variable {n : ℕ}
+variable {n : Type*} [Fintype n] [DecidableEq n]
 
 /-- The `l`-step state transition product of the time-varying system
 `z (k+1) = F k * z k`, started at time `i`:
 `transitionProd F i l = F (i+l-1) * ⋯ * F (i+1) * F i`. -/
-def transitionProd (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i : ℕ) :
-    ℕ → Matrix (Fin n) (Fin n) ℝ
+def transitionProd (F : ℕ → Matrix n n ℝ) (i : ℕ) :
+    ℕ → Matrix n n ℝ
   | 0 => 1
   | l + 1 => F (i + l) * transitionProd F i l
 
 @[simp]
-lemma transitionProd_zero (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i : ℕ) :
+lemma transitionProd_zero (F : ℕ → Matrix n n ℝ) (i : ℕ) :
     transitionProd F i 0 = 1 :=
   rfl
 
-lemma transitionProd_succ (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i l : ℕ) :
+lemma transitionProd_succ (F : ℕ → Matrix n n ℝ) (i l : ℕ) :
     transitionProd F i (l + 1) = F (i + l) * transitionProd F i l :=
   rfl
 
 /-- Transition products compose: an `(a+b)`-step product splits as an
 `a`-step product after time `i+b` times a `b`-step product from `i`. -/
-lemma transitionProd_add (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i a b : ℕ) :
+lemma transitionProd_add (F : ℕ → Matrix n n ℝ) (i a b : ℕ) :
     transitionProd F i (a + b)
       = transitionProd F (i + b) a * transitionProd F i b := by
   induction a with
@@ -61,7 +61,7 @@ lemma transitionProd_add (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i a b : ℕ) 
     omega
 
 /-- Shifting the coefficient sequence shifts the start time. -/
-lemma transitionProd_shift (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (K i l : ℕ) :
+lemma transitionProd_shift (F : ℕ → Matrix n n ℝ) (K i l : ℕ) :
     transitionProd (fun k => F (k + K)) i l = transitionProd F (i + K) l := by
   induction l with
   | zero => simp
@@ -71,7 +71,7 @@ lemma transitionProd_shift (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (K i l : ℕ
     omega
 
 /-- A uniform bound on the factors gives a geometric bound on the products. -/
-lemma norm_transitionProd_le (F : ℕ → Matrix (Fin n) (Fin n) ℝ) {b : ℝ}
+lemma norm_transitionProd_le (F : ℕ → Matrix n n ℝ) {b : ℝ}
     (hb1 : 1 ≤ b) (hb : ∀ k, ‖F k‖ ≤ b) (i l : ℕ) :
     ‖transitionProd F i l‖ ≤ b ^ l := by
   induction l with
@@ -91,8 +91,8 @@ lemma norm_transitionProd_le (F : ℕ → Matrix (Fin n) (Fin n) ℝ) {b : ℝ}
 /-- **Perturbation of products**: if every factor is within `ε` of `L` and
 everything is bounded by `b ≥ 1`, an `l`-fold product is within
 `l·ε·b^l` of `L^l`. -/
-lemma norm_transitionProd_sub_pow_le (F : ℕ → Matrix (Fin n) (Fin n) ℝ)
-    (L : Matrix (Fin n) (Fin n) ℝ) {b ε : ℝ} (hb1 : 1 ≤ b)
+lemma norm_transitionProd_sub_pow_le (F : ℕ → Matrix n n ℝ)
+    (L : Matrix n n ℝ) {b ε : ℝ} (hb1 : 1 ≤ b)
     (hLb : ‖L‖ ≤ b) (hFb : ∀ k, ‖F k‖ ≤ b) (hε : 0 ≤ ε)
     (hFL : ∀ k, ‖F k - L‖ ≤ ε) (i l : ℕ) :
     ‖transitionProd F i l - L ^ l‖ ≤ l * ε * b ^ l := by
@@ -134,7 +134,7 @@ lemma norm_transitionProd_sub_pow_le (F : ℕ → Matrix (Fin n) (Fin n) ℝ)
 /-- **Geometric decay from a contracting block**: if all factors are bounded
 by `b ≥ 1` and every `m`-fold product (any start) has norm at most `1/2`,
 then products decay geometrically at rate `ρ = (1/2)^(1/m)`. -/
-lemma norm_transitionProd_le_of_block (F : ℕ → Matrix (Fin n) (Fin n) ℝ)
+lemma norm_transitionProd_le_of_block (F : ℕ → Matrix n n ℝ)
     {b : ℝ} {m : ℕ} (hm : 1 ≤ m) (hb1 : 1 ≤ b) (hFb : ∀ k, ‖F k‖ ≤ b)
     (hblock : ∀ i, ‖transitionProd F i m‖ ≤ 1 / 2) (i l : ℕ) :
     ‖transitionProd F i l‖
@@ -221,8 +221,8 @@ uniformly in the start time. -/
     within $m \varepsilon b^{m} \le 1/4$ of $L^{m}$, hence contracts by
     $1/2$; blocks give geometric decay past $K$, and the finitely many
     early products are absorbed into the constant. -/)]
-theorem transitionProd_norm_le_of_tendsto (F : ℕ → Matrix (Fin n) (Fin n) ℝ)
-    (L : Matrix (Fin n) (Fin n) ℝ) (hFL : Tendsto F atTop (nhds L))
+theorem transitionProd_norm_le_of_tendsto (F : ℕ → Matrix n n ℝ)
+    (L : Matrix n n ℝ) (hFL : Tendsto F atTop (nhds L))
     (hL : IsSchurStable L) :
     ∃ c ρ : ℝ, 0 < c ∧ 0 < ρ ∧ ρ < 1 ∧ ∀ i l : ℕ,
       ‖transitionProd F i l‖ ≤ c * ρ ^ l := by
@@ -254,7 +254,7 @@ theorem transitionProd_norm_le_of_tendsto (F : ℕ → Matrix (Fin n) (Fin n) �
     rw [dist_eq_norm] at this
     exact this.le
   -- The shifted sequence is uniformly `ε`-close to `L`.
-  set G : ℕ → Matrix (Fin n) (Fin n) ℝ := fun k => F (k + K) with hG
+  set G : ℕ → Matrix n n ℝ := fun k => F (k + K) with hG
   have hGL : ∀ k, ‖G k - L‖ ≤ ε := fun k => hKdist (k + K) (by omega)
   have hGb : ∀ k, ‖G k‖ ≤ b := by
     intro k
@@ -410,19 +410,19 @@ section RevProd
 
 /-- Reverse-ordered product `F i * F (i+1) * ⋯ * F (i+l-1)`: the form the
 horizon-indexed closed-loop propagators of `lem:prelim`(4) take. -/
-def revProd (F : ℕ → Matrix (Fin n) (Fin n) ℝ) : ℕ → ℕ → Matrix (Fin n) (Fin n) ℝ
+def revProd (F : ℕ → Matrix n n ℝ) : ℕ → ℕ → Matrix n n ℝ
   | _, 0 => 1
   | i, l + 1 => F i * revProd F (i + 1) l
 
 @[simp]
-lemma revProd_zero (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i : ℕ) :
+lemma revProd_zero (F : ℕ → Matrix n n ℝ) (i : ℕ) :
     revProd F i 0 = 1 := rfl
 
-lemma revProd_succ (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i l : ℕ) :
+lemma revProd_succ (F : ℕ → Matrix n n ℝ) (i l : ℕ) :
     revProd F i (l + 1) = F i * revProd F (i + 1) l := rfl
 
 /-- Appending one factor on the right. -/
-lemma revProd_succ_right (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (l : ℕ) :
+lemma revProd_succ_right (F : ℕ → Matrix n n ℝ) (l : ℕ) :
     ∀ i, revProd F i (l + 1) = revProd F i l * F (i + l) := by
   induction l with
   | zero =>
@@ -435,7 +435,7 @@ lemma revProd_succ_right (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (l : ℕ) :
 
 /-- The reverse product is the transpose of the transition product of the
 transposed factors. -/
-lemma revProd_eq_transpose (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i : ℕ) :
+lemma revProd_eq_transpose (F : ℕ → Matrix n n ℝ) (i : ℕ) :
     ∀ l, revProd F i l = (transitionProd (fun r => (F r)ᵀ) i l)ᵀ
   | 0 => by simp
   | l + 1 => by
@@ -444,12 +444,12 @@ lemma revProd_eq_transpose (F : ℕ → Matrix (Fin n) (Fin n) ℝ) (i : ℕ) :
 
 /-- The `L∞` operator norm of a transpose is controlled up to a dimension
 factor. -/
-lemma linfty_opNorm_transpose_le (M : Matrix (Fin n) (Fin n) ℝ) :
-    ‖Mᵀ‖ ≤ (n : ℝ) * ‖M‖ := by
-  have hnn : ‖Mᵀ‖₊ ≤ (n : ℕ) • ‖M‖₊ := by
+lemma linfty_opNorm_transpose_le (M : Matrix n n ℝ) :
+    ‖Mᵀ‖ ≤ (Fintype.card n : ℝ) * ‖M‖ := by
+  have hnn : ‖Mᵀ‖₊ ≤ (Fintype.card n : ℕ) • ‖M‖₊ := by
     rw [Matrix.linfty_opNNNorm_def]
     refine Finset.sup_le fun j _ => ?_
-    have h1 : ∀ i : Fin n, ‖Mᵀ j i‖₊ ≤ ‖M‖₊ := by
+    have h1 : ∀ i : n, ‖Mᵀ j i‖₊ ≤ ‖M‖₊ := by
       intro i
       rw [Matrix.linfty_opNNNorm_def]
       calc ‖Mᵀ j i‖₊ = ‖M i j‖₊ := rfl
@@ -458,18 +458,18 @@ lemma linfty_opNorm_transpose_le (M : Matrix (Fin n) (Fin n) ℝ) :
             (fun _ _ => zero_le _) (Finset.mem_univ j)
       _ ≤ Finset.univ.sup fun i' => ∑ j', ‖M i' j'‖₊ :=
           Finset.le_sup (f := fun i' => ∑ j', ‖M i' j'‖₊) (Finset.mem_univ i)
-    calc ∑ i, ‖Mᵀ j i‖₊ ≤ ∑ _i : Fin n, ‖M‖₊ := Finset.sum_le_sum fun i _ => h1 i
-    _ = (n : ℕ) • ‖M‖₊ := by rw [Finset.sum_const, Finset.card_univ, Fintype.card_fin]
+    calc ∑ i, ‖Mᵀ j i‖₊ ≤ ∑ _i : n, ‖M‖₊ := Finset.sum_le_sum fun i _ => h1 i
+    _ = (Fintype.card n : ℕ) • ‖M‖₊ := by rw [Finset.sum_const, Finset.card_univ]
   calc ‖Mᵀ‖ = ((‖Mᵀ‖₊ : ℝ)) := rfl
-  _ ≤ (((n : ℕ) • ‖M‖₊ : NNReal) : ℝ) := by exact_mod_cast hnn
-  _ = (n : ℝ) * ‖M‖ := by
+  _ ≤ (((Fintype.card n : ℕ) • ‖M‖₊ : NNReal) : ℝ) := by exact_mod_cast hnn
+  _ = (Fintype.card n : ℝ) * ‖M‖ := by
       push_cast
       ring
 
 /-- **Uniform exponential decay of the reverse products** when the factors
 converge to a Schur matrix — the form `lem:prelim`(4) consumes. -/
-theorem revProd_norm_le_of_tendsto (F : ℕ → Matrix (Fin n) (Fin n) ℝ)
-    (L : Matrix (Fin n) (Fin n) ℝ) (hFL : Tendsto F atTop (nhds L))
+theorem revProd_norm_le_of_tendsto (F : ℕ → Matrix n n ℝ)
+    (L : Matrix n n ℝ) (hFL : Tendsto F atTop (nhds L))
     (hL : IsSchurStable L) :
     ∃ c ρ : ℝ, 0 < c ∧ 0 < ρ ∧ ρ < 1 ∧ ∀ i l : ℕ,
       ‖revProd F i l‖ ≤ c * ρ ^ l := by
@@ -477,15 +477,15 @@ theorem revProd_norm_le_of_tendsto (F : ℕ → Matrix (Fin n) (Fin n) ℝ)
     ((Continuous.matrix_transpose continuous_id).tendsto L).comp hFL
   obtain ⟨c, ρ, hc, hρ0, hρ1, hb⟩ :=
     transitionProd_norm_le_of_tendsto _ Lᵀ hFT hL.transpose
-  refine ⟨(n : ℝ) * c + c, ρ, by positivity, hρ0, hρ1, fun i l => ?_⟩
+  refine ⟨(Fintype.card n : ℝ) * c + c, ρ, by positivity, hρ0, hρ1, fun i l => ?_⟩
   calc ‖revProd F i l‖ = ‖(transitionProd (fun r => (F r)ᵀ) i l)ᵀ‖ := by
         rw [revProd_eq_transpose]
-  _ ≤ (n : ℝ) * ‖transitionProd (fun r => (F r)ᵀ) i l‖ :=
+  _ ≤ (Fintype.card n : ℝ) * ‖transitionProd (fun r => (F r)ᵀ) i l‖ :=
       linfty_opNorm_transpose_le _
-  _ ≤ (n : ℝ) * (c * ρ ^ l) := by
-      have h0 : (0 : ℝ) ≤ (n : ℝ) := Nat.cast_nonneg n
+  _ ≤ (Fintype.card n : ℝ) * (c * ρ ^ l) := by
+      have h0 : (0 : ℝ) ≤ (Fintype.card n : ℝ) := Nat.cast_nonneg (Fintype.card n)
       exact mul_le_mul_of_nonneg_left (hb i l) h0
-  _ ≤ ((n : ℝ) * c + c) * ρ ^ l := by
+  _ ≤ ((Fintype.card n : ℝ) * c + c) * ρ ^ l := by
       have h0 : (0 : ℝ) ≤ ρ ^ l := by positivity
       nlinarith [hc.le, h0]
 

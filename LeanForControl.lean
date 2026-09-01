@@ -50,6 +50,7 @@ import LeanForControl.Estimation.Dare.MainRate
 import LeanForControl.Estimation.Dare.Formula
 import LeanForControl.Estimation.Dare.Subspace
 import LeanForControl.Estimation.Dare.Payoff
+import LeanForControl.Estimation.Dare.Robust
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability

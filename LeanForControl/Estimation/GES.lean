@@ -1721,6 +1721,7 @@ theorem exists_Xim_bound (hC1 : Sys.C1) :
   have h2 : ‖(Sys.lqRed.Acl (Sys.lqRed.ric j))ᵀ‖
       ≤ (n₁ : ℝ) * cF := by
     refine (linfty_opNorm_transpose_le _).trans ?_
+    rw [Fintype.card_fin]
     exact mul_le_mul_of_nonneg_left (hF j) (Nat.cast_nonneg n₁)
   have h3 : ‖Sys.lqRed.ric j‖ * ‖Sys.A₁₂‖ ≤ cR * ‖Sys.A₁₂‖ :=
     mul_le_mul_of_nonneg_right (hRb j) (norm_nonneg _)
