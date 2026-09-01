@@ -37,6 +37,7 @@ import LeanForControl.Estimation.Dare.Loading
 import LeanForControl.Estimation.Dare.CondChart
 import LeanForControl.Estimation.Dare.LowSqueeze
 import LeanForControl.Estimation.Dare.Sufficiency
+import LeanForControl.Estimation.Dare.RateFloor
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
