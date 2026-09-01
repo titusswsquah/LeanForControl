@@ -90,38 +90,6 @@ lemma innov_inv_norm_bound : ∃ bR : ℝ, 0 ≤ bR ∧
   exact posSemidef_norm_le_of_quadForm_le hSt.inv.posSemidef
     hcRi.le hq
 
-/-- The marginal covectors are invariant for the strong loop: the
-gain vanishes on the extinct marginal, so `embMᵀ·F∞ = Aₘ·embMᵀ`. -/
-lemma embMt_mul_errMap (hC1 : S.C1) (hS : S.IsStrongSolution Sinf) :
-    (embM n₁ na nm)ᵀ * errMap S.fullC S.R S.fullA Sinf
-      = S.Am * (embM n₁ na nm)ᵀ := by
-  have hrow : (embM n₁ na nm)ᵀ * Sinf = 0 := by
-    have h := congrArg Matrix.transpose (S.strong_marg_extinct hC1 hS)
-    rwa [Matrix.transpose_mul, hS.posSemidef.1.transpose_eq_self,
-      Matrix.transpose_zero] at h
-  have hMA : (embM n₁ na nm)ᵀ * S.fullA
-      = S.Am * (embM n₁ na nm)ᵀ := by
-    have h1 := congrArg Matrix.transpose S.fullA_transpose_mul_embM
-    rwa [Matrix.transpose_mul, Matrix.transpose_mul,
-      Matrix.transpose_transpose, Matrix.transpose_transpose] at h1
-  have hMK : (embM n₁ na nm)ᵀ * kGain S.fullC S.R Sinf = 0 := by
-    unfold kGain
-    rw [← Matrix.mul_assoc, ← Matrix.mul_assoc, hrow,
-      Matrix.zero_mul, Matrix.zero_mul]
-  unfold errMap
-  rw [← Matrix.mul_assoc, hMA, Matrix.mul_assoc,
-    Matrix.mul_sub, Matrix.mul_one, ← Matrix.mul_assoc, hMK,
-    Matrix.zero_mul, sub_zero]
-
-/-- The transposed form: `F∞ᵀ·eₘ = eₘ·Aₘᵀ`. -/
-lemma errMap_transpose_mul_embM (hC1 : S.C1)
-    (hS : S.IsStrongSolution Sinf) :
-    (errMap S.fullC S.R S.fullA Sinf)ᵀ * embM n₁ na nm
-      = embM n₁ na nm * S.Amᵀ := by
-  have h := congrArg Matrix.transpose (S.embMt_mul_errMap hC1 hS)
-  rwa [Matrix.transpose_mul, Matrix.transpose_mul,
-    Matrix.transpose_transpose] at h
-
 set_option maxHeartbeats 1600000 in
 /-- **The marginal rate obstruction** (`thm:main` Part 2 converse,
 repaired): with a marginal block present, the run from the C2-prior
