@@ -415,3 +415,38 @@ marginal case (deck-flagged).
 Findings through 10; deck lean-synced (01, 03, 04, 05, 06, 07, 08 +
 a00–a02 status lines). Remaining for Phase C: thm:payoff,
 cor:every-prior, Arc 1 stretch, adversarial self-audit, PR body.
+
+## Status log (Phase C close-out, 2026-09-01)
+
+Phase C is CLOSED — the sprint is complete.
+
+- OC.1 Finding 7 dealt with in full: the per-prior converse of
+  `eq:main-stab` shown FALSE (exactly-known-marginal counterexample;
+  mechanism verified, `marg_rows_stay_zero`); statement repaired with
+  the every-C2-prior quantifier; repaired converse core VERIFIED
+  (`marg_not_exponential`, Dare/RateFloor.lean — transported marginal
+  energy along exact `eq:gap-ric` + ε-scaling; no polynomial floor
+  needed). Deck 08 rewritten; 00-problem's `eq:dichotomy` harmonized.
+- OC.2 `thm:payoff` + `cor:every-prior`: findings 11–13 found and
+  repaired in place — error frontier is C2 (not C2w), the
+  transition-product inference removed, the every-prior corollary
+  corrected (GAS = GES = stabilizability on the error side; the
+  antistable-only characterization is the covariance side). The
+  error-side dichotomy core = the repo's already-verified arc1 layer
+  (gas_ges_dichotomy, isGAS_iff_C1_and_C2,
+  exists_gap_floor_of_not_C3w, isGASkf_iff_isGAS), cited in the
+  LEAN lines.
+- OC.3 Adversarial audit: full sorry scan clean; 27-head axioms sweep
+  all `[propext, Classical.choice, Quot.sound]`; stale statements in
+  00-problem/09-payoff harmonized; limitations recorded in the PR
+  body.
+- OC.4 PR body written: `notes/leanverify-odyssey-pr.md` (PR to be
+  opened manually — no gh CLI).
+
+Arc 1 stretch: intentionally not duplicated — the arc1 layer already
+exists verified in the repo and is now the cited error-side core.
+
+OPEN (on record): defective-marginal `lem:marginal`; formalized rates
+(incl. Part 2 forward); concrete instantiation of the import bundles;
+upstream port of odyssey-src (user's manual step); convention →
+proof-engineering skill (deferred by user).
