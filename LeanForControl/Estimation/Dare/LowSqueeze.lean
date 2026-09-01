@@ -737,6 +737,88 @@ lemma redInnov_inv_norm_bound : ∃ bR : ℝ, 0 ≤ bR ∧
     linarith [hcRile x]
   exact posSemidef_norm_le_of_quadForm_le hSt.inv.posSemidef hcRi.le hq
 
+/-- The reduced innovation converges along the run. -/
+lemma redStil_tendsto (himp : S.ReducedImport Sinf) :
+    Tendsto (fun T => ‖innov S.C₁ S.R (S.redP T)
+      - innov S.C₁ S.R (infP Sinf)‖) atTop (nhds 0) := by
+  have hP := himp.Ptendsto
+  have hb : ∀ T, ‖innov S.C₁ S.R (S.redP T)
+      - innov S.C₁ S.R (infP Sinf)‖
+      ≤ ‖S.C₁‖ * ‖S.redP T - infP Sinf‖ * ‖S.C₁ᵀ‖ := by
+    intro T
+    have hid : innov S.C₁ S.R (S.redP T)
+        - innov S.C₁ S.R (infP Sinf)
+        = S.C₁ * (S.redP T - infP Sinf) * S.C₁ᵀ := by
+      unfold innov
+      rw [Matrix.mul_sub, Matrix.sub_mul]
+      abel
+    rw [hid]
+    exact norm_triple_le _ _ _
+  refine squeeze_zero (fun T => norm_nonneg _) hb ?_
+  have h := (hP.const_mul ‖S.C₁‖).mul_const ‖S.C₁ᵀ‖
+  simpa [mul_comm, mul_assoc, mul_left_comm] using h
+
+/-- And so does its inverse (uniform `R`-floor). -/
+lemma redStilInv_tendsto (hS : S.IsStrongSolution Sinf)
+    (himp : S.ReducedImport Sinf) :
+    Tendsto (fun T => ‖(innov S.C₁ S.R (S.redP T))⁻¹
+      - (innov S.C₁ S.R (infP Sinf))⁻¹‖) atTop (nhds 0) := by
+  obtain ⟨bR, hbR, hbRb⟩ := S.redInnov_inv_norm_bound
+  have hStil := S.redStil_tendsto himp
+  have hinfPD : (innov S.C₁ S.R (infP Sinf)).PosDef :=
+    innov_posDef S.hR (S.infP_posSemidef hS)
+  have hb : ∀ T, ‖(innov S.C₁ S.R (S.redP T))⁻¹
+      - (innov S.C₁ S.R (infP Sinf))⁻¹‖
+      ≤ bR * ‖innov S.C₁ S.R (S.redP T)
+          - innov S.C₁ S.R (infP Sinf)‖
+        * ‖(innov S.C₁ S.R (infP Sinf))⁻¹‖ := by
+    intro T
+    have hTPD : (innov S.C₁ S.R (S.redP T)).PosDef :=
+      innov_posDef S.hR (S.redP_posSemidef T)
+    have hid : (innov S.C₁ S.R (S.redP T))⁻¹
+        - (innov S.C₁ S.R (infP Sinf))⁻¹
+        = (innov S.C₁ S.R (S.redP T))⁻¹
+          * (innov S.C₁ S.R (infP Sinf)
+            - innov S.C₁ S.R (S.redP T))
+          * (innov S.C₁ S.R (infP Sinf))⁻¹ := by
+      have h1 : (innov S.C₁ S.R (S.redP T))⁻¹
+          * (innov S.C₁ S.R (infP Sinf)
+            - innov S.C₁ S.R (S.redP T))
+          * (innov S.C₁ S.R (infP Sinf))⁻¹
+          = (innov S.C₁ S.R (S.redP T))⁻¹
+              * (innov S.C₁ S.R (infP Sinf)
+                * (innov S.C₁ S.R (infP Sinf))⁻¹)
+            - (innov S.C₁ S.R (S.redP T))⁻¹
+                * innov S.C₁ S.R (S.redP T)
+                * (innov S.C₁ S.R (infP Sinf))⁻¹ := by
+        rw [Matrix.mul_sub, Matrix.sub_mul]
+        simp only [Matrix.mul_assoc]
+      rw [h1, Matrix.mul_nonsing_inv _
+          ((Matrix.isUnit_iff_isUnit_det _).mp hinfPD.isUnit),
+        Matrix.nonsing_inv_mul _
+          ((Matrix.isUnit_iff_isUnit_det _).mp hTPD.isUnit),
+        Matrix.mul_one, Matrix.one_mul]
+    rw [hid]
+    calc ‖(innov S.C₁ S.R (S.redP T))⁻¹
+          * (innov S.C₁ S.R (infP Sinf)
+            - innov S.C₁ S.R (S.redP T))
+          * (innov S.C₁ S.R (infP Sinf))⁻¹‖
+        ≤ ‖(innov S.C₁ S.R (S.redP T))⁻¹‖
+          * ‖innov S.C₁ S.R (infP Sinf)
+              - innov S.C₁ S.R (S.redP T)‖
+          * ‖(innov S.C₁ S.R (infP Sinf))⁻¹‖ := norm_triple_le _ _ _
+    _ ≤ bR * ‖innov S.C₁ S.R (S.redP T)
+            - innov S.C₁ S.R (infP Sinf)‖
+          * ‖(innov S.C₁ S.R (infP Sinf))⁻¹‖ := by
+        rw [norm_sub_rev]
+        refine mul_le_mul_of_nonneg_right ?_ (norm_nonneg _)
+        exact mul_le_mul_of_nonneg_right
+          (hbRb _ (S.redP_posSemidef T)) (norm_nonneg _)
+  refine squeeze_zero (fun T => norm_nonneg _) hb ?_
+  have h := (hStil.const_mul bR).mul_const
+    ‖(innov S.C₁ S.R (infP Sinf))⁻¹‖
+  simpa [mul_comm, mul_assoc, mul_left_comm] using h
+
 set_option maxHeartbeats 1000000 in
 /-- **`lem:condfilter`-3, verified** (modulo the `fact:dare-strong`
 import): the conditional-filter loading converges to the strong
@@ -750,81 +832,10 @@ theorem lowLam1a_tendsto (hC1 : S.C1) (hS : S.IsStrongSolution Sinf)
   obtain ⟨ca, γ, hca, hγ0, hγ1, hApow⟩ :=
     S.Aa_inv_isSchurStable.exists_pow_norm_le
   have hP := himp.Ptendsto
-  obtain ⟨bR, hbR, hbRb⟩ := S.redInnov_inv_norm_bound
-  -- the reduced innovation converges
-  have hStil : Tendsto (fun T => ‖innov S.C₁ S.R (S.redP T)
-      - innov S.C₁ S.R (infP Sinf)‖) atTop (nhds 0) := by
-    have hb : ∀ T, ‖innov S.C₁ S.R (S.redP T)
-        - innov S.C₁ S.R (infP Sinf)‖
-        ≤ ‖S.C₁‖ * ‖S.redP T - infP Sinf‖ * ‖S.C₁ᵀ‖ := by
-      intro T
-      have hid : innov S.C₁ S.R (S.redP T)
-          - innov S.C₁ S.R (infP Sinf)
-          = S.C₁ * (S.redP T - infP Sinf) * S.C₁ᵀ := by
-        unfold innov
-        rw [Matrix.mul_sub, Matrix.sub_mul]
-        abel
-      rw [hid]
-      exact norm_triple_le _ _ _
-    refine squeeze_zero (fun T => norm_nonneg _) hb ?_
-    have h := (hP.const_mul ‖S.C₁‖).mul_const ‖S.C₁ᵀ‖
-    simpa [mul_comm, mul_assoc, mul_left_comm] using h
-  -- and so does its inverse
+  have hStil := S.redStil_tendsto himp
   have hinfPD : (innov S.C₁ S.R (infP Sinf)).PosDef :=
     innov_posDef S.hR (S.infP_posSemidef hS)
-  have hStilInv : Tendsto (fun T => ‖(innov S.C₁ S.R (S.redP T))⁻¹
-      - (innov S.C₁ S.R (infP Sinf))⁻¹‖) atTop (nhds 0) := by
-    have hb : ∀ T, ‖(innov S.C₁ S.R (S.redP T))⁻¹
-        - (innov S.C₁ S.R (infP Sinf))⁻¹‖
-        ≤ bR * ‖innov S.C₁ S.R (S.redP T)
-            - innov S.C₁ S.R (infP Sinf)‖
-          * ‖(innov S.C₁ S.R (infP Sinf))⁻¹‖ := by
-      intro T
-      have hTPD : (innov S.C₁ S.R (S.redP T)).PosDef :=
-        innov_posDef S.hR (S.redP_posSemidef T)
-      have hid : (innov S.C₁ S.R (S.redP T))⁻¹
-          - (innov S.C₁ S.R (infP Sinf))⁻¹
-          = (innov S.C₁ S.R (S.redP T))⁻¹
-            * (innov S.C₁ S.R (infP Sinf)
-              - innov S.C₁ S.R (S.redP T))
-            * (innov S.C₁ S.R (infP Sinf))⁻¹ := by
-        have h1 : (innov S.C₁ S.R (S.redP T))⁻¹
-            * (innov S.C₁ S.R (infP Sinf)
-              - innov S.C₁ S.R (S.redP T))
-            * (innov S.C₁ S.R (infP Sinf))⁻¹
-            = (innov S.C₁ S.R (S.redP T))⁻¹
-                * (innov S.C₁ S.R (infP Sinf)
-                  * (innov S.C₁ S.R (infP Sinf))⁻¹)
-              - (innov S.C₁ S.R (S.redP T))⁻¹
-                  * innov S.C₁ S.R (S.redP T)
-                  * (innov S.C₁ S.R (infP Sinf))⁻¹ := by
-          rw [Matrix.mul_sub, Matrix.sub_mul]
-          simp only [Matrix.mul_assoc]
-        rw [h1, Matrix.mul_nonsing_inv _
-            ((Matrix.isUnit_iff_isUnit_det _).mp hinfPD.isUnit),
-          Matrix.nonsing_inv_mul _
-            ((Matrix.isUnit_iff_isUnit_det _).mp hTPD.isUnit),
-          Matrix.mul_one, Matrix.one_mul]
-      rw [hid]
-      calc ‖(innov S.C₁ S.R (S.redP T))⁻¹
-            * (innov S.C₁ S.R (infP Sinf)
-              - innov S.C₁ S.R (S.redP T))
-            * (innov S.C₁ S.R (infP Sinf))⁻¹‖
-          ≤ ‖(innov S.C₁ S.R (S.redP T))⁻¹‖
-            * ‖innov S.C₁ S.R (infP Sinf)
-                - innov S.C₁ S.R (S.redP T)‖
-            * ‖(innov S.C₁ S.R (infP Sinf))⁻¹‖ := norm_triple_le _ _ _
-      _ ≤ bR * ‖innov S.C₁ S.R (S.redP T)
-              - innov S.C₁ S.R (infP Sinf)‖
-            * ‖(innov S.C₁ S.R (infP Sinf))⁻¹‖ := by
-          rw [norm_sub_rev]
-          refine mul_le_mul_of_nonneg_right ?_ (norm_nonneg _)
-          exact mul_le_mul_of_nonneg_right
-            (hbRb _ (S.redP_posSemidef T)) (norm_nonneg _)
-    refine squeeze_zero (fun T => norm_nonneg _) hb ?_
-    have h := (hStil.const_mul bR).mul_const
-      ‖(innov S.C₁ S.R (infP Sinf))⁻¹‖
-    simpa [mul_comm, mul_assoc, mul_left_comm] using h
+  have hStilInv := S.redStilInv_tendsto hS himp
   -- gain continuity
   have hK : Tendsto (fun T => ‖kGain S.C₁ S.R (S.redP T)
       - kGain S.C₁ S.R (infP Sinf)‖) atTop (nhds 0) := by
@@ -990,6 +1001,399 @@ theorem lowLam1a_tendsto (hC1 : S.C1) (hS : S.IsStrongSolution Sinf)
   refine tendsto_zero_of_geometric_conv (by positivity) hγ0 hγ1
     (fun T => norm_nonneg _) (fun j => by positivity) ?_ hbnd
   simpa [mul_assoc] using hεt.const_mul (cL * ca)
+
+/-- The effective observation converges. -/
+lemma ceff_tendsto (hC1 : S.C1) (hS : S.IsStrongSolution Sinf)
+    (himp : S.ReducedImport Sinf)
+    {cm : ℝ} (hPB : ∀ k : ℕ, ‖S.Am ^ k‖ ≤ cm) :
+    Tendsto (fun T => ‖S.ceff (S.lowLam1a T) (S.lowLamma T)
+      - S.ceff (infLam Sinf) 0‖) atTop (nhds 0) := by
+  have hΛ := S.lowLam1a_tendsto hC1 hS himp hPB
+  have hLm : Tendsto (fun T => ‖S.lowLamma T
+      - (0 : Matrix (Fin nm) (Fin na) ℝ)‖) atTop (nhds 0) := by
+    simp only [sub_zero]
+    exact S.loading_tendsto S.lam0 hPB
+  unfold ceff
+  have h1 : Tendsto (fun T => ‖S.C₁ * S.lowLam1a T
+      - S.C₁ * infLam Sinf‖) atTop (nhds 0) :=
+    tendsto_matmul (tendsto_matconst S.C₁) hΛ
+  have h2 : Tendsto (fun T => ‖S.C₁ * S.lowLam1a T
+        + S.fullC * embA n₁ na nm
+      - (S.C₁ * infLam Sinf + S.fullC * embA n₁ na nm)‖)
+      atTop (nhds 0) :=
+    tendsto_matadd h1 (tendsto_matconst (S.fullC * embA n₁ na nm))
+  have h3 : Tendsto (fun T => ‖S.fullC * embM n₁ na nm * S.lowLamma T
+      - S.fullC * embM n₁ na nm
+        * (0 : Matrix (Fin nm) (Fin na) ℝ)‖) atTop (nhds 0) :=
+    tendsto_matmul (tendsto_matconst (S.fullC * embM n₁ na nm)) hLm
+  exact tendsto_matadd h2 h3
+
+set_option maxHeartbeats 1000000 in
+/-- **`lem:jtransform`, verified** (`eq:J1-home` + the `(a,a)`-limit):
+the antistable block homes on the strong solution's corner — floor-free,
+the source bounded by the conditional filter. -/
+theorem lowSaa_tendsto (hC1 : S.C1) (hSa : S.Siga.PosDef)
+    (hS : S.IsStrongSolution Sinf) {δ : ℝ} (hδ : 0 < δ)
+    (himp : S.ReducedImport Sinf)
+    {cm : ℝ} (hPB : ∀ k : ℕ, ‖S.Am ^ k‖ ≤ cm) :
+    Tendsto (fun T => ‖S.lowSaa δ T
+      - (embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm‖) atTop (nhds 0) := by
+  have hcornerPD := S.strong_corner_posDef hS
+  have hcornerU : IsUnit ((embA n₁ na nm)ᵀ * Sinf
+      * embA n₁ na nm).det :=
+    (Matrix.isUnit_iff_isUnit_det _).mp hcornerPD.isUnit
+  obtain ⟨ca, γ, hca, hγ0, hγ1, hApow⟩ :=
+    S.Aa_inv_isSchurStable.exists_pow_norm_le
+  -- the source converges
+  have hCe := S.ceff_tendsto hC1 hS himp hPB
+  have hStilInv := S.redStilInv_tendsto hS himp
+  have hXi : Tendsto (fun T =>
+      ‖(S.ceff (S.lowLam1a T) (S.lowLamma T))ᵀ
+          * (innov S.C₁ S.R (S.redP T))⁻¹
+          * S.ceff (S.lowLam1a T) (S.lowLamma T)
+        - (S.ceff (infLam Sinf) 0)ᵀ
+          * (innov S.C₁ S.R (infP Sinf))⁻¹
+          * S.ceff (infLam Sinf) 0‖) atTop (nhds 0) :=
+    tendsto_matmul (tendsto_matmul (tendsto_mattrans hCe) hStilInv) hCe
+  -- the fixed Stein identity at the strong solution
+  have hSfPD := S.sfullOf_posDef (S.infP_posSemidef hS) (infLam Sinf) 0
+    hcornerPD.posSemidef
+  have hUinvInf : (S.uhatOf (infP Sinf) (infLam Sinf) 0
+        ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm))⁻¹
+      = ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹
+        + (S.ceff (infLam Sinf) 0)ᵀ
+          * (innov S.C₁ S.R (infP Sinf))⁻¹
+          * S.ceff (infLam Sinf) 0 :=
+    uhat_inv_eq rfl
+      ((Matrix.isUnit_iff_isUnit_det _).mp hSfPD.isUnit)
+      ((Matrix.isUnit_iff_isUnit_det _).mp
+        (innov_posDef (C := S.C₁) S.hR (S.infP_posSemidef hS)).isUnit)
+      hcornerU
+  have hJfix : ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹
+      = (S.Aaᵀ)⁻¹ * (((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹
+          + (S.ceff (infLam Sinf) 0)ᵀ
+            * (innov S.C₁ S.R (infP Sinf))⁻¹
+            * S.ceff (infLam Sinf) 0) * S.Aa⁻¹ := by
+    conv_lhs => rw [← (S.strong_chart_fixed hC1 hS).1]
+    rw [Matrix.mul_inv_rev, Matrix.mul_inv_rev, hUinvInf,
+      ← Matrix.mul_assoc]
+  -- the error recursion
+  have herec : ∀ T, (fun T => (S.lowSaa δ T)⁻¹
+        - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹) (T + 1)
+      = (S.Aaᵀ)⁻¹ * (fun T => (S.lowSaa δ T)⁻¹
+          - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹) T * S.Aa⁻¹
+        + (fun T => (S.Aaᵀ)⁻¹
+            * ((S.ceff (S.lowLam1a T) (S.lowLamma T))ᵀ
+                * (innov S.C₁ S.R (S.redP T))⁻¹
+                * S.ceff (S.lowLam1a T) (S.lowLamma T)
+              - (S.ceff (infLam Sinf) 0)ᵀ
+                * (innov S.C₁ S.R (infP Sinf))⁻¹
+                * S.ceff (infLam Sinf) 0) * S.Aa⁻¹) T := by
+    intro T
+    dsimp only
+    rw [S.lowJ_rec hSa hδ T]
+    conv_lhs => rw [hJfix]
+    simp only [Matrix.mul_sub, Matrix.sub_mul, Matrix.mul_add,
+      Matrix.add_mul]
+    abel
+  -- the perturbation dies
+  have hη : Tendsto (fun T => ‖(S.Aaᵀ)⁻¹
+      * ((S.ceff (S.lowLam1a T) (S.lowLamma T))ᵀ
+          * (innov S.C₁ S.R (S.redP T))⁻¹
+          * S.ceff (S.lowLam1a T) (S.lowLamma T)
+        - (S.ceff (infLam Sinf) 0)ᵀ
+          * (innov S.C₁ S.R (infP Sinf))⁻¹
+          * S.ceff (infLam Sinf) 0) * S.Aa⁻¹‖) atTop (nhds 0) := by
+    have hb : ∀ T, ‖(S.Aaᵀ)⁻¹
+        * ((S.ceff (S.lowLam1a T) (S.lowLamma T))ᵀ
+            * (innov S.C₁ S.R (S.redP T))⁻¹
+            * S.ceff (S.lowLam1a T) (S.lowLamma T)
+          - (S.ceff (infLam Sinf) 0)ᵀ
+            * (innov S.C₁ S.R (infP Sinf))⁻¹
+            * S.ceff (infLam Sinf) 0) * S.Aa⁻¹‖
+        ≤ ‖(S.Aaᵀ)⁻¹‖
+          * ‖(S.ceff (S.lowLam1a T) (S.lowLamma T))ᵀ
+              * (innov S.C₁ S.R (S.redP T))⁻¹
+              * S.ceff (S.lowLam1a T) (S.lowLamma T)
+            - (S.ceff (infLam Sinf) 0)ᵀ
+              * (innov S.C₁ S.R (infP Sinf))⁻¹
+              * S.ceff (infLam Sinf) 0‖ * ‖S.Aa⁻¹‖ :=
+      fun T => norm_triple_le _ _ _
+    refine squeeze_zero (fun T => norm_nonneg _) hb ?_
+    have h := (hXi.const_mul ‖(S.Aaᵀ)⁻¹‖).mul_const ‖S.Aa⁻¹‖
+    simpa [mul_comm, mul_assoc, mul_left_comm] using h
+  -- power norms of the transposed inverse
+  have hAtinv : ∀ k : ℕ, ‖((S.Aaᵀ)⁻¹) ^ k‖
+      ≤ (Fintype.card (Fin na) : ℝ) * (ca * γ ^ k) := by
+    intro k
+    have h1 : ((S.Aaᵀ)⁻¹) ^ k = ((S.Aa⁻¹) ^ k)ᵀ := by
+      rw [← Matrix.transpose_nonsing_inv, Matrix.transpose_pow]
+    rw [h1]
+    calc ‖((S.Aa⁻¹) ^ k)ᵀ‖
+        ≤ (Fintype.card (Fin na) : ℝ) * ‖(S.Aa⁻¹) ^ k‖ :=
+          linfty_opNorm_transpose_le' _
+    _ ≤ (Fintype.card (Fin na) : ℝ) * (ca * γ ^ k) :=
+        mul_le_mul_of_nonneg_left (hApow k) (Nat.cast_nonneg _)
+  -- unroll and convolve
+  have hunroll := conj_unroll (L := (S.Aaᵀ)⁻¹) (B := S.Aa⁻¹)
+    (e := fun T => (S.lowSaa δ T)⁻¹
+      - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹)
+    (η := fun T => (S.Aaᵀ)⁻¹
+        * ((S.ceff (S.lowLam1a T) (S.lowLamma T))ᵀ
+            * (innov S.C₁ S.R (S.redP T))⁻¹
+            * S.ceff (S.lowLam1a T) (S.lowLamma T)
+          - (S.ceff (infLam Sinf) 0)ᵀ
+            * (innov S.C₁ S.R (infP Sinf))⁻¹
+            * S.ceff (infLam Sinf) 0) * S.Aa⁻¹) herec
+  have hJt : Tendsto (fun T => ‖(S.lowSaa δ T)⁻¹
+      - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹‖) atTop
+      (nhds 0) := by
+    set K : ℝ := (Fintype.card (Fin na) : ℝ) with hK
+    have hKnn : (0:ℝ) ≤ K := Nat.cast_nonneg _
+    have hbnd : ∀ T, ‖(S.lowSaa δ T)⁻¹
+        - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹‖
+        ≤ (K * ca ^ 2 * ‖(S.lowSaa δ 0)⁻¹
+            - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹‖)
+            * (γ * γ) ^ T
+          + ∑ j ∈ Finset.range T, (γ * γ) ^ (T - 1 - j)
+              * (K * ca ^ 2 * ‖(S.Aaᵀ)⁻¹
+                  * ((S.ceff (S.lowLam1a j) (S.lowLamma j))ᵀ
+                      * (innov S.C₁ S.R (S.redP j))⁻¹
+                      * S.ceff (S.lowLam1a j) (S.lowLamma j)
+                    - (S.ceff (infLam Sinf) 0)ᵀ
+                      * (innov S.C₁ S.R (infP Sinf))⁻¹
+                      * S.ceff (infLam Sinf) 0) * S.Aa⁻¹‖) := by
+      intro T
+      have hu := hunroll T
+      dsimp only at hu
+      rw [hu]
+      refine le_trans (norm_add_le _ _) (add_le_add ?_ ?_)
+      · calc ‖((S.Aaᵀ)⁻¹) ^ T * ((S.lowSaa δ 0)⁻¹
+              - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹)
+              * (S.Aa⁻¹) ^ T‖
+            ≤ ‖((S.Aaᵀ)⁻¹) ^ T‖ * ‖(S.lowSaa δ 0)⁻¹
+                - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹‖
+              * ‖(S.Aa⁻¹) ^ T‖ := norm_triple_le _ _ _
+        _ ≤ (K * (ca * γ ^ T)) * ‖(S.lowSaa δ 0)⁻¹
+              - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹‖
+            * (ca * γ ^ T) := by
+            refine mul_le_mul ?_ (hApow T) (norm_nonneg _)
+              (by positivity)
+            exact mul_le_mul_of_nonneg_right (hAtinv T)
+              (norm_nonneg _)
+        _ = (K * ca ^ 2 * ‖(S.lowSaa δ 0)⁻¹
+              - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹‖)
+            * (γ * γ) ^ T := by
+            rw [mul_pow]
+            ring
+      · refine le_trans (norm_sum_le _ _)
+          (Finset.sum_le_sum fun j hj => ?_)
+        calc ‖((S.Aaᵀ)⁻¹) ^ (T - 1 - j)
+              * ((S.Aaᵀ)⁻¹
+                * ((S.ceff (S.lowLam1a j) (S.lowLamma j))ᵀ
+                    * (innov S.C₁ S.R (S.redP j))⁻¹
+                    * S.ceff (S.lowLam1a j) (S.lowLamma j)
+                  - (S.ceff (infLam Sinf) 0)ᵀ
+                    * (innov S.C₁ S.R (infP Sinf))⁻¹
+                    * S.ceff (infLam Sinf) 0) * S.Aa⁻¹)
+              * (S.Aa⁻¹) ^ (T - 1 - j)‖
+            ≤ ‖((S.Aaᵀ)⁻¹) ^ (T - 1 - j)‖
+              * ‖(S.Aaᵀ)⁻¹
+                  * ((S.ceff (S.lowLam1a j) (S.lowLamma j))ᵀ
+                      * (innov S.C₁ S.R (S.redP j))⁻¹
+                      * S.ceff (S.lowLam1a j) (S.lowLamma j)
+                    - (S.ceff (infLam Sinf) 0)ᵀ
+                      * (innov S.C₁ S.R (infP Sinf))⁻¹
+                      * S.ceff (infLam Sinf) 0) * S.Aa⁻¹‖
+              * ‖(S.Aa⁻¹) ^ (T - 1 - j)‖ := norm_triple_le _ _ _
+        _ ≤ (K * (ca * γ ^ (T - 1 - j)))
+              * ‖(S.Aaᵀ)⁻¹
+                  * ((S.ceff (S.lowLam1a j) (S.lowLamma j))ᵀ
+                      * (innov S.C₁ S.R (S.redP j))⁻¹
+                      * S.ceff (S.lowLam1a j) (S.lowLamma j)
+                    - (S.ceff (infLam Sinf) 0)ᵀ
+                      * (innov S.C₁ S.R (infP Sinf))⁻¹
+                      * S.ceff (infLam Sinf) 0) * S.Aa⁻¹‖
+              * (ca * γ ^ (T - 1 - j)) := by
+            refine mul_le_mul ?_ (hApow _) (norm_nonneg _)
+              (by positivity)
+            exact mul_le_mul_of_nonneg_right (hAtinv _)
+              (norm_nonneg _)
+        _ = (γ * γ) ^ (T - 1 - j)
+              * (K * ca ^ 2 * ‖(S.Aaᵀ)⁻¹
+                  * ((S.ceff (S.lowLam1a j) (S.lowLamma j))ᵀ
+                      * (innov S.C₁ S.R (S.redP j))⁻¹
+                      * S.ceff (S.lowLam1a j) (S.lowLamma j)
+                    - (S.ceff (infLam Sinf) 0)ᵀ
+                      * (innov S.C₁ S.R (infP Sinf))⁻¹
+                      * S.ceff (infLam Sinf) 0) * S.Aa⁻¹‖) := by
+            rw [mul_pow]
+            ring
+    refine tendsto_zero_of_geometric_conv (by positivity)
+      (by positivity) (by nlinarith) (fun T => norm_nonneg _)
+      (fun j => by positivity) ?_ hbnd
+    simpa using hη.const_mul (K * ca ^ 2)
+  -- uniform bound on the block itself
+  have hSaaBdd : ∃ bS : ℝ, 0 ≤ bS ∧ ∀ T, ‖S.lowSaa δ T‖ ≤ bS := by
+    obtain ⟨b, hb, hble⟩ := exists_dare_bound (C := S.fullC)
+      (A := S.fullA) (Qw := S.Qw) S.hR S.Qw_posSemidef
+      (S.slavedSeed_posSemidef hSa hδ.le) hC1
+    refine ⟨(Fintype.card (Fin na) : ℝ) ^ 2 * (b * ‖embA n₁ na nm‖ ^ 2),
+      by positivity, fun T => ?_⟩
+    have hq : ∀ v, quadForm (S.lowSaa δ T) v
+        ≤ (b * ‖embA n₁ na nm‖ ^ 2) * ‖v‖ ^ 2 := by
+      intro v
+      have hextr := CondChart.extract_Saa
+        (⟨S.redP T, S.lowLam1a T, S.lowLamma T, S.lowSaa δ T,
+          S.redP_posSemidef T, S.lowSaa_posDef hSa hδ T,
+          S.lowTraj_decomp hSa hδ T⟩ :
+          CondChart (S.dareFrom (S.slavedSeed δ) T))
+      dsimp only at hextr
+      have h1 : quadForm (S.lowSaa δ T) v
+          = quadForm (S.dareFrom (S.slavedSeed δ) T)
+              (embA n₁ na nm *ᵥ v) := by
+        rw [quadForm_mulVec, hextr]
+      rw [h1]
+      have h2 : ‖embA n₁ na nm *ᵥ v‖ ≤ ‖embA n₁ na nm‖ * ‖v‖ :=
+        Matrix.linfty_opNorm_mulVec _ _
+      calc quadForm (S.dareFrom (S.slavedSeed δ) T)
+            (embA n₁ na nm *ᵥ v)
+          ≤ b * ‖embA n₁ na nm *ᵥ v‖ ^ 2 := hble T _
+      _ ≤ b * (‖embA n₁ na nm‖ * ‖v‖) ^ 2 := by
+          refine mul_le_mul_of_nonneg_left ?_ hb.le
+          have := norm_nonneg (embA n₁ na nm *ᵥ v)
+          nlinarith [norm_nonneg (embA n₁ na nm), norm_nonneg v]
+      _ = (b * ‖embA n₁ na nm‖ ^ 2) * ‖v‖ ^ 2 := by ring
+    exact posSemidef_norm_le_of_quadForm_le
+      (S.lowSaa_posDef hSa hδ T).posSemidef (by positivity) hq
+  obtain ⟨bS, hbS, hbSle⟩ := hSaaBdd
+  -- invert the information convergence
+  have hb : ∀ T, ‖S.lowSaa δ T
+      - (embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm‖
+      ≤ bS * ‖(S.lowSaa δ T)⁻¹
+          - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹‖
+        * ‖(embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm‖ := by
+    intro T
+    have hTU : IsUnit (S.lowSaa δ T).det :=
+      (Matrix.isUnit_iff_isUnit_det _).mp
+        (S.lowSaa_posDef hSa hδ T).isUnit
+    have hid : S.lowSaa δ T
+        - (embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm
+        = S.lowSaa δ T
+          * (((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹
+            - (S.lowSaa δ T)⁻¹)
+          * ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm) := by
+      have h1 : S.lowSaa δ T
+          * (((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹
+            - (S.lowSaa δ T)⁻¹)
+          * ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)
+          = S.lowSaa δ T
+              * (((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹
+                * ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm))
+            - S.lowSaa δ T * (S.lowSaa δ T)⁻¹
+              * ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm) := by
+        rw [Matrix.mul_sub, Matrix.sub_mul]
+        simp only [Matrix.mul_assoc]
+      rw [h1, Matrix.nonsing_inv_mul _ hcornerU,
+        Matrix.mul_nonsing_inv _ hTU, Matrix.mul_one,
+        Matrix.one_mul]
+    rw [hid]
+    calc ‖S.lowSaa δ T
+          * (((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹
+            - (S.lowSaa δ T)⁻¹)
+          * ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)‖
+        ≤ ‖S.lowSaa δ T‖
+          * ‖((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹
+              - (S.lowSaa δ T)⁻¹‖
+          * ‖(embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm‖ :=
+          norm_triple_le _ _ _
+    _ ≤ bS * ‖(S.lowSaa δ T)⁻¹
+            - ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)⁻¹‖
+          * ‖(embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm‖ := by
+        rw [norm_sub_rev]
+        refine mul_le_mul_of_nonneg_right ?_ (norm_nonneg _)
+        exact mul_le_mul_of_nonneg_right (hbSle T) (norm_nonneg _)
+  refine squeeze_zero (fun T => norm_nonneg _) hb ?_
+  have h := (hJt.const_mul bS).mul_const
+    ‖(embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm‖
+  simpa [mul_comm, mul_assoc, mul_left_comm] using h
+
+set_option maxHeartbeats 1000000 in
+/-- **`lem:lowsqueeze`, verified** (`eq:lowsqueeze`, convergence half;
+domination is `slavedSeed_le_Sig0` + `dareIter_mono`): the slaved
+lower anchor converges to the strong solution, floor-free. -/
+theorem lowsqueeze_tendsto (hC1 : S.C1) (hSa : S.Siga.PosDef)
+    (hS : S.IsStrongSolution Sinf) {δ : ℝ} (hδ : 0 < δ)
+    (himp : S.ReducedImport Sinf)
+    {cm : ℝ} (hPB : ∀ k : ℕ, ‖S.Am ^ k‖ ≤ cm) :
+    Tendsto (fun T => ‖S.dareFrom (S.slavedSeed δ) T - Sinf‖)
+      atTop (nhds 0) := by
+  have hP := himp.Ptendsto
+  have hΛ := S.lowLam1a_tendsto hC1 hS himp hPB
+  have hLm : Tendsto (fun T => ‖S.lowLamma T
+      - (0 : Matrix (Fin nm) (Fin na) ℝ)‖) atTop (nhds 0) := by
+    simp only [sub_zero]
+    exact S.loading_tendsto S.lam0 hPB
+  have hSaa := S.lowSaa_tendsto hC1 hSa hS hδ himp hPB
+  -- the regression factor converges
+  have hV : Tendsto (fun T => ‖condV (S.lowLam1a T) (S.lowLamma T)
+      - condV (infLam Sinf) 0‖) atTop (nhds 0) := by
+    have hid : ∀ T, condV (S.lowLam1a T) (S.lowLamma T)
+        - condV (infLam Sinf) 0
+        = emb1 n₁ na nm * (S.lowLam1a T - infLam Sinf)
+          + embM n₁ na nm
+            * (S.lowLamma T - (0 : Matrix (Fin nm) (Fin na) ℝ)) := by
+      intro T
+      unfold condV
+      simp only [Matrix.mul_sub]
+      abel
+    have hb : ∀ T, ‖condV (S.lowLam1a T) (S.lowLamma T)
+        - condV (infLam Sinf) 0‖
+        ≤ ‖emb1 n₁ na nm‖ * ‖S.lowLam1a T - infLam Sinf‖
+          + ‖embM n₁ na nm‖ * ‖S.lowLamma T
+              - (0 : Matrix (Fin nm) (Fin na) ℝ)‖ := by
+      intro T
+      rw [hid T]
+      refine le_trans (norm_add_le _ _) (add_le_add ?_ ?_) <;>
+        exact Matrix.linfty_opNorm_mul _ _
+    refine squeeze_zero (fun T => norm_nonneg _) hb ?_
+    have h := (hΛ.const_mul ‖emb1 n₁ na nm‖).add
+      (hLm.const_mul ‖embM n₁ na nm‖)
+    simpa using h
+  -- the assembled blocks converge
+  have htriple := tendsto_matmul (tendsto_matmul hV hSaa)
+    (tendsto_mattrans hV)
+  have hstab := tendsto_matmul (tendsto_matmul
+    (tendsto_matconst (emb1 n₁ na nm)) hP)
+    (tendsto_matconst (emb1 n₁ na nm)ᵀ)
+  -- assemble
+  have hdec := S.lowTraj_decomp hSa hδ
+  have hdecInf := S.strong_decomp hC1 hS
+  have hfinal : ∀ T, S.dareFrom (S.slavedSeed δ) T - Sinf
+      = (emb1 n₁ na nm * S.redP T * (emb1 n₁ na nm)ᵀ
+          - emb1 n₁ na nm * infP Sinf * (emb1 n₁ na nm)ᵀ)
+        + (condV (S.lowLam1a T) (S.lowLamma T) * S.lowSaa δ T
+            * (condV (S.lowLam1a T) (S.lowLamma T))ᵀ
+          - condV (infLam Sinf) 0
+            * ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)
+            * (condV (infLam Sinf) 0)ᵀ) := by
+    intro T
+    conv_lhs => rw [hdec T]
+    conv_lhs => rw [hdecInf]
+    abel
+  have hb : ∀ T, ‖S.dareFrom (S.slavedSeed δ) T - Sinf‖
+      ≤ ‖emb1 n₁ na nm * S.redP T * (emb1 n₁ na nm)ᵀ
+          - emb1 n₁ na nm * infP Sinf * (emb1 n₁ na nm)ᵀ‖
+        + ‖condV (S.lowLam1a T) (S.lowLamma T) * S.lowSaa δ T
+            * (condV (S.lowLam1a T) (S.lowLamma T))ᵀ
+          - condV (infLam Sinf) 0
+            * ((embA n₁ na nm)ᵀ * Sinf * embA n₁ na nm)
+            * (condV (infLam Sinf) 0)ᵀ‖ := by
+    intro T
+    rw [hfinal T]
+    exact norm_add_le _ _
+  refine squeeze_zero (fun T => norm_nonneg _) hb ?_
+  simpa using hstab.add htriple
 
 end DareSystem
 
