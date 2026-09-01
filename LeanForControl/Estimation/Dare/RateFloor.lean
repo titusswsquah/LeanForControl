@@ -291,7 +291,7 @@ theorem marg_not_exponential (hC1 : S.C1)
               (S.fullC *ᵥ (Δ ε T *ᵥ yv T)) := by
     intro ε hε T
     have hgap := gapRic (C := S.fullC) (A := S.fullA) (Qw := S.Qw)
-      S.hR hS.posSemidef (hΔpsd hε T) hS.fixed
+      S.hR hS.posSemidef (hS.posSemidef.add (hΔpsd hε T)) hS.fixed
     have hstepeq : Δ ε (T + 1)
         = F * (Δ ε T - Δ ε T * S.fullCᵀ
             * (innov S.fullC S.R (Sinf + Δ ε T))⁻¹

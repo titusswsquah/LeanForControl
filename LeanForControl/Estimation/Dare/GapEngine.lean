@@ -159,11 +159,10 @@ theorem dareIter_diff {A Qw L₁ L₂ : Matrix ι ι ℝ} (hR : R.PosDef)
 /-- The gain factorization about a base covariance:
 `I − K(Σ+V)C = (I − K(Σ)C)(I − VCᵀS(Σ+V)⁻¹C)`. -/
 lemma oneSubKC_add (hR : R.PosDef) (hSg : Sg.PosSemidef)
-    {V : Matrix ι ι ℝ} (hV : V.PosSemidef) :
+    {V : Matrix ι ι ℝ} (hSV : (Sg + V).PosSemidef) :
     1 - kGain C R (Sg + V) * C
       = (1 - kGain C R Sg * C)
         * (1 - V * Cᵀ * (innov C R (Sg + V))⁻¹ * C) := by
-  have hSV : (Sg + V).PosSemidef := hSg.add hV
   have hCVC : C * V * Cᵀ = innov C R (Sg + V) - innov C R Sg := by
     unfold innov
     rw [Matrix.mul_add C Sg V, Matrix.add_mul]
@@ -193,13 +192,12 @@ lemma oneSubKC_add (hR : R.PosDef) (hSg : Sg.PosSemidef)
 /-- **The gap-Riccati identity** (`eq:gap-ric`): at a fixed point `Σ∞`,
 `R(Σ∞+V) − Σ∞ = F∞·(V − VCᵀS_V⁻¹CV)·F∞ᵀ`. -/
 theorem gapRic {A Qw Sinf V : Matrix ι ι ℝ} (hR : R.PosDef)
-    (hSinf : Sinf.PosSemidef) (hV : V.PosSemidef)
+    (hSinf : Sinf.PosSemidef) (hSV : (Sinf + V).PosSemidef)
     (hfix : dareStep C R A Qw Sinf = Sinf) :
     dareStep C R A Qw (Sinf + V) - Sinf
       = errMap C R A Sinf
         * (V - V * Cᵀ * (innov C R (Sinf + V))⁻¹ * (C * V))
         * (errMap C R A Sinf)ᵀ := by
-  have hSV : (Sinf + V).PosSemidef := hSinf.add hV
   have h1 : dareStep C R A Qw (Sinf + V) - Sinf
       = errMap C R A (Sinf + V) * V * (errMap C R A Sinf)ᵀ := by
     have h0 := dareStep_diff (C := C) (A := A) (Qw := Qw) hR hSV hSinf
@@ -207,7 +205,7 @@ theorem gapRic {A Qw Sinf V : Matrix ι ι ℝ} (hR : R.PosDef)
     exact h0
   rw [h1]
   unfold errMap
-  rw [oneSubKC_add hR hSinf hV]
+  rw [oneSubKC_add hR hSinf hSV]
   have h2 : V - V * Cᵀ * (innov C R (Sinf + V))⁻¹ * (C * V)
       = (1 - V * Cᵀ * (innov C R (Sinf + V))⁻¹ * C) * V := by
     rw [Matrix.sub_mul, Matrix.one_mul]
@@ -223,7 +221,7 @@ theorem gapRic_le {A Qw Sinf V : Matrix ι ι ℝ} (hR : R.PosDef)
     (hfix : dareStep C R A Qw Sinf = Sinf) :
     (errMap C R A Sinf * V * (errMap C R A Sinf)ᵀ
       - (dareStep C R A Qw (Sinf + V) - Sinf)).PosSemidef := by
-  rw [gapRic hR hSinf hV hfix]
+  rw [gapRic hR hSinf (hSinf.add hV) hfix]
   have heq : errMap C R A Sinf * V * (errMap C R A Sinf)ᵀ
       - errMap C R A Sinf
           * (V - V * Cᵀ * (innov C R (Sinf + V))⁻¹ * (C * V))
