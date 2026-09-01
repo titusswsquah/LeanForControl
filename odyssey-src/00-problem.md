@@ -91,14 +91,14 @@ The recursion `eq:cov-rec` is **attracted to the strong solution** if $\Sigma_T 
 <!-- def:rate -->
 ### Definition (def:rate) — Exponential vs. polynomial rate
 
-The attraction is **exponential** if there is $\gamma \in (0, 1)$ such that for every prior $\Sigma_0 \succeq 0$ there is $c < \infty$ with $\|\Sigma_T - \Sigma_\infty\| \le c\, \gamma^T$ for all $T$; otherwise (e.g. $\|\Sigma_T - \Sigma_\infty\| \sim c\, T^{-r}$) it is **polynomial**. Marginal uncontrollable modes ($A_m$) force the polynomial regime; their absence (C3w) gives the exponential one.
+The attraction is **exponential** if there is $\gamma \in (0, 1)$ such that for every prior $\Sigma_0 \succeq 0$ *satisfying C2* there is $c < \infty$ with $\|\Sigma_T - \Sigma_\infty\| \le c\, \gamma^T$ for all $T$; otherwise it is slower (the numerics show $\|\Sigma_T - \Sigma_\infty\| \sim c\, T^{-r}$ from marginal-informing priors). The quantifier over admissible priors is part of the definition: for a *fixed* prior, exponential convergence can coexist with marginal uncontrollable modes (an exactly-known marginal block runs as a marginal-free subsystem — `thm:main`-2's remark), so it is the every-C2-prior property that characterizes C3w.
 
 ## The dichotomy
 
 The development culminates in the strong/stabilizing dichotomy `eq:dichotomy`, assembled last in the main theorem (forthcoming), and stated exponential-branch first:
 
 <!-- eq:dichotomy -->
-$$ \text{C1} + \text{C2} + \text{C3w} \iff \Sigma_T \to \Sigma_\infty\ \text{exponentially}\ (\rho(F_\infty) < 1) \qquad\qquad \text{C1} + \text{C2w} \iff \Sigma_T \to \Sigma_\infty\ (\rho(F_\infty) \le 1) \tag{eq:dichotomy} $$
+$$ \text{C1}\!: \text{C3w} \iff \big(\Sigma_T \to \Sigma_\infty\ \text{exponentially from every C2 prior}\big)\ (\rho(F_\infty) < 1) \qquad\qquad \text{C1} + \text{C2w} \iff \Sigma_T \to \Sigma_\infty\ (\rho(F_\infty) \le 1) \tag{eq:dichotomy} $$
 
 The first line is the exponentially-attracting, **stabilizing** regime: with no uncontrollable unit-circle mode the reduced $e_1 \oplus e_a$ system is the whole state, $F_\infty$ is Schur, and the approach is geometric (the discrete-time counterpart of Callier, Winkin and Willems 1994). The second relaxes C2 + C3w to C2w alone: the marginal modes survive in the limit, $F_\infty$ sits on the unit circle, and the approach is slower — marginal uncontrollable modes slow the recursion but do not stop it (the discrete counterpart of the critical-mode phenomenon of Callier and Winkin 1995). The marginal branch currently carries `lem:marginal`'s standing qualification (semisimple marginal modes; defective case open), and its rate is observed ($\sim 1/T$) but not proved.
 
