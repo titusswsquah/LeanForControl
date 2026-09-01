@@ -721,6 +721,375 @@ theorem formula_rate (hS : S.IsStrongSolution Sinf)
       ring
 
 
+/-! ### The running product (`cor:phi`, `eq:phi-closed`) -/
+
+/-- The homographic slide commutes across the difference:
+`(I + DG)⁻¹D = D(I + GD)⁻¹`. -/
+lemma slide_swap {n' : Type*} [Fintype n'] [DecidableEq n']
+    {D G : Matrix n' n' ℝ} (h : IsUnit (1 + G * D).det)
+    (h' : IsUnit (1 + D * G).det) :
+    (1 + D * G)⁻¹ * D = D * (1 + G * D)⁻¹ := by
+  have hkey : (1 + D * G) * (D * (1 + G * D)⁻¹) = D := by
+    have h1 : (1 + D * G) * D = D * (1 + G * D) := by
+      rw [Matrix.add_mul, Matrix.one_mul, Matrix.mul_add,
+        Matrix.mul_one]
+      simp only [Matrix.mul_assoc]
+    rw [← Matrix.mul_assoc, h1, Matrix.mul_assoc,
+      Matrix.mul_nonsing_inv _ h, Matrix.mul_one]
+  calc (1 + D * G)⁻¹ * D
+      = (1 + D * G)⁻¹ * ((1 + D * G) * (D * (1 + G * D)⁻¹)) := by
+        rw [hkey]
+  _ = D * (1 + G * D)⁻¹ := by
+      rw [← Matrix.mul_assoc, Matrix.nonsing_inv_mul _ h',
+        Matrix.one_mul]
+
+set_option maxHeartbeats 3200000 in
+/-- **`cor:phi` (`eq:phi-closed`)**: the running error-map product
+factors through the fixed loop against the transposed slide,
+`Φ_T·(I + D·𝒢_T) = F∞^T` — the geometric product bound by closed
+form. -/
+theorem errProd_closed (hS : S.IsStrongSolution Sinf)
+    {L₀ : Matrix (ix n₁ na nm) (ix n₁ na nm) ℝ}
+    (hL₀ : L₀.PosSemidef) :
+    ∀ T, IsUnit (1 + (L₀ - Sinf) * S.fwdGram Sinf T).det
+      ∧ errProd S.fullC S.R S.fullA S.Qw L₀ T
+          * (1 + (L₀ - Sinf) * S.fwdGram Sinf T)
+        = (errMap S.fullC S.R S.fullA Sinf) ^ T := by
+  have hSinfPD : (innov S.fullC S.R Sinf).PosDef :=
+    innov_posDef S.hR hS.posSemidef
+  have hSinfU : IsUnit (innov S.fullC S.R Sinf).det :=
+    (Matrix.isUnit_iff_isUnit_det _).mp hSinfPD.isUnit
+  have hform := S.formula hS hL₀
+  generalize hD : L₀ - Sinf = D at hform
+  intro T
+  induction T with
+  | zero =>
+    refine ⟨by simp, ?_⟩
+    show 1 * (1 + D * S.fwdGram Sinf 0) = _
+    simp
+  | succ T ih =>
+    obtain ⟨hunit', hΦ⟩ := ih
+    obtain ⟨hunit, heq⟩ := hform T
+    obtain ⟨hunitS, _⟩ := hform (T + 1)
+    -- the primed slide at `T+1`
+    have hunitS' : IsUnit (1 + D * S.fwdGram Sinf (T + 1)).det := by
+      have h1 := Matrix.det_one_add_mul_comm D
+        (S.fwdGram Sinf (T + 1))
+      rw [h1]
+      exact hunitS
+    refine ⟨hunitS', ?_⟩
+    -- data from the formula's induction, replayed
+    have hSigpsd : (S.dareFrom L₀ T).PosSemidef :=
+      dareIter_posSemidef S.hR S.Qw_posSemidef hL₀ T
+    have hGpsd : (Sinf + (errMap S.fullC S.R S.fullA Sinf) ^ T * D
+        * (1 + S.fwdGram Sinf T * D)⁻¹
+        * ((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T).PosSemidef := by
+      rw [← heq]
+      exact hSigpsd
+    have hSVPD : (innov S.fullC S.R (S.dareFrom L₀ T)).PosDef :=
+      innov_posDef S.hR hSigpsd
+    have hSVU : IsUnit (innov S.fullC S.R (S.dareFrom L₀ T)).det :=
+      (Matrix.isUnit_iff_isUnit_det _).mp hSVPD.isUnit
+    have hΓ : ((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T * S.fullCᵀ
+        = (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ := by
+      rw [Matrix.transpose_mul, Matrix.transpose_pow]
+    have hST : innov S.fullC S.R (S.dareFrom L₀ T)
+        = innov S.fullC S.R Sinf
+          + (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+            * (D * (1 + S.fwdGram Sinf T * D)⁻¹)
+            * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ := by
+      conv_lhs => rw [heq]
+      unfold innov
+      rw [← hΓ]
+      rw [Matrix.mul_add, Matrix.add_mul]
+      simp only [Matrix.mul_assoc]
+      abel
+    have hYunit : IsUnit (1
+        + (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ
+          * (innov S.fullC S.R Sinf)⁻¹
+          * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+          * (D * (1 + S.fwdGram Sinf T * D)⁻¹)).det := by
+      have h1 : (1
+          + (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ
+            * (innov S.fullC S.R Sinf)⁻¹
+            * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+            * (D * (1 + S.fwdGram Sinf T * D)⁻¹)).det
+          = (1 + (innov S.fullC S.R Sinf)⁻¹
+              * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+              * (D * (1 + S.fwdGram Sinf T * D)⁻¹)
+              * (S.fullC
+                * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ).det := by
+        have h2 := Matrix.det_one_add_mul_comm
+          ((S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ)
+          ((innov S.fullC S.R Sinf)⁻¹
+            * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+            * (D * (1 + S.fwdGram Sinf T * D)⁻¹))
+        simp only [Matrix.mul_assoc] at h2 ⊢
+        exact h2
+      rw [h1]
+      have h3 : (1 : Matrix (Fin p) (Fin p) ℝ)
+          + (innov S.fullC S.R Sinf)⁻¹
+            * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+            * (D * (1 + S.fwdGram Sinf T * D)⁻¹)
+            * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ
+          = (innov S.fullC S.R Sinf)⁻¹
+            * innov S.fullC S.R (S.dareFrom L₀ T) := by
+        rw [hST, Matrix.mul_add,
+          Matrix.nonsing_inv_mul _ hSinfU]
+        simp only [Matrix.mul_assoc]
+      rw [h3, Matrix.det_mul]
+      exact (hSinfPD.inv.isUnit.map (Matrix.detMonoidHom)).mul
+        ((Matrix.isUnit_iff_isUnit_det _).mp hSVPD.isUnit)
+    have hNsucc : 1 + S.fwdGram Sinf (T + 1) * D
+        = (1 + (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ
+            * (innov S.fullC S.R Sinf)⁻¹
+            * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+            * (D * (1 + S.fwdGram Sinf T * D)⁻¹))
+          * (1 + S.fwdGram Sinf T * D) := by
+      rw [S.fwdGram_succ, S.stepped_weight_eq, Matrix.add_mul,
+        Matrix.add_mul, Matrix.one_mul]
+      have h4 : (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ
+          * (innov S.fullC S.R Sinf)⁻¹
+          * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+          * (D * (1 + S.fwdGram Sinf T * D)⁻¹)
+          * (1 + S.fwdGram Sinf T * D)
+          = (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ
+            * (innov S.fullC S.R Sinf)⁻¹
+            * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+            * D := by
+        simp only [Matrix.mul_assoc]
+        rw [Matrix.nonsing_inv_mul _ hunit, Matrix.mul_one]
+      rw [h4]
+      abel
+    -- the loop factorization at the running covariance
+    have herrdef : ∀ X : Matrix (ix n₁ na nm) (ix n₁ na nm) ℝ,
+        errMap S.fullC S.R S.fullA X
+          = S.fullA * (1 - kGain S.fullC S.R X * S.fullC) :=
+      fun _ => rfl
+    have hFfac : errMap S.fullC S.R S.fullA (S.dareFrom L₀ T)
+        = errMap S.fullC S.R S.fullA Sinf
+          * (1 - (errMap S.fullC S.R S.fullA Sinf) ^ T * D
+              * (1 + S.fwdGram Sinf T * D)⁻¹
+              * ((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+              * S.fullCᵀ
+              * (innov S.fullC S.R (S.dareFrom L₀ T))⁻¹
+              * S.fullC) := by
+      have h5 := oneSubKC_add (C := S.fullC) (R := S.R) S.hR
+        hS.posSemidef (V := (errMap S.fullC S.R S.fullA Sinf) ^ T
+          * D * (1 + S.fwdGram Sinf T * D)⁻¹
+          * ((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T) hGpsd
+      calc errMap S.fullC S.R S.fullA (S.dareFrom L₀ T)
+          = S.fullA * (1 - kGain S.fullC S.R
+              (Sinf + (errMap S.fullC S.R S.fullA Sinf) ^ T * D
+                * (1 + S.fwdGram Sinf T * D)⁻¹
+                * ((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T)
+              * S.fullC) := by
+            rw [heq]
+            exact herrdef _
+      _ = S.fullA * ((1 - kGain S.fullC S.R Sinf * S.fullC)
+            * (1 - (errMap S.fullC S.R S.fullA Sinf) ^ T * D
+                * (1 + S.fwdGram Sinf T * D)⁻¹
+                * ((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+                * S.fullCᵀ
+                * (innov S.fullC S.R (Sinf
+                  + (errMap S.fullC S.R S.fullA Sinf) ^ T * D
+                    * (1 + S.fwdGram Sinf T * D)⁻¹
+                    * ((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T))⁻¹
+                * S.fullC)) := by
+          rw [h5]
+      _ = _ := by
+          rw [← heq, ← Matrix.mul_assoc, ← herrdef Sinf]
+    -- key: the factored loop advances the slide
+    have hkey1 : errMap S.fullC S.R S.fullA (S.dareFrom L₀ T)
+        * ((errMap S.fullC S.R S.fullA Sinf) ^ T
+          * (D * (1 + S.fwdGram Sinf T * D)⁻¹))
+        = (errMap S.fullC S.R S.fullA Sinf) ^ (T + 1)
+          * (D * (1 + S.fwdGram Sinf (T + 1) * D)⁻¹) := by
+      rw [hFfac]
+      have hslide := slide_step
+        (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+        (innov S.fullC S.R Sinf) D
+        (1 + S.fwdGram Sinf T * D) hSinfU
+        (by rw [← hST]; exact hSVU) hYunit
+      have hB3 : ((errMap S.fullC S.R S.fullA Sinf) ^ T * D
+          * (1 + S.fwdGram Sinf T * D)⁻¹
+          * ((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+          * S.fullCᵀ
+          * (innov S.fullC S.R (S.dareFrom L₀ T))⁻¹
+          * S.fullC)
+          * ((errMap S.fullC S.R S.fullA Sinf) ^ T
+            * (D * (1 + S.fwdGram Sinf T * D)⁻¹))
+          = (errMap S.fullC S.R S.fullA Sinf) ^ T
+            * (D * (1 + S.fwdGram Sinf T * D)⁻¹
+              * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ
+              * (innov S.fullC S.R Sinf
+                + S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T
+                  * (D * (1 + S.fwdGram Sinf T * D)⁻¹)
+                  * (S.fullC
+                    * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ)⁻¹
+              * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T
+                * (D * (1 + S.fwdGram Sinf T * D)⁻¹))) := by
+        rw [← hST, ← hΓ]
+        simp only [Matrix.mul_assoc]
+      have h6 : (1 - (errMap S.fullC S.R S.fullA Sinf) ^ T * D
+          * (1 + S.fwdGram Sinf T * D)⁻¹
+          * ((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+          * S.fullCᵀ
+          * (innov S.fullC S.R (S.dareFrom L₀ T))⁻¹
+          * S.fullC)
+          * ((errMap S.fullC S.R S.fullA Sinf) ^ T
+            * (D * (1 + S.fwdGram Sinf T * D)⁻¹))
+          = (errMap S.fullC S.R S.fullA Sinf) ^ T
+            * (D * ((1 + (S.fullC
+                * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ
+              * (innov S.fullC S.R Sinf)⁻¹
+              * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+              * (D * (1 + S.fwdGram Sinf T * D)⁻¹))
+              * (1 + S.fwdGram Sinf T * D))⁻¹) := by
+        rw [Matrix.sub_mul, Matrix.one_mul, hB3, ← Matrix.mul_sub,
+          ← hslide]
+      rw [Matrix.mul_assoc, h6, ← hNsucc, ← Matrix.mul_assoc,
+        ← pow_succ']
+    -- the (b)-step
+    have hNsucc' : 1 + D * S.fwdGram Sinf (T + 1)
+        = 1 + D * S.fwdGram Sinf T
+          + D * (((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+            * S.innovWeight Sinf
+            * (errMap S.fullC S.R S.fullA Sinf) ^ T) := by
+      rw [S.fwdGram_succ, Matrix.mul_add]
+      abel
+    have hswap : (1 + D * S.fwdGram Sinf T)⁻¹ * D
+        = D * (1 + S.fwdGram Sinf T * D)⁻¹ :=
+      slide_swap hunit hunit'
+    have hΦD : errProd S.fullC S.R S.fullA S.Qw L₀ T * D
+        = (errMap S.fullC S.R S.fullA Sinf) ^ T
+          * (D * (1 + S.fwdGram Sinf T * D)⁻¹) := by
+      have h7 : errProd S.fullC S.R S.fullA S.Qw L₀ T
+          = (errMap S.fullC S.R S.fullA Sinf) ^ T
+            * (1 + D * S.fwdGram Sinf T)⁻¹ := by
+        have h8 := congrArg
+          (fun M => M * (1 + D * S.fwdGram Sinf T)⁻¹) hΦ
+        dsimp only at h8
+        rw [Matrix.mul_assoc,
+          Matrix.mul_nonsing_inv _ hunit', Matrix.mul_one] at h8
+        exact h8
+      rw [h7, Matrix.mul_assoc, hswap]
+    have hkey2 : errMap S.fullC S.R S.fullA (S.dareFrom L₀ T)
+        * (errMap S.fullC S.R S.fullA Sinf) ^ T
+        = (errMap S.fullC S.R S.fullA Sinf) ^ (T + 1)
+          * (1 - D * (1 + S.fwdGram Sinf (T + 1) * D)⁻¹
+            * (((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+              * S.innovWeight Sinf
+              * (errMap S.fullC S.R S.fullA Sinf) ^ T)) := by
+      rw [hFfac]
+      have hpush := pushthrough_gram
+        (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+        (innov S.fullC S.R Sinf) (D * (1 + S.fwdGram Sinf T * D)⁻¹)
+        hSinfU (by rw [← hST]; exact hSVU) hYunit
+      have h10 : (1 + S.fwdGram Sinf (T + 1) * D)⁻¹
+          = (1 + S.fwdGram Sinf T * D)⁻¹
+            * (1 + (S.fullC
+                * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ
+              * (innov S.fullC S.R Sinf)⁻¹
+              * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+              * (D * (1 + S.fwdGram Sinf T * D)⁻¹))⁻¹ := by
+        rw [hNsucc, Matrix.mul_inv_rev]
+      have hB4 : ((errMap S.fullC S.R S.fullA Sinf) ^ T * D
+          * (1 + S.fwdGram Sinf T * D)⁻¹
+          * ((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+          * S.fullCᵀ
+          * (innov S.fullC S.R (S.dareFrom L₀ T))⁻¹
+          * S.fullC)
+          * (errMap S.fullC S.R S.fullA Sinf) ^ T
+          = (errMap S.fullC S.R S.fullA Sinf) ^ T
+            * (D * (1 + S.fwdGram Sinf T * D)⁻¹
+              * ((S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ
+                * (innov S.fullC S.R Sinf
+                  + S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T
+                    * (D * (1 + S.fwdGram Sinf T * D)⁻¹)
+                    * (S.fullC
+                      * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ)⁻¹)
+              * (S.fullC
+                * (errMap S.fullC S.R S.fullA Sinf) ^ T)) := by
+        rw [← hST, ← hΓ]
+        simp only [Matrix.mul_assoc]
+      have hT2 : D * (1 + S.fwdGram Sinf T * D)⁻¹
+          * ((S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ
+            * (innov S.fullC S.R Sinf
+              + S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T
+                * (D * (1 + S.fwdGram Sinf T * D)⁻¹)
+                * (S.fullC
+                  * (errMap S.fullC S.R S.fullA Sinf) ^ T)ᵀ)⁻¹)
+          * (S.fullC * (errMap S.fullC S.R S.fullA Sinf) ^ T)
+          = D * (1 + S.fwdGram Sinf (T + 1) * D)⁻¹
+            * (((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+              * S.innovWeight Sinf
+              * (errMap S.fullC S.R S.fullA Sinf) ^ T) := by
+        rw [hpush, h10, S.stepped_weight_eq]
+        simp only [Matrix.mul_assoc]
+      have h9 : (1 - (errMap S.fullC S.R S.fullA Sinf) ^ T * D
+          * (1 + S.fwdGram Sinf T * D)⁻¹
+          * ((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+          * S.fullCᵀ
+          * (innov S.fullC S.R (S.dareFrom L₀ T))⁻¹
+          * S.fullC)
+          * (errMap S.fullC S.R S.fullA Sinf) ^ T
+          = (errMap S.fullC S.R S.fullA Sinf) ^ T
+            * (1 - D * (1 + S.fwdGram Sinf (T + 1) * D)⁻¹
+              * (((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+                * S.innovWeight Sinf
+                * (errMap S.fullC S.R S.fullA Sinf) ^ T)) := by
+        rw [Matrix.sub_mul, Matrix.one_mul, hB4, Matrix.mul_sub,
+          Matrix.mul_one]
+        congr 1
+        rw [← hT2]
+      rw [Matrix.mul_assoc, h9, ← Matrix.mul_assoc, ← pow_succ']
+    -- assemble
+    show errMap S.fullC S.R S.fullA (S.dareFrom L₀ T)
+        * errProd S.fullC S.R S.fullA S.Qw L₀ T
+        * (1 + D * S.fwdGram Sinf (T + 1)) = _
+    rw [hNsucc', Matrix.mul_add]
+    have h11 : errMap S.fullC S.R S.fullA (S.dareFrom L₀ T)
+        * errProd S.fullC S.R S.fullA S.Qw L₀ T
+        * (1 + D * S.fwdGram Sinf T)
+        = errMap S.fullC S.R S.fullA (S.dareFrom L₀ T)
+          * (errMap S.fullC S.R S.fullA Sinf) ^ T := by
+      rw [Matrix.mul_assoc, hΦ]
+    have h12 : errMap S.fullC S.R S.fullA (S.dareFrom L₀ T)
+        * errProd S.fullC S.R S.fullA S.Qw L₀ T
+        * (D * (((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+          * S.innovWeight Sinf
+          * (errMap S.fullC S.R S.fullA Sinf) ^ T))
+        = (errMap S.fullC S.R S.fullA Sinf) ^ (T + 1)
+          * (D * (1 + S.fwdGram Sinf (T + 1) * D)⁻¹)
+          * (((errMap S.fullC S.R S.fullA Sinf)ᵀ) ^ T
+            * S.innovWeight Sinf
+            * (errMap S.fullC S.R S.fullA Sinf) ^ T) := by
+      rw [← Matrix.mul_assoc _ D _, Matrix.mul_assoc
+        (errMap S.fullC S.R S.fullA (S.dareFrom L₀ T))
+        (errProd S.fullC S.R S.fullA S.Qw L₀ T) D, hΦD,
+        ← Matrix.mul_assoc, hkey1]
+      simp only [Matrix.mul_assoc]
+    rw [h11, h12, hkey2]
+    rw [Matrix.mul_sub, Matrix.mul_one]
+    simp only [Matrix.mul_assoc]
+    abel
+
+/-- **`eq:phi-closed`, display form**: `Φ_T = F∞^T·(I + D𝒢_T)⁻¹`. -/
+theorem errProd_eq (hS : S.IsStrongSolution Sinf)
+    {L₀ : Matrix (ix n₁ na nm) (ix n₁ na nm) ℝ}
+    (hL₀ : L₀.PosSemidef) (T : ℕ) :
+    errProd S.fullC S.R S.fullA S.Qw L₀ T
+      = (errMap S.fullC S.R S.fullA Sinf) ^ T
+        * (1 + (L₀ - Sinf) * S.fwdGram Sinf T)⁻¹ := by
+  obtain ⟨hunit, hΦ⟩ := S.errProd_closed hS hL₀ T
+  have h := congrArg
+    (fun M => M * (1 + (L₀ - Sinf) * S.fwdGram Sinf T)⁻¹) hΦ
+  dsimp only at h
+  rw [Matrix.mul_assoc, Matrix.mul_nonsing_inv _ hunit,
+    Matrix.mul_one] at h
+  exact h
+
 end DareSystem
 
 end Dare
