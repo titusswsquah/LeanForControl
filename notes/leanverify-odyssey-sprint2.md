@@ -327,3 +327,53 @@ each time.
 
 Next: Phase F — F1 (payoff frame transfer), F2 (ISS display),
 F3 (cor:every-prior), then sprint close.
+
+## Phase F — CLOSED (2026-09-01) — SPRINT COMPLETE
+
+All heads sorry-free; the 28-head grand sweep shows axioms
+= [propext, Classical.choice, Quot.sound] everywhere; build green
+(2999 jobs).
+
+- **F1 (Payoff.lean).** `toFIE` (a⊕m lumped via `finSumFinEquiv`,
+  covariances → penalties, `hAnti` from the eigenvector block-split);
+  reindex transports (spectrum / detectability / PosDef under a
+  symmetric equiv); `toFIE_C1/C2/C3w_iff`; `payoff_dichotomy`
+  (`eq:payoff-dich` stated in the deck's three-block frame);
+  `payoff_errMap_tendsto` (Part 1's map convergence).
+- **F2 (Robust.lean + UniformExpStability generalized).**
+  `transitionProd` machinery made index-generic (`Fintype.card`
+  replaces the `Fin n` dimension factor); `fullProd_geometric`
+  (`fact:uniexp` on the full three-block run under C1+C2+C3w);
+  `errTraj`/`errTraj_unroll` (`eq:diff-unroll`); `payoff_iss` — the
+  deck's ISS display verified.
+- **F3 (EveryPrior.lean).** `withPrior`; `everyPrior_C2w_iff` (↔ na=0)
+  and `everyPrior_attraction_iff` (every-prior Σ_T → Σ∞ ↔ 𝒳ₐ,ᵤ𝒸 = 0);
+  `everyPrior_C2_iff` (↔ na=nm=0); `fullStab_iff` (the Hautus bridge);
+  `everyPrior_gas_iff`/`everyPrior_ges_iff` (each ↔ stabilizability)
+  and `everyPrior_gas_iff_ges` (every-prior GAS = GES).
+- **F4 (Semisimple.lean + Instance.lean).** `MargSemisimple` ⇒ both
+  power bounds (`marg_powers_bounded`; diagonal similarity, unit
+  moduli from `hMarg` by eigenvector extraction, inverse through the
+  same frame) — the deck's semisimple wording is now a theorem, with
+  assembled forms `main_strong_attraction_semisimple` /
+  `main_marg_not_exponential_semisimple`; `marg_gramian_growth`
+  instantiates the verified `gramian_growth` (2026a fact 7, per the
+  user's memo) as the identified defective-case tool. `exampleDare`
+  (three nonempty blocks, C1 by scalar PBH, C2, semisimple marginal)
+  realizes the dichotomy: attracted, GAS, NOT GES, not exponentially
+  attracted — vacuity killed.
+- **F5 (closure).** `jGram` (the last displayed equation, eq:Jgram's
+  backward-gramian unroll); stale markers retired (a02 "pending", 06
+  "imported from arc1", a01 Part-1 wording, a00 observable-injection
+  staleness, 09 deps); deck LEAN lines complete (09-payoff's three
+  former gaps closed; cor:every-prior line added); PR body updated to
+  the completed state.
+
+Remaining declared imports (all explicit): the defective-marginal open
+problem (tool identified), DeflatingPair (a04), fact:filter-opt (09's
+probabilistic identification), maximality + reciprocal pairing
+(unconsumed citations), the three-block staircase into the frame
+(deck-level; both neighbors verified). Findings: 16 total. Exit
+criterion met: every result in odyssey.md carries a LEAN line naming
+its theorem; the only forward reference to unproven mathematics is the
+declared open problem.

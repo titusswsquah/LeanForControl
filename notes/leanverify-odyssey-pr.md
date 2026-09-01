@@ -10,7 +10,7 @@ work). Sprint plan: `notes/leanverify-odyssey-sprint.md`; findings:
 **Lean** (all sorry-free; every head's `#print axioms` is exactly
 `[propext, Classical.choice, Quot.sound]`; full `lake build` green):
 
-- `LeanForControl/Estimation/Dare/` — 18 files formalizing the deck's
+- `LeanForControl/Estimation/Dare/` — 30 files formalizing the deck's
   three-block DARE frame end to end:
   - Phase A: update/gap machinery, the frame + criteria
     (`criterion_w` = `eq:prior-pos`), `eq:bounded`, kernel invariance,
@@ -27,6 +27,39 @@ work). Sprint plan: `notes/leanverify-odyssey-sprint.md`; findings:
   - Phase C: `marg_not_exponential` + `marg_rows_stay_zero`
     (`Dare/RateFloor.lean`) — the repaired `thm:main` Part 2 converse
     core and the counterexample mechanism (finding 7).
+  - Phase D (sprint 2): **every declared import discharged.**
+    `strong_Fs_schur`/`strong_spec_split`/`strong_exists_unit_eigenvalue`
+    (the spectrum of `F∞` from the bundle alone, one-step PBH–Stein);
+    the reduced `fact:dare-strong` proved (`exists_stabilizing_solution`,
+    `fixed_point_schur`, `redP_tendsto_infP`, `reducedImport_holds`);
+    **existence of the strong solution under C1 alone**
+    (`exists_strong_solution`, chart assembly with Sylvester fixed
+    points) and uniqueness (`existsUnique_strong_solution`);
+    `main_strong_attraction` states `thm:main`-1 with existence
+    internal — hypotheses C1 + power-bounded marginal only.
+  - Phase E: **all rates.** The rate engine (`geom_conv_le`,
+    `rate_of_unroll_bound`), the geometric lower anchor
+    (`lowsqueeze_geometric`), `thm:main`-2 forward
+    (`sufficiency_geometric`, `main_stab_forward` — both directions of
+    Part 2 closed); **`thm:formula` verified by the deck's own joint
+    induction** (`formula`, inversion-free, exact at `det A = 0`) with
+    `cor:phi` (`errProd_closed`); **`lem:sysinterp` both halves**
+    (`sysinterp_nonsingular`/`sysinterp_singular`) on a single declared
+    structural import (`DeflatingPair`, the Lancaster–Rodman pencil
+    geometry); `lem:slaved-seed` in the pseudoinverse-free general form
+    (`exists_loading`, `slavedSeedOf_*`).
+  - Phase F: **the payoff in-frame.** The 3-block → 2-block frame
+    transfer (`toFIE`) with condition correspondences and
+    `payoff_dichotomy` (`eq:payoff-dich` in the deck's own frame); the
+    **ISS display verified** (`fullProd_geometric`, `errTraj_unroll`,
+    `payoff_iss`); **`cor:every-prior` both halves**
+    (`everyPrior_attraction_iff`, `fullStab_iff` Hautus bridge,
+    `everyPrior_gas_iff_ges` — every-prior GAS = GES); the semisimple
+    qualification as a theorem (`marg_powers_bounded`) with the
+    defective-case tool wired in (`marg_gramian_growth` = 2026a
+    fact 7); the concrete witness `exampleDare` realizing the whole
+    dichotomy (GAS, not GES, attracted, not exponentially) — the
+    vacuity caveat is dead.
 
 **Deck** (`odyssey-src/`, stitched `odyssey.md` current): per-finding
 repairs with one finding per commit, `LEAN:` traceability lines on
@@ -62,29 +95,35 @@ every verified result, and the finding-7/11/12/13 corrections to
 5. Ten further findings (1–4, 6, 8–10): eliminated imports
    (`fact:filter-opt`), simplified/strengthened statements, and the
    threshold-free upper-anchor seed `Σ₀ + Σ∞`.
+6. **Sprint 2 (Phases D–F)**: findings 14–16 — the spectrum hand-wave
+   in `lem:structure-marg` repaired and verified (14); the `A_c`
+   identification refuted and redefined (15); the a04 orbit-collapse
+   simplification (one stabilizing output injection replaces the
+   `L⁻/L^≥` split and its partial inverse, 16). Every rate claim,
+   `thm:formula`, `lem:sysinterp`, the payoff dichotomy in-frame, the
+   ISS display, and `cor:every-prior` are now theorems.
 
-## Declared imports (hypotheses, matching the deck's own DAG)
+## Remaining declared imports (all explicit, none load-bearing for `thm:main`)
 
-- `IsStrongSolution Σ∞` (existence via `fact:dare-strong`);
-- forward power-bounded `Aₘ` (backward too, for the Part-2 converse) —
-  the semisimple-marginal qualification (defective case open, as
-  flagged in the deck);
-- `eq:Finf-spec` restricted to `e₁⊕a` as `IsSchurStable`;
-- `ReducedImport`: the reduced-`e₁` `fact:dare-strong` (`P_T → P∞`
-  from the zero seed) + the closed-loop product bound.
+After sprint 2, the only unverified inputs anywhere in the line:
 
-## Known limitations (honest scope)
-
-- Rates are not formalized: the Lean proves convergence; the deck's
-  geometric-rate qualifiers (C3w branch, `lem:jtransform`) and the
-  forward direction of the repaired Part 2 remain deck-level.
-- No concrete `DareSystem` instance discharges the hypothesis bundles
-  in Lean; joint satisfiability rests on the deck's GATE-2 numerics
-  and standard theory.
-- The ISS/robustness additions in `thm:payoff` and the 2-block ↔
-  3-block frame transfer for the arc1 citations are deck-level.
-- `lem:slaved-seed` Part 1 is verified under C2w (real inverse); the
-  deck's pseudoinverse-general form is not consumed downstream.
+- **the defective-marginal case** — the deck's declared open problem;
+  the semisimple qualification is now itself a theorem
+  (`marg_powers_bounded`), and the identified tool for the defective
+  generalization is the verified `gramian_growth` (2026a fact 7,
+  in-frame `marg_gramian_growth`);
+- **`DeflatingPair`** (a04 only): the Lancaster–Rodman symplectic
+  pencil geometry behind `lem:sysinterp`'s frame — a single named
+  structural import; everything on top of it is verified;
+- **`fact:filter-opt`** (09 only): the probabilistic FIE = TVKF = MMSE
+  identification; the error-map bridge itself is verified
+  (`isGASkf_iff_isGAS`);
+- **maximality** of the strong solution (classical citation, consumed
+  nowhere) and the reciprocal-pairing fine form of `eq:Finf-spec`
+  (an Arc-1 citation, not consumed by the dichotomy);
+- the three-block staircase INTO the frame (`eq:dare-cov` Part 1) is
+  deck-level; the two-block analogue (`GeneralSystem.redSys`) and the
+  lumping OUT of the frame (`toFIE`) are verified.
 
 ## Follow-ups
 
@@ -92,8 +131,8 @@ every verified result, and the finding-7/11/12/13 corrections to
   (manual, per the working-copy convention).
 - Fold `notes/verified-deck-convention.md` into the proof-engineering
   skill (deferred by request).
-- Open problems on record: defective-marginal `lem:marginal`;
-  formalized rates; a concrete instantiation of the import bundles.
+- Open problem on record: the defective-marginal case (tool
+  identified: the verified linear Gramian floor, 2026a fact 7).
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
