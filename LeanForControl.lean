@@ -48,6 +48,7 @@ import LeanForControl.Estimation.Dare.RateEngine
 import LeanForControl.Estimation.Dare.LowRate
 import LeanForControl.Estimation.Dare.MainRate
 import LeanForControl.Estimation.Dare.Formula
+import LeanForControl.Estimation.Dare.Subspace
 import LeanForControl.LinearSystems.Basic
 import LeanForControl.LinearSystems.Complexify
 import LeanForControl.LinearSystems.Controllability
