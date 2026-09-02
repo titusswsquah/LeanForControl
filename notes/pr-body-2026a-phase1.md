@@ -20,9 +20,10 @@ hypothesis split, sorry-free.
   fact from detectability (`LinearSystems/IOSS.lean`, Lyapunov matrix
   series).
 - **`prop:tvkfQuns`** (modified Q-function with quadratic bounds) and
-  **`prop:modQgas`** (modified Q ⟹ GAS), with one hypothesis made
-  explicit that the paper leaves implicit: horizon-convergence of the
-  Q-function (supplied for the constructed Q).
+  **`prop:modQgas`** (modified Q ⟹ GAS), stated as in the revised
+  paper: the horizon limits and the diagonal transfer
+  `x̂(T|T) − x̂(T|∞) → 0` are explicit hypotheses (no C1 ∧ C2),
+  supplied for the constructed Q by `exists_modQ`.
 - **`prop:tvkf`, optimizer form**: GAS ⟺ C1 ∧ C2 by the paper's
   Q-function route, both in σ-form and in the paper's KL `def:GAS`
   formulation.

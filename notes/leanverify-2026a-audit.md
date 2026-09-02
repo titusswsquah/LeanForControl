@@ -255,6 +255,14 @@ frozen audit-time record)
   was. The `GeneralNecessity.lean` module docstring now describes the
   live `eq:iosssum` route.
 - **A4**: footnote added to the program note (decision D5).
+- **A1, closed by alignment (2026-09-02)**: the paper's `prop:modQgas`
+  now hypothesizes the horizon limits and the diagonal transfer
+  `x̂(T|T) − x̂(T|∞) → 0` (the comments-to-authors item-3 patch), and
+  `isGAS_of_modQ` was refactored to match — C1/C2 dropped; the limit
+  facts (`hconv`, `htraj` = `it:zlim`, `hxTT` = `it:xTT`) are
+  hypotheses, now also delivered by `exists_modQ`; the decrease is
+  consumed only on the paper's index range `j + 1 ≤ k`. All three A1
+  narrowings are retired.
 - **§4 guard promoted**: the audit's `bad` system now lives in
   `Estimation/Instances.lean` as `badSystem`, with
   `badSystem_dre`/`badSystem_kfErrTrans`/`badSystem_C1`/

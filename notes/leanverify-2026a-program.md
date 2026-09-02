@@ -318,6 +318,12 @@ along horizons. Suggested patch: either add the existence of the
 horizon limits to `def:modQ`, or state `prop:modQgas` for Q-functions
 with convergent horizon limits (our `isGAS_of_modQ` does the latter,
 and `exists_modQ` supplies the convergence for the constructed Q).
+*(Status 2026-09-02: adopted and closed — the revised paper states
+`prop:modQgas` with the horizon limits and the diagonal transfer
+`x̂(T|T) − x̂(T|∞) → 0` as hypotheses, and `isGAS_of_modQ` was
+refactored to match: C1/C2 dropped, the limit facts accepted as
+hypotheses `hconv`/`htraj`/`hxTT` and delivered by `exists_modQ`,
+decrease consumed only on the paper's `0 ≤ j ≤ k − 1`.)*
 
 ### Mapping table (Phase 1)
 

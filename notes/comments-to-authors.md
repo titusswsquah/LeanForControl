@@ -50,6 +50,10 @@ the text.
    `def:modQ`. The Lean version (`isGAS_of_modQ`) does exactly this,
    and the constructed Q of `prop:tvkfQuns` supplies all three, so
    the intended application is unaffected.
+   *(Status 2026-09-02: adopted — the revised `prop:modQgas`
+   hypothesizes the horizon limits and the transfer
+   `x̂(T|T) − x̂(T|∞) → 0`, and `isGAS_of_modQ` now matches it: no
+   C1 ∧ C2, decrease consumed only on `0 ≤ j ≤ k − 1`.)*
 
 ## Minor text fixes
 
